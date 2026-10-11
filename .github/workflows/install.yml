@@ -1,0 +1,118 @@
+name: Install
+
+# Installs the released llmenu the way users do and checks the version:
+# Homebrew on macOS and Linux, Scoop on Windows, go install. Runs after every
+# successful release, weekly (Homebrew and Scoop change too) and on demand.
+on:
+  workflow_run:
+    workflows: [Release]
+    types: [completed]
+  schedule:
+    - cron: "23 6 * * 1"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Release tag to expect, e.g. v0.1.0 (default latest)
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  version:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+    steps:
+      - id: tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+          INPUT: ${{ inputs.version }}
+        run: |
+          tag=${INPUT:-$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName --jq .tagName)}
+          echo "Expecting $tag"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+  homebrew:
+    needs: version
+    name: Homebrew (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    env:
+      HOMEBREW_NO_AUTO_UPDATE: "1"
+      HOMEBREW_NO_INSTALL_CLEANUP: "1"
+      TAG: ${{ needs.version.outputs.tag }}
+    steps:
+      - name: Put Homebrew on PATH (Linux)
+        if: runner.os == 'Linux'
+        run: echo "/home/linuxbrew/.linuxbrew/bin" >> "$GITHUB_PATH"
+      - name: Install
+        run: brew install --cask schowave/tap/llmenu
+      - name: Check version
+        run: |
+          out=$(llmenu --version)
+          echo "$out"
+          [ "$out" = "llmenu version ${TAG#v}" ]
+      - name: Check that macOS will run it (quarantine removed)
+        if: runner.os == 'macOS'
+        run: |
+          bin=$(readlink -f "$(command -v llmenu)")
+          if xattr -p com.apple.quarantine "$bin" 2>/dev/null; then
+            echo "::error::$bin still has the quarantine attribute"; exit 1
+          fi
+          spctl --assess --type execute "$bin" 2>&1 || true
+      - name: Smoke test
+        run: llmenu targets
+      - name: Uninstall
+        run: brew uninstall --cask llmenu
+
+  scoop:
+    needs: version
+    name: Scoop (windows-latest)
+    runs-on: windows-latest
+    env:
+      TAG: ${{ needs.version.outputs.tag }}
+    steps:
+      - name: Install Scoop
+        shell: pwsh
+        run: |
+          iex "& {$(irm get.scoop.sh)} -RunAsAdmin"
+          Add-Content $env:GITHUB_PATH "$env:USERPROFILE\scoop\shims"
+      - name: Install
+        shell: pwsh
+        run: |
+          scoop bucket add schowave https://github.com/schowave/scoop-bucket
+          scoop install llmenu
+      - name: Check version
+        shell: pwsh
+        run: |
+          $out = llmenu --version
+          Write-Output $out
+          if ($out -ne "llmenu version $($env:TAG.TrimStart('v'))") { exit 1 }
+      - name: Smoke test
+        shell: pwsh
+        run: llmenu targets
+
+  go-install:
+    needs: version
+    runs-on: ubuntu-latest
+    env:
+      TAG: ${{ needs.version.outputs.tag }}
+    steps:
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: stable
+          cache: false
+      - name: Install
+        run: go install "github.com/schowave/llmenu/cmd/llmenu@$TAG"
+      - name: Check version
+        run: |
+          out=$("$(go env GOPATH)/bin/llmenu" --version)
+          echo "$out"
+          [ "$out" = "llmenu version ${TAG#v}" ]
+      - name: Smoke test
+        run: '"$(go env GOPATH)/bin/llmenu" targets'

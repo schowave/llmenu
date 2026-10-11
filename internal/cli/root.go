@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"runtime/debug"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -13,6 +15,18 @@ import (
 
 // version is set by goreleaser via -ldflags at release time.
 var version = "dev"
+
+// buildVersion is the goreleaser version, or for `go install …@v1.2.3` the
+// module version Go records in the binary.
+func buildVersion() string {
+	if version != "dev" {
+		return version
+	}
+	if info, ok := debug.ReadBuildInfo(); ok && info.Main.Version != "" && info.Main.Version != "(devel)" {
+		return strings.TrimPrefix(info.Main.Version, "v")
+	}
+	return version
+}
 
 // exitCodeError passes through the exit code of a launched tool.
 type exitCodeError struct{ code int }
@@ -40,7 +54,7 @@ func newRootCmd() *cobra.Command {
 		Short: "Pick models from a LiteLLM gateway and wire them into coding tools",
 		Long: `Without a subcommand, llmenu opens the menu and prints the selected
 model name, e.g. for: strix --model "$(llmenu)"`,
-		Version:       version,
+		Version:       buildVersion(),
 		Args:          cobra.NoArgs,
 		SilenceUsage:  true,
 		SilenceErrors: true,

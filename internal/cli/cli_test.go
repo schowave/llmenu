@@ -347,3 +347,18 @@ func TestValidateURL(t *testing.T) {
 		}
 	}
 }
+
+func TestBuildVersion(t *testing.T) {
+	orig := version
+	t.Cleanup(func() { version = orig })
+
+	version = "1.2.3"
+	if got := buildVersion(); got != "1.2.3" {
+		t.Errorf("goreleaser version: %q", got)
+	}
+	// Test binaries carry no module version ("(devel)" or empty), so "dev" stays.
+	version = "dev"
+	if got := buildVersion(); got != "dev" {
+		t.Errorf("dev build: %q", got)
+	}
+}
