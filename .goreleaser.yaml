@@ -50,7 +50,7 @@ release:
 
 # Tap and bucket live in their own repos; GITHUB_TOKEN cannot write there, so
 # the workflow passes TAP_GITHUB_TOKEN (fine-grained PAT, contents read/write
-# on both repos). envOrDefault keeps snapshot builds working without it.
+# on both repos). Snapshot builds never publish, so they do not need it.
 homebrew_casks:
   - name: llmenu
     binaries: [llmenu]
@@ -59,7 +59,7 @@ homebrew_casks:
     repository:
       owner: schowave
       name: homebrew-tap
-      token: '{{ envOrDefault "TAP_GITHUB_TOKEN" "" }}'
+      token: "{{ .Env.TAP_GITHUB_TOKEN }}"
     commit_msg_template: "llmenu {{ .Tag }}"
     hooks:
       post:
@@ -77,5 +77,5 @@ scoops:
     repository:
       owner: schowave
       name: scoop-bucket
-      token: '{{ envOrDefault "TAP_GITHUB_TOKEN" "" }}'
+      token: "{{ .Env.TAP_GITHUB_TOKEN }}"
     commit_msg_template: "llmenu {{ .Tag }}"
