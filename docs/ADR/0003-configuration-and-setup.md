@@ -80,7 +80,8 @@ for real keys.
 setup only asks the claude and codex sections for tools in use, `llmenu sync`
 without arguments writes into the tools in use that keep a model list, and
 the help hides the launch commands of tools not in use. `tools` distinguishes
-"never configured" (the installed tools apply) from a deliberate empty
+"never configured" (then only Claude Code is preselected, whatever is
+installed) from a deliberate empty
 selection, which is written as `tools = []` and kept on the next setup.
 
 `llmenu` writes the file. Comments added by hand are lost the next time it

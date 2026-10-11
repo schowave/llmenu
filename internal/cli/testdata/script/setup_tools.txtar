@@ -2,14 +2,15 @@
 # stand-ins for claude, codex and opencode; pi is not installed.
 env LLMENU_ACCESSIBLE=1
 
-# Without a choice, the installed tools are preselected.
+# Without a choice, only Claude Code is preselected, whatever is installed.
 stdin confirm.txt
 exec llmenu setup tools
 stderr '^1\. ✓ Claude Code'
+stderr '^2\.   Codex CLI'
 stderr '^4\.   pi .* - not installed$'
-grep '^tools = \[.claude., .codex., .opencode.\]$' config.toml
+grep '^tools = \[.claude.\]$' config.toml
 
-# claude and codex off, pi on.
+# claude off, opencode and pi on.
 stdin toggle.txt
 exec llmenu setup tools
 grep '^tools = \[.opencode., .pi.\]$' config.toml
@@ -42,7 +43,7 @@ grep '^tools = \[\]$' config.toml
 ! exec llmenu sync
 stderr 'none of your tools keeps a model list'
 
-# ... and kept by the next setup instead of preselecting installed tools.
+# ... and kept by the next setup instead of preselecting Claude Code.
 stdin confirm.txt
 exec llmenu setup tools
 ! stderr '✓'
@@ -60,7 +61,7 @@ exec llmenu setup tools
 0
 -- toggle.txt --
 1
-2
+3
 4
 0
 -- toggle-off.txt --

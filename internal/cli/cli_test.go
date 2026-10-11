@@ -276,14 +276,14 @@ func TestEnabledTools(t *testing.T) {
 	installed = func(tg targets.Target) bool { return tg.Name() == "pi" || tg.Name() == "claude" }
 
 	cfg := &config.Config{}
-	if got := enabledTools(cfg); !slices.Equal(got, []string{"claude", "pi"}) {
-		t.Errorf("unconfigured: %v, want the installed tools", got)
+	if got := enabledTools(cfg); !slices.Equal(got, []string{"claude"}) {
+		t.Errorf("unconfigured: %v, want only Claude Code, whatever is installed", got)
 	}
 	cfg.SetTools([]string{"opencode"})
 	if got := enabledTools(cfg); !slices.Equal(got, []string{"opencode"}) || toolEnabled(cfg, "claude") {
 		t.Errorf("configured: %v", got)
 	}
-	// Deliberately none stays none instead of falling back to installed tools.
+	// Deliberately none stays none instead of falling back to Claude Code.
 	cfg.SetTools([]string{})
 	if got := enabledTools(cfg); len(got) != 0 {
 		t.Errorf("configured as none: %v", got)

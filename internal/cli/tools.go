@@ -13,19 +13,15 @@ import (
 // installed is replaceable in tests.
 var installed = func(t targets.Target) bool { _, ok := targets.Installed(t); return ok }
 
-// enabledTools are the tools chosen in setup, or all installed ones as long
-// as nothing has been chosen (ADR-0003).
+// defaultTools apply as long as no tools have been chosen in setup.
+var defaultTools = []string{"claude"}
+
+// enabledTools are the tools chosen in setup, or defaultTools (ADR-0003).
 func enabledTools(cfg *config.Config) []string {
 	if cfg.ToolsConfigured() {
 		return cfg.ToolList()
 	}
-	var out []string
-	for _, t := range targets.All() {
-		if installed(t) {
-			out = append(out, t.Name())
-		}
-	}
-	return out
+	return slices.Clone(defaultTools)
 }
 
 func toolEnabled(cfg *config.Config, name string) bool {
