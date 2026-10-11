@@ -67,6 +67,15 @@ homebrew_casks:
     commit_msg_template: "llmenu {{ .Tag }}"
     # Pre-generated in the before hook. Not generate_completions_from_executable:
     # that runs the binary before the quarantine is removed, and macOS blocks it.
+    # `brew uninstall --zap --cask llmenu` also removes settings and caches
+    # (macOS and Linux paths). Keys in the keyring and the provider entries in
+    # pi/opencode are not files Homebrew can remove; see README.
+    zap:
+      trash:
+        - "~/Library/Application Support/llmenu"
+        - "~/Library/Caches/llmenu"
+        - "~/.config/llmenu"
+        - "~/.cache/llmenu"
     completions:
       bash: completions/llmenu.bash
       zsh: completions/llmenu.zsh

@@ -67,39 +67,122 @@ that model — no environment variables to export, no config files to edit.
 
 ## Installation
 
-| Platform | Command |
-|---|---|
-| macOS, Linux (Homebrew) | `brew install --cask schowave/tap/llmenu` |
-| Windows (Scoop) | `scoop bucket add schowave https://github.com/schowave/scoop-bucket`<br>`scoop install llmenu` |
-| Any (Go 1.27.2+) | `go install github.com/schowave/llmenu/cmd/llmenu@latest` |
+**Homebrew** (macOS, Linux)
+
+```sh
+brew install --cask schowave/tap/llmenu
+```
+
+**Scoop** (Windows)
+
+```powershell
+scoop bucket add schowave https://github.com/schowave/scoop-bucket
+scoop install llmenu
+```
+
+**Go** (1.27.2 or later)
+
+```sh
+go install github.com/schowave/llmenu/cmd/llmenu@latest
+```
 
 Or download an archive from the [releases page](https://github.com/schowave/llmenu/releases).
 
-**Updating** to the [latest release](https://github.com/schowave/llmenu/releases/latest):
+### Shell completion
 
-| Platform | Update | Uninstall |
-|---|---|---|
-| Homebrew | `brew update && brew upgrade --cask llmenu` (`brew update` fetches the new cask from the tap) | `brew uninstall --cask llmenu` |
-| Scoop | `scoop update` (refreshes the bucket), then `scoop update llmenu` | `scoop uninstall llmenu` |
-| Go | `go install github.com/schowave/llmenu/cmd/llmenu@latest` | delete `$(go env GOPATH)/bin/llmenu` |
+Tab completes commands, settings, key names and model names. Homebrew sets it
+up automatically; with Scoop or `go install`, set it up once for your shell:
 
-`llmenu --version` shows the installed version. Your settings, keys and
-benchmark cache survive updates; uninstalling leaves them in place too
-(`llmenu config path` shows where they are).
-
-**Shell completion** (Tab completes commands, settings, key names and model
-names) is set up automatically by Homebrew. With Scoop or `go install`, set it
-up once:
+zsh
 
 ```sh
-llmenu completion zsh > "${fpath[1]}/_llmenu"                               # zsh
-llmenu completion bash > ~/.local/share/bash-completion/completions/llmenu   # bash
-llmenu completion fish > ~/.config/fish/completions/llmenu.fish              # fish
+llmenu completion zsh > "${fpath[1]}/_llmenu"
+```
+
+bash
+
+```sh
+llmenu completion bash > ~/.local/share/bash-completion/completions/llmenu
+```
+
+fish
+
+```sh
+llmenu completion fish > ~/.config/fish/completions/llmenu.fish
+```
+
+PowerShell
+
+```powershell
+Add-Content $PROFILE 'llmenu completion powershell | Out-String | Invoke-Expression'
+```
+
+### Updating
+
+To the [latest release](https://github.com/schowave/llmenu/releases/latest);
+`llmenu --version` shows the installed one. Settings and keys are kept.
+
+Homebrew (`brew update` fetches the new cask from the tap first)
+
+```sh
+brew update && brew upgrade --cask llmenu
+```
+
+Scoop (`scoop update` refreshes the bucket first)
+
+```powershell
+scoop update; scoop update llmenu
+```
+
+Go
+
+```sh
+go install github.com/schowave/llmenu/cmd/llmenu@latest
+```
+
+### Uninstalling
+
+A normal uninstall keeps your settings, cache and keys, so a reinstall picks
+up where you left off:
+
+```sh
+brew uninstall --cask llmenu
 ```
 
 ```powershell
-Add-Content $PROFILE 'llmenu completion powershell | Out-String | Invoke-Expression'   # PowerShell
+scoop uninstall llmenu
 ```
+
+**To remove everything**, delete the keys first, while llmenu is still
+installed, then uninstall with its data:
+
+```sh
+llmenu secrets delete gateway
+llmenu secrets delete artificialanalysis
+```
+
+Homebrew (`--zap` also removes settings and caches)
+
+```sh
+brew uninstall --zap --cask llmenu
+```
+
+Scoop
+
+```powershell
+scoop uninstall llmenu
+Remove-Item -Recurse -ErrorAction SilentlyContinue "$env:APPDATA\llmenu", "$env:LOCALAPPDATA\llmenu"
+```
+
+Go
+
+```sh
+rm -rf "$(go env GOPATH)/bin/llmenu" ~/.config/llmenu ~/.cache/llmenu ~/Library/"Application Support"/llmenu ~/Library/Caches/llmenu
+```
+
+llmenu also wrote a provider entry (named like your gateway, see
+`llmenu config get gateway.name`) into the configs of pi and opencode if you
+used `llmenu sync`; remove it there by hand. `llmenu targets` shows the files.
 
 ## Quick start
 
