@@ -1,0 +1,51 @@
+# setup sync in accessible mode: numbers toggle, 0 confirms.
+env LLMENU_ACCESSIBLE=1
+
+# Without configured targets, the installed ones are preselected.
+stdin confirm.txt
+exec llmenu setup sync
+stderr '^1\. ✓ opencode$'
+stderr '^2\.   pi  \(not installed\)$'
+grep '^targets = \[.opencode.\]$' config.toml
+
+stdin toggle.txt
+exec llmenu setup sync
+grep '^targets = \[.pi.\]$' config.toml
+
+# Configured targets win over installed ones.
+stdin confirm.txt
+exec llmenu setup sync
+stderr '^1\.   opencode$'
+stderr '^2\. ✓ pi  \(not installed\)$'
+! stderr 'Saved:'
+
+# Deselecting all is stored as a deliberate "none" ...
+stdin toggle-pi.txt
+exec llmenu setup sync
+grep '^targets = \[\]$' config.toml
+! exec llmenu sync
+stderr 'no sync targets active'
+
+# ... so the next setup keeps it instead of preselecting installed tools.
+stdin confirm.txt
+exec llmenu setup sync
+! stderr '✓'
+! stderr 'Saved:'
+
+# A config file that cannot be written is reported.
+[!windows] mkdir ro
+[!windows] chmod 0500 ro
+[!windows] env LLMENU_CONFIG=$WORK/ro/config.toml
+[!windows] stdin confirm.txt
+[!windows] ! exec llmenu setup sync
+[!windows] stderr 'permission denied'
+
+-- confirm.txt --
+0
+-- toggle.txt --
+1
+2
+0
+-- toggle-pi.txt --
+2
+0

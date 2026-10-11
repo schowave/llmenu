@@ -54,6 +54,15 @@ type Env struct {
 	Models  []catalog.Model // all of the gateway's chat models, aliases included
 }
 
+// ProviderName is gateway.name, or else derived from the URL actually in use,
+// which may come from LLMENU_BASE_URL instead of the config file.
+func (e Env) ProviderName() string {
+	if e.Config != nil && e.Config.Gateway.Name != "" {
+		return e.Config.Gateway.Name
+	}
+	return config.NameFromURL(e.BaseURL)
+}
+
 // Launcher starts a tool with gateway and model.
 type Launcher interface {
 	Target

@@ -3,6 +3,7 @@ package targets
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -83,6 +84,42 @@ func TestEditJSONCreatesPath(t *testing.T) {
 	}
 }
 
+func TestEditJSONInsertLayout(t *testing.T) {
+	empty := func(any) any { return map[string]any{} }
+	tests := []struct{ name, orig, want string }{
+		{"blank object", "{  }", "{\n  \"p\": {}\n}"},
+		{"comment in empty object stays", "{ // note\n}", "{ // note\n\n  \"p\": {}\n}"},
+		{"space before trailing comma", "{\n  \"a\": 1 ,\n}\n", "{\n  \"a\": 1 ,\n  \"p\": {},\n}\n"},
+		{"comment before trailing comma", "{\n  \"a\": 1 /* c */,\n}\n", "{\n  \"a\": 1 /* c */,\n  \"p\": {},\n}\n"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := editJSON([]byte(tt.orig), []string{"p"}, empty)
+			if err != nil || string(got) != tt.want {
+				t.Errorf("editJSON(%q) = %q, %v; want %q", tt.orig, got, err, tt.want)
+			}
+		})
+	}
+}
+
+func TestLineIndent(t *testing.T) {
+	tests := []struct {
+		b      string
+		offset int
+		want   string
+	}{
+		{"{\n    \"a\": 1}", 6, "    "},
+		{"{\n\t\"a\": 1}", 3, "\t"},
+		{"{\"a\": 1}", 1, ""},
+		{"{\n  ", 4, "  "}, // whitespace up to the end of the input
+	}
+	for _, tt := range tests {
+		if got := lineIndent([]byte(tt.b), tt.offset); got != tt.want {
+			t.Errorf("lineIndent(%q, %d) = %q, want %q", tt.b, tt.offset, got, tt.want)
+		}
+	}
+}
+
 func TestEditJSONErrors(t *testing.T) {
 	if _, err := editJSON([]byte(`[1]`), []string{"a"}, setName("x")); err == nil {
 		t.Error("top-level array accepted")
@@ -92,6 +129,14 @@ func TestEditJSONErrors(t *testing.T) {
 	}
 	if _, err := editJSON([]byte(`{"a": `), []string{"a"}, setName("x")); err == nil {
 		t.Error("broken JSON accepted")
+	}
+	// Found by fuzzing: the inserted key never matched and the loop ran forever.
+	if _, err := editJSON([]byte(`{}`), []string{"a", "\xff"}, setName("x")); err == nil {
+		t.Error("invalid UTF-8 key accepted")
+	}
+	// Found by fuzzing: the first duplicate was edited, readers use the last.
+	if _, err := editJSON([]byte(`{"p": {"a": {}}, "p": {}}`), []string{"p", "a"}, setName("x")); err == nil {
+		t.Error("duplicate key accepted")
 	}
 }
 
@@ -124,5 +169,25 @@ func TestSyncJSONFile(t *testing.T) {
 	bak, _ := os.ReadFile(file + ".bak")
 	if string(bak) != string(first) {
 		t.Errorf("backup = %q, want %q", bak, first)
+	}
+
+	// The file's permissions are kept, also for an existing backup.
+	if runtime.GOOS == "windows" {
+		return
+	}
+	if err := os.Chmod(file, 0o640); err != nil { //nolint:gosec // G302: a mode other than the default
+		t.Fatal(err)
+	}
+	// An existing backup with a different mode is aligned too.
+	if err := os.Chmod(file+".bak", 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = syncJSON(file, nil, []string{"p"}, setName("c"), false); err != nil {
+		t.Fatal(err)
+	}
+	for _, f := range []string{file, file + ".bak"} {
+		if fi, err := os.Stat(f); err != nil || fi.Mode().Perm() != 0o640 {
+			t.Errorf("%s: mode %v, %v; want -rw-r-----", f, fi.Mode().Perm(), err)
+		}
 	}
 }

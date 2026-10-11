@@ -1,0 +1,11 @@
+! exec llmenu run pi
+stderr 'pi cannot be launched, only synced: llmenu sync pi'
+
+! exec llmenu run nope
+stderr 'unknown target "nope"'
+
+exec llmenu run --help
+stdout 'Everything after the target name'
+
+exec llmenu run
+stdout 'Usage'

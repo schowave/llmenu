@@ -11,7 +11,10 @@ func TestNameFromURL(t *testing.T) {
 	tests := []struct{ in, want string }{
 		{"https://api.mygateway.example.com/", "mygateway"},
 		{"https://llm.example.com", "example"},
-		{"http://localhost:4000", "localhost"},
+		{"https://api.example", "api"}, // never strip down to the top-level domain
+		{"http://localhost:4000", "local"},
+		{"http://127.0.0.1:4111/", "local"},
+		{"http://[::1]:4000", "local"},
 		{"https://gateway.ai.corp.example.org/v1", "corp"},
 		{"broken", "gateway"},
 	}
@@ -118,5 +121,48 @@ func TestSaveLoad(t *testing.T) {
 	}
 	if got.Gateway.URL != c.Gateway.URL || got.Claude.Opus != c.Claude.Opus {
 		t.Errorf("loaded %+v, want %+v", got, c)
+	}
+}
+
+func TestDefaults(t *testing.T) {
+	tests := []struct{ name, got, want string }{
+		{"metric unset", Bench{}.MetricOrDefault(), "intel"},
+		{"metric set", Bench{Metric: "tb4"}.MetricOrDefault(), "tb4"},
+		{"default unset", Claude{}.DefaultOrOpus(), "opus"},
+		{"default set", Claude{Default: "haiku"}.DefaultOrOpus(), "haiku"},
+		{"name derived", Gateway{URL: "https://api.corp.example/"}.NameOrDerived(), "corp"},
+		{"name set", Gateway{URL: "https://api.corp.example/", Name: "work"}.NameOrDerived(), "work"},
+	}
+	for _, tt := range tests {
+		if tt.got != tt.want {
+			t.Errorf("%s: got %q, want %q", tt.name, tt.got, tt.want)
+		}
+	}
+}
+
+func TestSyncTargetsNoneSurvivesSave(t *testing.T) {
+	t.Setenv("LLMENU_CONFIG", filepath.Join(t.TempDir(), "config.toml"))
+	c := &Config{}
+	c.Sync.Set([]string{})
+	if _, err := c.Save(); err != nil {
+		t.Fatal(err)
+	}
+	got, err := Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !got.Sync.Configured() || len(got.Sync.List()) != 0 {
+		t.Errorf("deliberately empty targets lost: configured=%v list=%v", got.Sync.Configured(), got.Sync.List())
+	}
+
+	if err := got.Set("sync.targets", "none"); err != nil || !got.Sync.Configured() || len(got.Sync.List()) != 0 {
+		t.Errorf("set none: %v %v", err, got.Sync.List())
+	}
+	if err := got.Set("sync.targets", ""); err != nil || got.Sync.Configured() {
+		t.Errorf("unset: %v configured=%v", err, got.Sync.Configured())
+	}
+	got.Sync.Set(nil)
+	if got.Sync.List() != nil {
+		t.Error("nil list after unset expected")
 	}
 }

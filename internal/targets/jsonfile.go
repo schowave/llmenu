@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/pmezard/go-difflib/difflib"
 	"github.com/tailscale/hujson"
@@ -60,6 +61,11 @@ func syncJSON(file string, initial []byte, path []string, update func(old any) a
 		if err := os.WriteFile(file+".bak", orig, mode); err != nil { //nolint:gosec // G703: see above
 			return d, fmt.Errorf("backup: %w", err)
 		}
+		// WriteFile keeps the mode of an existing backup; it must not be
+		// more open than the config itself.
+		if err := os.Chmod(file+".bak", mode); err != nil { //nolint:gosec // G703: see above
+			return d, fmt.Errorf("backup: %w", err)
+		}
 	}
 	tmp := file + ".llmenu.tmp"
 	if err := os.WriteFile(tmp, updated, mode); err != nil { //nolint:gosec // G703: tmp is next to the target's config
@@ -71,6 +77,12 @@ func syncJSON(file string, initial []byte, path []string, update func(old any) a
 // editJSON returns orig with a new value under path. Only text is replaced or
 // inserted; formatting and comments in the rest of the file stay.
 func editJSON(orig []byte, path []string, update func(old any) any) ([]byte, error) {
+	for _, k := range path {
+		// JSON cannot hold such a key, the inserted member would never match.
+		if !utf8.ValidString(k) {
+			return nil, fmt.Errorf("key %q is not valid UTF-8", k)
+		}
+	}
 	v, err := hujson.Parse(orig)
 	if err != nil {
 		return nil, err
@@ -85,10 +97,7 @@ func editJSON(orig []byte, path []string, update func(old any) any) ([]byte, err
 		for k < len(path) && v.Find(pointer(path[:k+1])) != nil {
 			k++
 		}
-		parent := &v
-		if k > 0 {
-			parent = v.Find(pointer(path[:k]))
-		}
+		parent := v.Find(pointer(path[:k])) // the empty pointer is v itself
 		obj, ok := parent.Value.(*hujson.Object)
 		if !ok {
 			return nil, fmt.Errorf("%s is not a JSON object", pointer(path[:k]))
@@ -97,8 +106,14 @@ func editJSON(orig []byte, path []string, update func(old any) any) ([]byte, err
 		if v, err = hujson.Parse(orig); err != nil {
 			return nil, err
 		}
+		if v.Find(pointer(path[:k+1])) == nil {
+			return nil, fmt.Errorf("cannot insert %s", pointer(path[:k+1]))
+		}
 	}
 
+	if err := checkUnique(&v, path); err != nil {
+		return nil, err
+	}
 	target := v.Find(ptr)
 	if _, ok := target.Value.(*hujson.Object); !ok {
 		return nil, fmt.Errorf("%s is not a JSON object", ptr)
@@ -121,6 +136,27 @@ func editJSON(orig []byte, path []string, update func(old any) any) ([]byte, err
 	out = append(out, orig[:target.StartOffset]...)
 	out = append(out, text...)
 	return append(out, orig[target.EndOffset:]...), nil
+}
+
+// checkUnique fails if a key along path occurs more than once in its object:
+// Find edits the first occurrence, but JSON readers use the last one.
+func checkUnique(v *hujson.Value, path []string) error {
+	for i, key := range path {
+		obj, ok := v.Find(pointer(path[:i])).Value.(*hujson.Object)
+		if !ok {
+			return nil // reported by the caller
+		}
+		n := 0
+		for _, m := range obj.Members {
+			if name, ok := m.Name.Value.(hujson.Literal); ok && name.String() == key {
+				n++
+			}
+		}
+		if n > 1 {
+			return fmt.Errorf("duplicate key %s", pointer(path[:i+1]))
+		}
+	}
+	return nil
 }
 
 // insertMember inserts a member key with an empty object as value into obj,

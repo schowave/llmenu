@@ -70,7 +70,15 @@ only when a *required* setting is missing and a terminal is attached.
 
 Environment variables take precedence over the file and the keychain:
 `LLMENU_BASE_URL`, `LLMENU_API_KEY`, `LLMENU_AA_API_KEY`. This is intended
-for CI and for trying things out.
+for CI and for trying things out. For tests and the development sandbox
+([ADR-0004](0004-testing-strategy.md)) there are also `LLMENU_CONFIG`,
+`LLMENU_CACHE_DIR`, `LLMENU_AA_URL` and `LLMENU_KEYRING_FILE`; the latter
+stores keys in a plain-text file instead of the OS keyring and is not meant
+for real keys.
+
+`sync.targets` distinguishes "never configured" (the setup preselects the
+installed tools) from a deliberate empty selection, which is written as
+`targets = []` and kept on the next setup.
 
 `llmenu` writes the file. Comments added by hand are lost the next time it
 is written. A comment at the top of the file points this out.
@@ -157,6 +165,14 @@ missing:
 - **with a terminal:** "Gateway is not set up yet. Set it up now? [Y/n]".
   Then only the `gateway` section runs, and the original command continues.
 - **without a terminal:** abort with a hint to run `llmenu setup`.
+- **accessible mode** (`LLMENU_ACCESSIBLE=1`): all prompts are plain
+  line-based questions on stderr with numbered options, read from stdin,
+  also without a terminal. Meant for screen readers; the tests use it to
+  drive the setup. Only this explicit opt-in reads stdin without a terminal,
+  so scripts still never hang.
+
+If the gateway offers no model for a Claude Code slot, the setup offers
+"not set" first, so Enter does not silently store some other model.
 
 Missing *optional* settings never trigger a prompt. If the Claude Code slots
 are missing, they are suggested from the gateway at startup, as in the

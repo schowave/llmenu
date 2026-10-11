@@ -80,15 +80,21 @@ var Keys = []Key{
 		Name: "sync.targets",
 		Help: "active sync targets, comma-separated",
 		get: func(c *Config) (string, bool) {
-			return strings.Join(c.Sync.Targets, ","), c.Sync.Targets != nil
+			return strings.Join(c.Sync.List(), ","), c.Sync.Configured()
 		},
+		// "" removes the entry (unset); "none" stores a deliberate empty list.
 		put: func(c *Config, v string) error {
-			c.Sync.Targets = nil
+			if strings.TrimSpace(v) == "" {
+				c.Sync.Set(nil)
+				return nil
+			}
+			list := []string{}
 			for _, t := range strings.Split(v, ",") {
-				if t = strings.TrimSpace(t); t != "" {
-					c.Sync.Targets = append(c.Sync.Targets, t)
+				if t = strings.TrimSpace(t); t != "" && t != "none" {
+					list = append(list, t)
 				}
 			}
+			c.Sync.Set(list)
 			return nil
 		},
 	},

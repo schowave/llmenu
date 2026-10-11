@@ -7,6 +7,7 @@ golangci-lint = "2.14.0"
 goreleaser = "2.18.3"
 actionlint = "1.7.12"
 "go:golang.org/x/vuln/cmd/govulncheck" = "1.9.0"
+"go:github.com/go-gremlins/gremlins/cmd/gremlins" = "0.6.0"
 
 [tasks.fmt]
 description = "Format all Go files"
@@ -30,6 +31,22 @@ run = "go vet ./..."
 [tasks.test]
 description = "Unit tests with race detector"
 run = "go test -race -shuffle=on ./..."
+
+[tasks.cover]
+description = "Tests with coverage; fails below LLMENU_MIN_COVERAGE (default 85 %)"
+run = "scripts/coverage.sh"
+
+[tasks.mutation]
+description = "Mutation testing with Gremlins (a few minutes); pass a package to narrow it, e.g. mise run mutation ./internal/targets"
+run = "scripts/mutation.sh"
+
+[tasks."mutation:changed"]
+description = "Mutation testing only on lines changed against origin/main (LLMENU_DIFF_BASE to change), usually seconds"
+run = 'scripts/mutation.sh --diff "${LLMENU_DIFF_BASE:-origin/main}"'
+
+[tasks.compat]
+description = "Real pi, opencode and codex read what llmenu generates (tools must be installed)"
+run = "go test -tags compat -count=1 -v ./test/compat/"
 
 [tasks.lint]
 description = "golangci-lint (includes gosec)"
@@ -55,6 +72,25 @@ run = "go build -o dist/llmenu ./cmd/llmenu"
 description = "Install llmenu into $(go env GOPATH)/bin"
 run = "go install ./cmd/llmenu"
 
+[tasks.sandbox]
+description = "Fresh development sandbox: isolated HOME/config/keys, fake gateway, stand-in claude/codex"
+run = "scripts/sandbox.sh fresh"
+raw = true
+
+[tasks."sandbox:resume"]
+description = "Sandbox with the state of the last session"
+run = "scripts/sandbox.sh resume"
+raw = true
+
+[tasks."sandbox:live"]
+description = "Sandbox against your real gateway (llmenu setup inside); still isolated, still stand-in claude/codex"
+run = "scripts/sandbox.sh live"
+raw = true
+
+[tasks."sandbox:clean"]
+description = "Delete the sandbox"
+run = "rm -rf .sandbox"
+
 [tasks.ci]
 description = "Everything CI checks, except the snapshot release"
-depends = ["fmt-check", "tidy-check", "vet", "test", "lint", "vuln", "workflows"]
+depends = ["fmt-check", "tidy-check", "vet", "test", "cover", "lint", "vuln", "workflows"]

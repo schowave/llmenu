@@ -1,0 +1,55 @@
+! exec llmenu bench
+stderr 'no Artificial Analysis key'
+
+env LLMENU_AA_API_KEY=wrong
+! exec llmenu bench
+stderr 'HTTP 401'
+
+env LLMENU_AA_API_KEY=aa-test
+exec llmenu bench
+stdout '^Data: Artificial Analysis'
+stdout '^6 of 8 models matched\. Intelligence Index: 6, Terminal-Bench v4: 3, Coding Index: 2\.$'
+stdout '^  local/Qwen3-Next-non-thinking$'
+stdout '^  mistral/mistral-large-4$'
+exists $LLMENU_CACHE_DIR/bench.json
+
+# list now sorts by benchmark and shows source and date.
+exec llmenu list
+stdout '^MODEL +CONTEXT +\$ IN +\$ OUT +INTEL +TB4 +CODE$'
+stdout '^aws/claude-opus-5-5 +1000k +4.40 +22.00 +57.6 +59.6 +80.0$'
+stdout '(?s)opus-5-5 .*gpt-6-sol .*sonnet-4-5 .*Qwen3-Next .*mistral-large-4 .*non-thinking '
+stdout '^Benchmarks: Artificial Analysis \(https://artificialanalysis.ai\), as of \d{4}-\d{2}-\d{2}$'
+
+exec llmenu config set bench.metric tb4
+exec llmenu list
+stdout '(?s)opus-5-5 .*gpt-6-sol .*sonnet-4-5 '
+
+# A fixed mapping that matches nothing is reported.
+exec llmenu config set bench.map.mistral/mistral-large-4 does-not-exist
+exec llmenu bench
+stderr 'bench.map.mistral/mistral-large-4 = does-not-exist yields no match'
+
+# A fixed mapping to a model with Terminal-Bench counts there too.
+exec llmenu config set bench.map.mistral/mistral-large-4 gpt-6-sol
+exec llmenu bench
+stdout '^7 of 8 models matched\. Intelligence Index: 7, Terminal-Bench v4: 4, Coding Index: 2\.$'
+stdout '^  local/Qwen3-Next-non-thinking$'
+
+# With the last model mapped, everything matches and there is no "No match" list.
+exec llmenu config set bench.map.local/Qwen3-Next-non-thinking qwen3-next
+exec llmenu bench
+stdout '^8 of 8 models matched\. Intelligence Index: 8, Terminal-Bench v4: 4, Coding Index: 2\.$'
+! stdout 'No match'
+! stderr 'yields no match'
+# With benchmarks for every model, list sorts by them, not by price.
+exec llmenu list
+stdout '(?s)opus-5-5 .*gpt-6-sol .*sonnet-4-5 '
+
+# A broken cache is reported; the models are listed without benchmarks.
+cp broken.json $LLMENU_CACHE_DIR/bench.json
+exec llmenu list
+stderr '^llmenu: cannot read benchmarks: '
+stdout '^aws/claude-opus-5-5 '
+
+-- broken.json --
+{ "models":

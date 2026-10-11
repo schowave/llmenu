@@ -48,6 +48,9 @@ jobs:
         run: go test -shuffle=on ./...
       - name: Build
         run: go build -o ${{ runner.temp }}/ ./cmd/llmenu
+      - name: Coverage (minimum in scripts/coverage.sh)
+        if: runner.os == 'Linux'
+        run: scripts/coverage.sh
 
   lint:
     name: Lint

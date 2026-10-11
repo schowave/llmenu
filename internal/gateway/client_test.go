@@ -2,6 +2,7 @@ package gateway
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -90,6 +91,33 @@ func TestModelsErrors(t *testing.T) {
 			_, err := tt.client.Models(context.Background())
 			if err == nil || !strings.Contains(err.Error(), tt.want) {
 				t.Errorf("error = %v, want %q", err, tt.want)
+			}
+		})
+	}
+}
+
+func TestDeploymentModel(t *testing.T) {
+	tests := []struct {
+		name       string
+		json       string
+		wantTarget string
+		wantCtx    int
+	}{
+		{"target from litellm_params", `{"model_name":"a","litellm_params":{"model":"bedrock/a"}}`, "bedrock/a", 0},
+		{"target falls back to name", `{"model_name":"a"}`, "a", 0},
+		{"one token is a valid limit", `{"model_name":"a","model_info":{"max_input_tokens":1}}`, "a", 1},
+		{"price in token field discarded", `{"model_name":"a","model_info":{"max_input_tokens":3e-6}}`, "a", 0},
+		{"negative discarded", `{"model_name":"a","model_info":{"max_input_tokens":-5}}`, "a", 0},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var d deployment
+			if err := json.Unmarshal([]byte(tt.json), &d); err != nil {
+				t.Fatal(err)
+			}
+			m := d.model()
+			if m.Target != tt.wantTarget || m.ContextTokens != tt.wantCtx {
+				t.Errorf("Target, ContextTokens = %q, %d, want %q, %d", m.Target, m.ContextTokens, tt.wantTarget, tt.wantCtx)
 			}
 		})
 	}

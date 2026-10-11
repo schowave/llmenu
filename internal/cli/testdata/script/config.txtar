@@ -1,0 +1,48 @@
+exec llmenu config path
+stdout 'config.toml$'
+
+exec llmenu config get claude.default
+stdout '^opus$'
+exec llmenu config set claude.default sonnet
+exec llmenu config get claude.default
+stdout '^sonnet$'
+grep '^default = .sonnet.$' $LLMENU_CONFIG
+grep '^# Written by llmenu' $LLMENU_CONFIG
+
+exec llmenu config list
+stdout '^claude.default +sonnet +file$'
+stdout '^claude.opus +- +gateway suggestion$'
+stdout '^bench.metric +intel +default$'
+stdout '^secrets.gateway +set +environment$'
+stdout '^secrets.artificialanalysis +missing +-$'
+
+exec llmenu config unset claude.default
+exec llmenu config get claude.default
+stdout '^opus$'
+
+exec llmenu config set claude.env.FOO bar
+exec llmenu config set bench.map.mistral/mistral-large-4 mistral-large-3
+exec llmenu config list
+stdout '^claude.env.FOO +bar +file$'
+stdout '^bench.map.mistral/mistral-large-4 +mistral-large-3 +file$'
+
+! exec llmenu config set gateway.url notaurl
+stderr 'http\(s\) URL expected'
+! exec llmenu config set nope x
+stderr 'unknown key "nope"'
+! exec llmenu config set bench.metric speed
+! exec llmenu config set claude.auto_compact maybe
+! exec llmenu config get
+
+# A broken keyring is shown per key instead of failing the whole list.
+env LLMENU_KEYRING_FILE=$WORK/broken.json
+env LLMENU_API_KEY=
+exec llmenu config list
+stdout '^secrets.gateway +error +keyring: .*broken.json'
+stdout '^secrets.artificialanalysis +error +keyring: '
+env LLMENU_AA_API_KEY=aa-1
+exec llmenu config list
+stdout '^secrets.artificialanalysis +set +environment$'
+
+-- broken.json --
+{

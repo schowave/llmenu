@@ -1,0 +1,6 @@
+go test fuzz v1
+[]byte("{}")
+string("0")
+string("\xff")
+bool(true)
+string("0")

@@ -22,8 +22,8 @@ import (
 var errNotConfigured = errors.New("gateway not set up yet: run llmenu setup")
 
 // loadEnv reads config, gateway URL and key, and fetches the models.
-// If a required setting is missing, it offers setup when on a terminal
-// (ADR-0003); without a terminal it aborts.
+// If a required setting is missing, it offers setup when on a terminal or in
+// accessible mode (ADR-0003); otherwise it aborts, so scripts never hang.
 func loadEnv(ctx context.Context) (targets.Env, error) {
 	cfg, err := config.Load()
 	if err != nil {
@@ -34,15 +34,10 @@ func loadEnv(ctx context.Context) (targets.Env, error) {
 		return env, err
 	}
 	if env.BaseURL == "" || env.APIKey == "" {
-		if !isTerminal(os.Stdin) {
+		if !canPrompt() {
 			return env, errNotConfigured
 		}
-		start := true
-		err := huh.NewConfirm().
-			Title("Gateway not set up yet. Set it up now?").
-			Affirmative("Yes").Negative("No").
-			Value(&start).Run()
-		if err != nil || !start {
+		if start, err := confirmSetup(); err != nil || !start {
 			return env, errNotConfigured
 		}
 		if err := setupGateway(ctx, cfg); err != nil {
@@ -94,4 +89,16 @@ func gatewayFrom(cfg *config.Config) (targets.Env, error) {
 	return env, nil
 }
 
-func isTerminal(f *os.File) bool { return term.IsTerminal(int(f.Fd())) }
+// Replaceable in tests.
+var (
+	isTerminal = func(f *os.File) bool { return term.IsTerminal(int(f.Fd())) }
+
+	confirmSetup = func() (bool, error) {
+		start := true
+		err := runPrompt(huh.NewConfirm().
+			Title("Gateway not set up yet. Set it up now?").
+			Affirmative("Yes").Negative("No").
+			Value(&start))
+		return start, err
+	}
+)

@@ -140,18 +140,24 @@ Guardrails for the implementation:
 
 ### Release and distribution
 
-- **goreleaser** builds the binaries for darwin/linux/windows × amd64/arm64
-  on every Git tag `vX.Y.Z` and publishes them as a release with checksums.
-  This is triggered in CI (GitHub Actions or GitLab CI).
-- **Homebrew:** goreleaser updates a tap repo `homebrew-tap`.
-  Installation: `brew install <owner>/tap/llmenu`. Whether as a formula or a
-  cask depends on the goreleaser version; newer versions prefer casks.
-- **Scoop:** goreleaser updates a bucket repo `scoop-bucket`.
-  Installation: `scoop bucket add <owner> <url>` followed by
-  `scoop install llmenu`.
-- Where the repos live (private GitHub account or a company GitLab) is still
-  open. With private repos, users need read access, and the tap has to be
-  added with an explicit URL.
+- **Trigger:** a release created and published in the GitHub UI with a tag
+  `vX.Y.Z`. `.github/workflows/release.yml` then runs goreleaser, which builds
+  darwin/linux/windows × amd64/arm64 and attaches the archives and checksums
+  to that release (`release.mode: keep-existing`, so the title and notes from
+  the UI stay).
+- **Homebrew:** a cask (goreleaser deprecated formulas in v2.10; casks also
+  install on Linux) in the public repo `schowave/homebrew-tap`. Installation:
+  `brew install --cask schowave/tap/llmenu`. The binaries are not signed, so a
+  post-install hook removes the macOS quarantine attribute; otherwise
+  Gatekeeper refuses to start them.
+- **Scoop:** a manifest in the public repo `schowave/scoop-bucket`, built from
+  the Windows zip archives. Installation: `scoop bucket add schowave
+  https://github.com/schowave/scoop-bucket` and `scoop install llmenu`.
+- **Token:** `GITHUB_TOKEN` cannot write to other repos. The workflow passes a
+  fine-grained personal access token with *Contents: read and write* on the
+  tap and bucket only, stored as the secret `TAP_GITHUB_TOKEN`.
+- Everything lives on GitHub under `schowave`; the repos are public, so
+  installing needs no credentials.
 
 ### Daily use
 
@@ -160,7 +166,7 @@ Guardrails for the implementation:
 go install ./cmd/llmenu        # ends up in $(go env GOPATH)/bin
 
 # Everyone else, or a stable version
-brew install <owner>/tap/llmenu        # macOS, Linux
+brew install --cask schowave/tap/llmenu   # macOS, Linux
 scoop install llmenu                   # Windows
 
 llmenu claude          # pick a model, start Claude Code
@@ -206,11 +212,11 @@ Anyone who wants to keep the old names can create thin aliases:
 - The secrets move from `creds` to go-keyring. On macOS both live in the
   Keychain, just under a different service name.
 - While porting, fix the findings from the review of the zsh functions right
-  away: when removing duplicates, the cheapest model wins even if it has
-  less context; the benchmark match is not shown in the picker; plus the
-  cost question with compaction disabled and 1M context.
-- Decide where the tool repo, tap and bucket live and how CI gets the
-  permissions to write to tap and bucket.
+  away (done): when removing duplicates, the model with more context now
+  wins; the menu preview shows the benchmark match; compaction is a setup
+  question with a cost warning.
+- Repo, tap and bucket live on GitHub under `schowave`; CI writes to tap and
+  bucket with `TAP_GITHUB_TOKEN` (see Release and distribution).
 - The zsh functions are only removed once `llmenu` works in daily use on
   macOS and Windows.
 

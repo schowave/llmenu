@@ -112,6 +112,22 @@ func TestPiSync(t *testing.T) {
 	}
 }
 
+func TestPiSyncUnknownLimits(t *testing.T) {
+	file := filepath.Join(t.TempDir(), "models.json")
+	writeFile(t, file, `{"providers": {"example": {"models": [{"id": "x", "contextWindow": 5, "maxTokens": 5}]}}}`)
+	// The gateway no longer reports limits: stale values are removed.
+	if _, err := (pi{path: file}).Sync(context.Background(), []catalog.Model{{Name: "x"}}, syncOpt); err != nil {
+		t.Fatal(err)
+	}
+	e := asMap(asMap(get(readJSON(t, file), "providers", "example"))["models"].([]any)[0])
+	if _, ok := e["contextWindow"]; ok {
+		t.Errorf("contextWindow kept: %v", e)
+	}
+	if _, ok := e["maxTokens"]; ok {
+		t.Errorf("maxTokens kept: %v", e)
+	}
+}
+
 func TestOpencodeSync(t *testing.T) {
 	file := filepath.Join(t.TempDir(), "opencode.jsonc")
 	writeFile(t, file, `{

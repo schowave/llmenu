@@ -1,0 +1,28 @@
+# setup benchmarks in accessible mode.
+env LLMENU_ACCESSIBLE=1
+env LLMENU_KEYRING_FILE=$WORK/keyring.json
+
+# Empty skips: no key is stored.
+stdin enter.txt
+exec llmenu setup benchmarks
+stderr 'Free key: https://artificialanalysis.ai\. Leave empty to skip\.'
+! exec llmenu secrets get artificialanalysis
+
+stdin key.txt
+exec llmenu setup benchmarks
+exec llmenu secrets get artificialanalysis
+stdout '^aa-test$'
+
+# Empty keeps the stored key.
+stdin enter.txt
+exec llmenu setup benchmarks
+stderr 'Leave empty to keep the existing key \(keyring file\)\.'
+exec llmenu secrets get artificialanalysis
+stdout '^aa-test$'
+exec llmenu bench
+stdout 'of 8 models matched'
+
+-- enter.txt --
+
+-- key.txt --
+aa-test

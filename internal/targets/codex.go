@@ -44,7 +44,7 @@ func (codex) Command(ctx context.Context, m *catalog.Model, args []string, env E
 	if err != nil {
 		return nil, err
 	}
-	id := reProviderID.ReplaceAllString(env.Config.Gateway.NameOrDerived(), "_")
+	id := reProviderID.ReplaceAllString(env.ProviderName(), "_")
 	pre := []string{
 		"-c", "model_provider=" + id,
 		"-c", "model_providers." + id + "={name=" + strconv.Quote(id) +

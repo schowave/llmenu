@@ -1,0 +1,28 @@
+env GW=$LLMENU_BASE_URL
+
+# Not set up and no terminal: abort with a hint instead of asking.
+env LLMENU_BASE_URL=
+! exec llmenu list
+stderr 'gateway not set up yet: run llmenu setup'
+
+# The URL can also come from the config file.
+env LLMENU_BASE_URL=
+exec llmenu config set gateway.url http://127.0.0.1:1/
+! exec llmenu list
+stderr 'request failed'
+
+# Wrong key: HTTP status and the start of the response are shown.
+env LLMENU_BASE_URL=$GW
+env LLMENU_API_KEY=sk-wrong
+! exec llmenu list
+stderr 'HTTP 401'
+
+# Menu without a terminal.
+! exec llmenu
+stderr 'no terminal for the menu'
+
+! exec llmenu setup
+stderr 'setup needs a terminal'
+
+exec llmenu --version
+stdout 'dev'

@@ -26,12 +26,14 @@ func newSetupCmd() *cobra.Command {
 		Use:   "setup [" + strings.Join(sections, "|") + "]",
 		Short: "Prompt for settings; repeatable, Enter keeps the current value",
 		Long: `Without a section, all sections are walked through. Defaults are the current
-values, otherwise gateway suggestions. Single values without a dialog: llmenu config set.`,
+values, otherwise gateway suggestions. Single values without a dialog: llmenu config set.
+LLMENU_ACCESSIBLE=1 asks line by line instead of drawing forms, for screen
+readers; it also reads the answers from stdin without a terminal.`,
 		Args:      cobra.MatchAll(cobra.MaximumNArgs(1), cobra.OnlyValidArgs),
 		ValidArgs: sections,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if !isTerminal(os.Stdin) {
-				return errors.New("setup needs a terminal; without a dialog: llmenu config set")
+			if !canPrompt() {
+				return errors.New("setup needs a terminal (or LLMENU_ACCESSIBLE=1); without a dialog: llmenu config set")
 			}
 			err := runSetup(cmd.Context(), args)
 			if errors.Is(err, huh.ErrUserAborted) {
@@ -99,6 +101,7 @@ func setupGateway(ctx context.Context, cfg *config.Config) error {
 	if err != nil {
 		return err
 	}
+	const urlHelp = "Base URL of the LiteLLM proxy, e.g. https://llm.example.com/"
 	u := cfg.Gateway.URL
 	for {
 		var key string
@@ -106,19 +109,18 @@ func setupGateway(ctx context.Context, cfg *config.Config) error {
 		if keySource != "" {
 			keyHelp = "Leave empty to keep the existing key (" + keySource + ")."
 		}
-		err := huh.NewForm(huh.NewGroup(
-			huh.NewInput().Title("Gateway URL").
-				Description("Base URL of the LiteLLM proxy, e.g. https://llm.example.com/").
-				Value(&u).Validate(validateURL),
-			huh.NewInput().Title("Gateway key").Description(keyHelp).
-				EchoMode(huh.EchoModePassword).Value(&key).
+		err := runPrompt(asForm{huh.NewForm(huh.NewGroup(
+			huh.NewInput().Title(titled("Gateway URL", urlHelp)).Description(urlHelp).
+				Value(&u).Validate(enterKeeps(&u, validateURL)),
+			huh.NewInput().Title(titled("Gateway key", keyHelp)).Description(keyHelp).
+				EchoMode(secretEcho()).Value(&key).
 				Validate(func(s string) error {
 					if s == "" && keySource == "" {
 						return errors.New("key missing")
 					}
 					return nil
 				}),
-		)).Run()
+		))})
 		if err != nil {
 			return err
 		}
@@ -139,31 +141,36 @@ func setupGateway(ctx context.Context, cfg *config.Config) error {
 		}
 		fmt.Fprintln(os.Stderr, "Gateway check failed:", err)
 		retry := true
-		if err := huh.NewConfirm().Title("Enter again?").Affirmative("Yes").Negative("Cancel").
-			Value(&retry).Run(); err != nil || !retry {
+		if err := runPrompt(huh.NewConfirm().Title("Enter again?").Affirmative("Yes").Negative("Cancel").
+			Value(&retry)); err != nil || !retry {
 			return errors.New("gateway not set up")
 		}
 	}
 	cfg.Gateway.URL = u
 
 	name := cfg.Gateway.NameOrDerived()
-	err = huh.NewInput().Title("Provider name").
-		Description("llmenu registers the gateway in pi, opencode, etc. under this name.").
-		Value(&name).Validate(func(s string) error {
+	const nameHelp = "llmenu registers the gateway in pi, opencode, etc. under this name."
+	err = runPrompt(huh.NewInput().Title(titled("Provider name", nameHelp)).Description(nameHelp).
+		Value(&name).Validate(enterKeeps(&name, func(s string) error {
 		if strings.TrimSpace(s) == "" {
 			return errors.New("name missing")
 		}
 		return nil
-	}).Run()
+	})))
 	if err != nil {
 		return err
 	}
-	// Only store what differs from the derived name; that way the name follows a new URL.
+	applyGatewayName(cfg, name)
+	return save(cfg)
+}
+
+// applyGatewayName stores the provider name only if it differs from the one
+// derived from the URL; that way the name follows a new URL.
+func applyGatewayName(cfg *config.Config, name string) {
 	cfg.Gateway.Name = ""
-	if name != config.NameFromURL(u) {
+	if name != config.NameFromURL(cfg.Gateway.URL) {
 		cfg.Gateway.Name = name
 	}
-	return save(cfg)
 }
 
 func validateURL(s string) error {
@@ -199,29 +206,43 @@ func setupClaude(cfg *config.Config, models []catalog.Model) error {
 		defOpts = append(defOpts, huh.NewOption(def, def))
 	}
 	autoCompact := c.AutoCompactEnabled()
+	const compactHelp = "Off: context grows up to the limit, which costs considerably more with large contexts."
 	fields = append(fields,
 		huh.NewSelect[string]().Title("Default model").
 			Description("The menu cursor starts here; without a terminal it is used directly.").
 			Options(defOpts...).Value(&def),
-		huh.NewConfirm().Title("Automatic compaction?").
-			Description("Off: context grows up to the limit, which costs considerably more with large contexts.").
+		huh.NewConfirm().Title(titled("Automatic compaction?", compactHelp)).Description(compactHelp).
 			Affirmative("On").Negative("Off").Value(&autoCompact),
 	)
-	if err := huh.NewForm(huh.NewGroup(fields...)).Run(); err != nil {
+	if err := runPrompt(asForm{huh.NewForm(huh.NewGroup(fields...))}); err != nil {
 		return err
 	}
 
+	answers := map[string]string{}
 	for _, slot := range config.Slots {
-		// An accepted suggestion stays unset and so follows the gateway.
-		if c.Slot(slot) == "" && *values[slot] == catalog.Suggest(models, slot) {
+		answers[slot] = *values[slot]
+	}
+	for _, w := range applyClaude(c, models, answers, def, autoCompact) {
+		fmt.Fprintln(os.Stderr, "Warning:", w)
+	}
+	return save(cfg)
+}
+
+// applyClaude stores the answers of the claude section. Accepted suggestions
+// and defaults stay unset, so they follow the gateway and llmenu. It returns
+// warnings for non-Claude models in a slot.
+func applyClaude(c *config.Claude, models []catalog.Model, slots map[string]string, def string, autoCompact bool) []string {
+	var warnings []string
+	for _, slot := range config.Slots {
+		v := slots[slot]
+		if c.Slot(slot) == "" && v == catalog.Suggest(models, slot) {
 			continue
 		}
-		c.SetSlot(slot, *values[slot])
-		if i := slices.IndexFunc(models, func(m catalog.Model) bool { return m.Name == *values[slot] }); i >= 0 && !targets.IsClaude(models[i]) {
-			fmt.Fprintf(os.Stderr, "Warning: %s is not a Claude model; slot %s runs e.g. subagents on it.\n", *values[slot], slot)
+		c.SetSlot(slot, v)
+		if i := slices.IndexFunc(models, func(m catalog.Model) bool { return m.Name == v }); i >= 0 && !targets.IsClaude(models[i]) {
+			warnings = append(warnings, fmt.Sprintf("%s is not a Claude model; slot %s runs e.g. subagents on it.", v, slot))
 		}
 	}
-	// Do not pin defaults, so they can change with llmenu.
 	c.Default = ""
 	if def != "opus" {
 		c.Default = def
@@ -230,13 +251,18 @@ func setupClaude(cfg *config.Config, models []catalog.Model) error {
 	if !autoCompact {
 		c.AutoCompact = &autoCompact
 	}
-	return save(cfg)
+	return warnings
 }
 
 // slotOptions offers all models including aliases for a slot, matching ones
 // first. A configured model the gateway no longer knows stays selectable.
 func slotOptions(models []catalog.Model, slot, current string) []huh.Option[string] {
 	var opts []huh.Option[string]
+	// Without a suggestion Enter must not silently pick some model; leaving
+	// the slot unset is offered first.
+	if current == "" && catalog.Suggest(models, slot) == "" {
+		opts = append(opts, huh.NewOption("(not set: Claude Code uses its built-in name, which the gateway may not know)", ""))
+	}
 	if current != "" && !slices.ContainsFunc(models, func(m catalog.Model) bool { return m.Name == current }) {
 		opts = append(opts, huh.NewOption(current+"  (no longer in gateway)", current))
 	}
@@ -266,8 +292,8 @@ func setupBenchmarks() error {
 		help = "Leave empty to keep the existing key (" + source + ")."
 	}
 	var key string
-	if err := huh.NewInput().Title("Artificial Analysis key").Description(help).
-		EchoMode(huh.EchoModePassword).Value(&key).Run(); err != nil {
+	if err := runPrompt(huh.NewInput().Title(titled("Artificial Analysis key", help)).Description(help).
+		EchoMode(secretEcho()).Value(&key)); err != nil {
 		return err
 	}
 	if key == "" {
@@ -278,26 +304,47 @@ func setupBenchmarks() error {
 
 func setupSync(cfg *config.Config) error {
 	var opts []huh.Option[string]
-	selected := cfg.Sync.Targets
-	for _, t := range targets.All() {
-		if _, ok := t.(targets.Syncer); !ok {
-			continue
-		}
+	for _, t := range syncTargets() {
 		label := t.Name()
-		_, installed := targets.Installed(t)
-		if !installed {
+		if _, installed := targets.Installed(t); !installed {
 			label += "  (not installed)"
 		}
 		opts = append(opts, huh.NewOption(label, t.Name()))
-		if cfg.Sync.Targets == nil && installed {
-			selected = append(selected, t.Name())
-		}
 	}
-	if err := huh.NewMultiSelect[string]().Title("Sync targets").
+	selected := syncPreselection(cfg, func(t targets.Target) bool { _, ok := targets.Installed(t); return ok })
+	if err := runPrompt(huh.NewMultiSelect[string]().Title("Sync targets").
 		Description("`llmenu sync` writes the gateway's models into these tools. Space selects.").
-		Options(opts...).Value(&selected).Run(); err != nil {
+		Options(opts...).Value(&selected)); err != nil {
 		return err
 	}
-	cfg.Sync.Targets = selected
+	if selected == nil {
+		selected = []string{} // deliberately none, not "unset"
+	}
+	cfg.Sync.Set(selected)
 	return save(cfg)
+}
+
+func syncTargets() []targets.Target {
+	var out []targets.Target
+	for _, t := range targets.All() {
+		if _, ok := t.(targets.Syncer); ok {
+			out = append(out, t)
+		}
+	}
+	return out
+}
+
+// syncPreselection is what the sync section starts with: the configured
+// targets, or all installed sync targets if nothing is configured yet.
+func syncPreselection(cfg *config.Config, installed func(targets.Target) bool) []string {
+	if cfg.Sync.Configured() {
+		return cfg.Sync.List()
+	}
+	var out []string
+	for _, t := range syncTargets() {
+		if installed(t) {
+			out = append(out, t.Name())
+		}
+	}
+	return out
 }

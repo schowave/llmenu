@@ -1,0 +1,46 @@
+# A command that needs the gateway offers the setup (ADR-0003).
+env LLMENU_KEYRING_FILE=$WORK/keyring.json
+env GW=$LLMENU_BASE_URL
+env LLMENU_BASE_URL=
+env LLMENU_API_KEY=
+
+# Without a terminal it never asks, so scripts do not hang.
+stdin yes.txt
+! exec llmenu list
+stderr 'gateway not set up yet: run llmenu setup'
+! stderr 'Set it up now'
+
+# In accessible mode it asks on stdin; No aborts.
+env LLMENU_ACCESSIBLE=1
+stdin no.txt
+! exec llmenu list
+stderr 'Gateway not set up yet\. Set it up now\? \[Y/n\]'
+stderr 'gateway not set up yet: run llmenu setup'
+! exists config.toml
+
+# setup claude needs the gateway too.
+stdin no.txt
+! exec llmenu setup claude
+stderr 'gateway not set up yet: run llmenu setup'
+
+# Yes runs the gateway section, then the command continues.
+expandenv yes.txt
+stdin yes.txt
+exec llmenu list
+stderr 'Gateway reachable, 8 chat models\.'
+stdout '^aws/claude-opus-5-5 '
+stdout '^azure/gpt-6-sol '
+
+# Set up now: no more question.
+stdin no.txt
+exec llmenu list
+! stderr 'Set it up now'
+stdout '^aws/claude-opus-5-5 '
+
+-- no.txt --
+n
+-- yes.txt --
+y
+$GW
+sk-test
+

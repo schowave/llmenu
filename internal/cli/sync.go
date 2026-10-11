@@ -26,7 +26,7 @@ Only llmenu's own provider entry is changed; the old file is kept as *.bak.`,
 			}
 			names := args
 			if len(names) == 0 {
-				names = env.Config.Sync.Targets
+				names = env.Config.Sync.List()
 			}
 			if len(names) == 0 {
 				return errors.New("no sync targets active: llmenu setup sync, or name a target, e.g. llmenu sync pi")
@@ -35,7 +35,7 @@ Only llmenu's own provider entry is changed; the old file is kept as *.bak.`,
 
 			opt := targets.SyncOptions{
 				BaseURL:  env.BaseURL,
-				Provider: env.Config.Gateway.NameOrDerived(),
+				Provider: env.ProviderName(),
 				DryRun:   dryRun,
 			}
 			out := cmd.OutOrStdout()

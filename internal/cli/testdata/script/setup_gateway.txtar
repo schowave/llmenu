@@ -1,0 +1,111 @@
+# setup gateway, scripted via accessible mode (answers on stdin).
+
+# Without a terminal, setup refuses unless accessible mode is on.
+! exec llmenu setup gateway
+stderr 'setup needs a terminal \(or LLMENU_ACCESSIBLE=1\)'
+! exists config.toml
+
+env LLMENU_ACCESSIBLE=1
+env LLMENU_KEYRING_FILE=$WORK/keyring.json
+env GW=$LLMENU_BASE_URL
+env LLMENU_BASE_URL=
+env LLMENU_API_KEY=
+expandenv first.txt
+
+# An invalid URL and a missing key are asked again. The provider name derived
+# from the URL is not stored, so it follows a new URL.
+stdin first.txt
+exec llmenu setup gateway
+stderr 'Base URL of the LiteLLM proxy'
+stderr '^Stored in the operating system.s keyring\. $'
+stderr 'http\(s\) URL expected'
+stderr 'key missing'
+stderr '^Gateway reachable, 8 chat models\.$'
+stderr 'Saved: .*config.toml$'
+grep '^url = .http://127\.0\.0\.1:\d+/.$' config.toml
+! grep 'name' config.toml
+exec llmenu secrets get gateway
+stdout '^sk-test$'
+
+# Enter keeps URL, key and name: the file stays unchanged (ADR-0003).
+cp config.toml before.toml
+stdin enter.txt
+exec llmenu setup gateway
+stderr 'Leave empty to keep the existing key \(keyring file\)\.'
+stderr 'Gateway reachable'
+! stderr 'Saved:'
+cmp config.toml before.toml
+
+# A wrong key fails the check; Enter retries, and a custom name is stored.
+stdin retry.txt
+exec llmenu setup gateway
+stderr 'Gateway check failed: .*HTTP 401'
+stderr 'Enter again\? \[Y/n\]'
+stderr 'Gateway reachable'
+grep '^name = .team-gw.$' config.toml
+
+# Back to the derived name: the entry is removed again.
+stdin derived.txt
+exec llmenu setup gateway
+! grep 'name' config.toml
+
+# Cancel after a failed check: nothing is stored, the old key stays.
+cp config.toml before.toml
+stdin cancel.txt
+! exec llmenu setup gateway
+stderr 'Gateway check failed'
+stderr 'gateway not set up$'
+cmp config.toml before.toml
+exec llmenu secrets get gateway
+stdout '^sk-test$'
+
+# Input that ends early aborts instead of looping on the defaults.
+stdin retry-eof.txt
+! exec llmenu setup gateway
+stderr 'gateway not set up$'
+stdin empty.txt
+! exec llmenu setup gateway
+stderr 'input ended before all questions were answered'
+
+# A broken keyring stops the setup before asking.
+env LLMENU_KEYRING_FILE=$WORK/broken.json
+stdin enter.txt
+! exec llmenu setup gateway
+stderr 'keyring: .*broken.json'
+! stderr 'Gateway URL'
+stdin enter.txt
+! exec llmenu setup benchmarks
+stderr 'keyring: .*broken.json'
+! stderr 'Artificial Analysis key'
+
+-- broken.json --
+{
+-- first.txt --
+notaurl
+$GW
+
+sk-test
+
+-- enter.txt --
+
+
+
+-- retry.txt --
+
+sk-wrong
+
+
+sk-test
+team-gw
+-- derived.txt --
+
+
+local
+-- cancel.txt --
+
+sk-wrong
+n
+-- retry-eof.txt --
+
+sk-wrong
+-- empty.txt --

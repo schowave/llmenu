@@ -1,0 +1,9 @@
+# opencode chooses its model itself: no menu, no model argument added, only
+# the key in its environment.
+exec llmenu opencode
+stdout '^opencode args: $'
+stdout '^LLMENU_API_KEY=sk-test$'
+! stdout 'ANTHROPIC_'
+
+exec llmenu opencode run -m testgw/aws/claude-opus-5-5 hi
+stdout '^opencode args: run -m testgw/aws/claude-opus-5-5 hi$'

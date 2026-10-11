@@ -1,0 +1,20 @@
+exec llmenu config set gateway.name testgw
+
+# No terminal, no -m, no codex.default: there is no sensible model.
+! exec llmenu codex exec hi
+stderr 'no model'
+
+# -m is passed through; the provider comes entirely from -c overrides.
+exec llmenu codex -m azure/gpt-6-sol exec hi
+stdout '^codex args: -c model_provider=testgw -c model_providers.testgw=\{name="testgw", base_url="http://127.0.0.1:\d+/v1", env_key="LLMENU_API_KEY", wire_api="responses"\} -m azure/gpt-6-sol exec hi$'
+stdout '^LLMENU_API_KEY=sk-test$'
+
+# codex.default is used without a terminal, as -c model plus limits.
+exec llmenu config set codex.default azure/gpt-6-sol
+exec llmenu codex exec hi
+stdout ' -c model="azure/gpt-6-sol" -c model_context_window=922000 -c model_max_output_tokens=128000 exec hi$'
+
+# Without gateway.name the provider ID is derived from the URL actually used.
+exec llmenu config unset gateway.name
+exec llmenu codex exec hi
+stdout 'model_provider=local '

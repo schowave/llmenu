@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"cmp"
 	"errors"
 	"fmt"
 	"os"
@@ -34,7 +35,7 @@ Key: llmenu setup benchmarks or LLMENU_AA_API_KEY.`,
 			if err != nil {
 				return err
 			}
-			entries, err := bench.Fetch(cmd.Context(), nil, bench.URL, key)
+			entries, err := bench.Fetch(cmd.Context(), nil, cmp.Or(os.Getenv("LLMENU_AA_URL"), bench.URL), key)
 			if err != nil {
 				return err
 			}

@@ -1,0 +1,51 @@
+name: Mutation testing
+
+# Full Gremlins run (a few minutes) weekly and on demand. On pull requests
+# and pushes to main only the changed lines are mutated, which is fast.
+# Thresholds live in scripts/mutation.sh.
+on:
+  schedule:
+    - cron: "41 5 * * 1"
+  workflow_dispatch:
+  pull_request:
+    paths: ["**.go", "go.mod", "go.sum", "scripts/mutation.sh"]
+  push:
+    branches: [main]
+    paths: ["**.go", "go.mod", "go.sum", "scripts/mutation.sh"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gremlins:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - name: Install Gremlins
+        run: go install github.com/go-gremlins/gremlins/cmd/gremlins@v0.6.0
+      - name: Mutation testing (changed lines)
+        if: github.event_name == 'pull_request' || github.event_name == 'push'
+        env:
+          BASE: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || github.event.before }}
+        run: scripts/mutation.sh --diff "$BASE"
+      - name: Mutation testing (everything)
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+        run: scripts/mutation.sh
+      - name: Keep the report
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: mutation-report
+          path: mutation.json
+          if-no-files-found: ignore

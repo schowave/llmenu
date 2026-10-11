@@ -15,11 +15,13 @@ Decisions and rationale: [docs/ADR](docs/ADR).
 ## Installation
 
 ```sh
-go install github.com/schowave/llmenu/cmd/llmenu@latest
-```
+brew install --cask schowave/tap/llmenu        # macOS, Linux
 
-Requires Go 1.27.2 or later. Releases for Homebrew and Scoop are planned
-([ADR-0001](docs/ADR/0001-cross-platform-cli-in-go.md)).
+scoop bucket add schowave https://github.com/schowave/scoop-bucket
+scoop install llmenu                           # Windows
+
+go install github.com/schowave/llmenu/cmd/llmenu@latest   # from source, Go 1.27.2+
+```
 
 ## Usage
 
@@ -52,29 +54,76 @@ configuration lives at `llmenu config path`, keys in the operating system's
 keychain. `LLMENU_BASE_URL`, `LLMENU_API_KEY`, `LLMENU_AA_API_KEY`,
 `LLMENU_CONFIG` and `LLMENU_CACHE_DIR` override these, e.g. for CI.
 
+`LLMENU_ACCESSIBLE=1` turns all setup forms into plain line-based questions
+with numbered options (huh's accessible mode), e.g. for screen readers.
+
 `llmenu codex` leaves `~/.codex/config.toml` untouched: provider and model
 are passed via `-c` overrides, and the key only goes into Codex's
 environment ([ADR-0002](docs/ADR/0002-command-structure-and-targets.md)).
 
 ## Development
 
-Tools and tasks are managed with [mise](https://mise.jdx.dev) (`mise.toml`):
+Tools and tasks are managed with [mise](https://mise.jdx.dev) (`mise.toml`).
+`mise install` once, then:
 
 ```sh
-mise install                   # Go, golangci-lint, goreleaser, actionlint, govulncheck
-mise run ci                    # everything CI checks: fmt, tidy, vet, tests (-race), lint, govulncheck, workflows
-mise run test                  # single tasks: fmt, vet, test, lint, vuln, workflows, build, install
+mise run ci                    # everything CI checks: fmt, tidy, vet, tests (-race), coverage, lint, govulncheck, workflows
+mise run test                  # unit and script tests only
+mise run cover                 # coverage report, fails below the threshold in mise.toml
+mise run mutation:changed      # mutation testing of your changes only (seconds); see docs/mutation-testing.md
+mise run mutation              # mutation testing of everything (a few minutes; also weekly on GitHub)
+mise run compat                # pi, opencode and codex read what llmenu generates (needs the tools installed)
 mise run release-check         # validate .goreleaser.yaml and build a snapshot into dist/
-mise tasks                     # list all tasks
+mise tasks                     # all tasks
 ```
 
-On GitHub, CI runs the same checks on Linux, macOS and Windows for every push
-and pull request, plus CodeQL, dependency review and Dependabot updates.
+### Sandbox
 
-For tests with a separate keychain entry, set
-`LLMENU_KEYRING_SERVICE=llmenu-test`; for a separate configuration,
-`LLMENU_CONFIG=<file>`. Do not redirect `HOME` on macOS: `security` then
-finds no keychain and opens a dialog. Always choose "Cancel" there.
+To try llmenu by hand after a change, without touching your real setup:
+
+```sh
+mise run sandbox               # fresh sandbox, starts with the first-run experience
+mise run sandbox:resume        # continue with the state of the last session
+mise run sandbox:live          # same isolation, but against your real gateway
+mise run sandbox:clean         # delete .sandbox/
+```
+
+The sandbox opens a shell in which llmenu, pi and opencode only see
+`.sandbox/`: its own HOME, config, cache and a plain-text key file instead of
+the OS keyring. A fake gateway answers on `http://127.0.0.1:4111/` (key
+`sk-dev`, benchmark key `aa-dev`), and `claude`/`codex` are stand-ins that
+print how llmenu would have started them. Exit the shell to leave.
+
+### Tests
+
+- Unit tests next to the code; `internal/cli/testdata/script/*.txtar` are
+  end-to-end scripts ([testscript](https://pkg.go.dev/github.com/rogpeppe/go-internal/testscript))
+  that run the real commands against a fake gateway with stand-in tools.
+- Fuzz tests for JSON editing and name normalization:
+  `go test -run=^$ -fuzz=FuzzEditJSON ./internal/targets`.
+- `test/compat` (build tag `compat`) checks the generated configs against the
+  real pi, opencode and Codex CLI; it runs weekly on GitHub.
+
+Never redirect `HOME` on macOS while llmenu can reach the OS keyring:
+`security` then finds no keychain and opens a dialog — choose "Cancel",
+never "Reset to defaults". The sandbox avoids this with `LLMENU_KEYRING_FILE`.
+
+### Releasing
+
+1. One-time setup on GitHub:
+   - create the empty public repos `schowave/homebrew-tap` and
+     `schowave/scoop-bucket`;
+   - create a fine-grained personal access token with *Contents: read and
+     write* on exactly these two repos and store it in this repo as the
+     Actions secret `TAP_GITHUB_TOKEN`.
+2. For each release: GitHub → Releases → *Draft a new release*, create a new
+   tag like `v0.1.0` on `main`, write the notes, *Publish release*.
+3. `.github/workflows/release.yml` builds all platforms, attaches the
+   archives and checksums to that release and updates the cask in the tap and
+   the manifest in the bucket.
+
+On GitHub, CI runs on Linux, macOS and Windows for every push and pull
+request, plus CodeQL, dependency review and Dependabot updates.
 
 ## Layout
 
@@ -90,8 +139,14 @@ finds no keychain and opens a dialog. Always choose "Cancel" there.
 | `internal/bench` | Fetching and matching benchmarks, cache `bench.json` |
 | `internal/fetch` | HTTP GET with readable errors |
 | `internal/catalog` | Models with benchmarks; normalization, aliases, duplicates |
-| `.goreleaser.yaml` | Release for macOS, Linux, Windows; tap and bucket still commented out |
+| `test/compat` | Compatibility tests against the real tools (build tag `compat`) |
+| `tools/`, `scripts/sandbox.sh` | Fake gateway and stand-in tools for the sandbox |
+| `.goreleaser.yaml` | Release for macOS, Linux, Windows, Homebrew cask and Scoop manifest |
 
 Adding a new tool: create a file under `internal/targets/`, implement
 `Syncer` and/or `Launcher`, register it in `init()`, add a test. Commands
 and help are generated from that.
+
+## License
+
+[MIT](LICENSE)

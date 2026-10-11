@@ -1,0 +1,70 @@
+# The full setup walks through all sections in accessible mode.
+! exec llmenu setup nope
+stderr 'invalid argument "nope"'
+! exec llmenu setup gateway claude
+stderr 'accepts at most 1 arg'
+
+env LLMENU_ACCESSIBLE=1
+env LLMENU_KEYRING_FILE=$WORK/keyring.json
+env GW=$LLMENU_BASE_URL
+env LLMENU_BASE_URL=
+env LLMENU_API_KEY=
+expandenv all.txt
+stdin all.txt
+exec llmenu setup
+stderr 'Gateway reachable, 8 chat models\.'
+stderr '^Warning: azure/gpt-6-sol is not a Claude model; slot haiku'
+grep '^url = .http://127\.0\.0\.1:\d+/.$' config.toml
+grep '^name = .team-gw.$' config.toml
+grep '^default = .sonnet.$' config.toml
+grep '^opus = .aws/claude-opus-5-5.$' config.toml
+! grep '^sonnet' config.toml
+grep '^haiku = .azure/gpt-6-sol.$' config.toml
+grep '^auto_compact = false$' config.toml
+grep '^targets = \[.opencode., .pi.\]$' config.toml
+exec llmenu secrets get gateway
+stdout '^sk-test$'
+exec llmenu secrets get artificialanalysis
+stdout '^aa-test$'
+
+# Repeated with Enter only (0 confirms the sync selection): unchanged.
+cp config.toml before.toml
+stdin enter.txt
+exec llmenu setup
+! stderr 'Saved:'
+cmp config.toml before.toml
+exec llmenu secrets get artificialanalysis
+stdout '^aa-test$'
+
+# Input that ends in the middle stops the setup.
+stdin gateway-only.txt
+! exec llmenu setup
+stderr 'input ended before all questions were answered'
+
+-- all.txt --
+$GW
+sk-test
+team-gw
+2
+
+9
+2
+n
+aa-test
+2
+0
+-- enter.txt --
+
+
+
+
+
+
+
+
+
+0
+-- gateway-only.txt --
+
+
+

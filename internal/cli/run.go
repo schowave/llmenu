@@ -87,6 +87,9 @@ func launch(ctx context.Context, l targets.Launcher, args []string) error {
 	return runChild(cmd)
 }
 
+// pickModel shows the menu; replaceable in tests.
+var pickModel = menu.Pick
+
 // choice describes what a model is being chosen for.
 type choice struct {
 	config      *config.Config
@@ -122,7 +125,7 @@ func chooseModel(all []catalog.Model, c choice) (*catalog.Model, error) {
 	}
 
 	st := state.Load()
-	i, err := menu.Pick(shown, menu.Options{
+	i, err := pickModel(shown, menu.Options{
 		Note:      benchNote(),
 		Preselect: catalog.Resolve(all, shown, cmp.Or(c.defaultName, st.LastModel[c.key])),
 		Hint:      func(m catalog.Model) string { return hints[m.Name] },

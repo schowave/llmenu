@@ -28,6 +28,9 @@ var aa = []Entry{
 	entry("qwen3-8-flash-next-non-reasoning", f(30), nil, nil),
 	entry("mistral-large-3", f(25), nil, nil),
 	entry("no-values", nil, nil, nil),
+	// A single benchmark is enough to count.
+	entry("only-coding", nil, f(70), nil),
+	entry("only-terminal", nil, nil, f(0.5)),
 }
 
 func TestMatch(t *testing.T) {
@@ -38,6 +41,9 @@ func TestMatch(t *testing.T) {
 		{Name: "local/Qwen3.8-Flash-Next-non-thinking", Target: "hosted_vllm/Qwen/Qwen3.8-Flash-Next-FP8", NoThinking: true},
 		{Name: "mistral/mistral-large-2512", Target: "mistral/mistral-large-2512"},
 		{Name: "unknown/x-1", Target: "unknown/x-1"},
+		{Name: "x/no-values", Target: "no-values"},
+		{Name: "x/only-coding", Target: "only-coding"},
+		{Name: "x/only-terminal", Target: "only-terminal"},
 	}
 	got := Match(aa, models, map[string]string{"mistral/mistral-large-2512": "mistral-large-3"})
 
@@ -63,6 +69,15 @@ func TestMatch(t *testing.T) {
 	}
 	if _, ok := got["unknown/x-1"]; ok {
 		t.Error("match without a matching model")
+	}
+	if _, ok := got["x/no-values"]; ok {
+		t.Error("entry without any benchmark matched")
+	}
+	if c := got["x/only-coding"]; c.Coding == nil || *c.Coding != 70 {
+		t.Errorf("entry with only a coding index ignored: %v", show(c))
+	}
+	if tb := got["x/only-terminal"]; tb.TerminalBench == nil || *tb.TerminalBench != 50 {
+		t.Errorf("entry with only Terminal-Bench ignored: %v", show(tb))
 	}
 }
 
@@ -107,8 +122,13 @@ func TestNote(t *testing.T) {
 	if n := fresh.Note(now); !strings.Contains(n, "2026-10-10") || strings.Contains(n, "old") {
 		t.Errorf("fresh: %q", n)
 	}
+	// Exactly StaleAfter is not yet stale.
+	limit := &Store{FetchedAt: now.Add(-StaleAfter)}
+	if n := limit.Note(now); strings.Contains(n, "old") {
+		t.Errorf("at the limit: %q", n)
+	}
 	old := &Store{FetchedAt: now.Add(-20 * 24 * time.Hour)}
-	if n := old.Note(now); !strings.Contains(n, "20 days old") {
+	if n := old.Note(now); !strings.HasSuffix(n, ", 20 days old: run llmenu bench") {
 		t.Errorf("old: %q", n)
 	}
 }

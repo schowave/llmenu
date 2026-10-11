@@ -28,38 +28,45 @@ func Pick(models []catalog.Model, opt Options) (int, error) {
 	if len(models) == 0 {
 		return -1, errors.New("no models to choose from")
 	}
-	hint := func(catalog.Model) string { return "" }
-	if opt.Hint != nil {
-		hint = opt.Hint
-	}
-	header, rows := table.Format(models, table.Options{Mark: func(m catalog.Model) string {
-		if hint(m) != "" {
-			return "!"
-		}
-		return ""
-	}})
+	header, rows, preview := view(models, opt)
 
 	i, err := fuzzyfinder.Find(models,
 		func(i int) string { return rows[i] },
 		fuzzyfinder.WithPromptString("model> "),
 		fuzzyfinder.WithHeader(header), // single line, go-fuzzyfinder cannot do more
-		fuzzyfinder.WithCursorPosition(fuzzyfinder.CursorPositionTop),
 		fuzzyfinder.WithPreselected(func(i int) bool { return i == opt.Preselect }),
-		fuzzyfinder.WithPreviewWindow(func(i, _, _ int) string {
-			if i < 0 {
-				return ""
-			}
-			d := Details(models[i], hint(models[i]))
-			if opt.Note != "" {
-				d += "\n" + opt.Note + "\n"
-			}
-			return d
-		}),
+		fuzzyfinder.WithPreviewWindow(func(i, _, _ int) string { return preview(i) }),
 	)
 	if errors.Is(err, fuzzyfinder.ErrAbort) {
 		return -1, ErrAborted
 	}
 	return i, err
+}
+
+// view returns what the menu shows: the table header, one row per model and
+// the preview for the model at index i (-1: none). It needs no terminal.
+func view(models []catalog.Model, opt Options) (header string, rows []string, preview func(i int) string) {
+	hint := func(catalog.Model) string { return "" }
+	if opt.Hint != nil {
+		hint = opt.Hint
+	}
+	header, rows = table.Format(models, table.Options{Mark: func(m catalog.Model) string {
+		if hint(m) != "" {
+			return "!"
+		}
+		return ""
+	}})
+	preview = func(i int) string {
+		if i < 0 || i >= len(models) {
+			return ""
+		}
+		d := Details(models[i], hint(models[i]))
+		if opt.Note != "" {
+			d += "\n" + opt.Note + "\n"
+		}
+		return d
+	}
+	return header, rows, preview
 }
 
 // Details describes a model for the preview.

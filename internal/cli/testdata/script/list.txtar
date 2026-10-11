@@ -1,0 +1,32 @@
+# Default view: aliases and duplicates hidden, embedding model filtered,
+# most expensive first while there are no benchmarks.
+exec llmenu list
+cmp stdout list.golden
+
+# --all shows aliases with their target and provider duplicates.
+exec llmenu list --all
+stdout '^aws/claude-opus-latest -> claude-opus-5-5 +1000k'
+stdout '^aws/claude-sonnet-4-5 +200k +3.30 +16.50'
+
+exec llmenu list --json
+stdout '"name": "azure/gpt-6-sol"'
+stdout '"/v1/responses"'
+stdout '"max_output_tokens": 16384'
+! stdout 'text-embedding'
+
+exec llmenu list --sort price
+cmp stdout list.golden
+
+! exec llmenu list --sort speed
+stderr 'bench or price'
+
+-- list.golden --
+MODEL                          CONTEXT      $ IN     $ OUT
+aws/claude-opus-5-5              1000k      4.40     22.00
+gcp/claude-sonnet-4-5             200k      3.00     15.00
+azure/gpt-6-sol                   922k      2.00     10.00
+mistral/mistral-large-4          1048k      0.68      2.09
+local/Qwen3-Next                  229k      0.00      0.00
+local/Qwen3-Next-non-thinking     229k      0.00      0.00
+
+Benchmarks: none, see llmenu bench

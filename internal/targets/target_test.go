@@ -3,6 +3,8 @@ package targets
 import (
 	"context"
 	"os"
+	"path/filepath"
+	"runtime"
 	"slices"
 	"strings"
 	"testing"
@@ -49,6 +51,7 @@ func TestHasModelArg(t *testing.T) {
 		{"claude", []string{"--model=sonnet", "-p", "hi"}, true},
 		{"claude", []string{"--", "--model"}, false},
 		{"claude", []string{"--models"}, false},
+		{"codex", []string{"-v"}, false}, // as long as -m, but a different flag
 		{"codex", []string{"-m", "gpt-5"}, true},
 		{"codex", []string{"--model=gpt-5"}, true},
 		{"codex", []string{"exec", "hello"}, false},
@@ -69,6 +72,7 @@ func TestClaudeCommand(t *testing.T) {
 		{Name: "aws/claude-opus-4-8", Target: "bedrock/eu.anthropic.claude-opus-4-8", ContextTokens: 1_000_000},
 		{Name: "aws/claude-opus-latest", Target: "bedrock/eu.anthropic.claude-opus-4-8", ContextTokens: 1_000_000},
 		{Name: "aws/claude-sonnet-latest", Target: "bedrock/eu.anthropic.claude-sonnet-4-6", ContextTokens: 1_000_000},
+		{Name: "edge", Target: "edge", ContextTokens: claude1MThreshold},
 	}
 	env := Env{BaseURL: "https://gateway.example/", APIKey: "secret", Config: &config.Config{}, Models: models}
 
@@ -81,6 +85,7 @@ func TestClaudeCommand(t *testing.T) {
 		{"without model", nil, []string{"-c"}, []string{"claude", "-c"}},
 		{"200k", &models[0], nil, []string{"claude", "--model", "gcp/claude-sonnet-4-6"}},
 		{"1M", &models[1], []string{"-r"}, []string{"claude", "--model", "aws/claude-opus-4-8[1m]", "-r"}},
+		{"at the 1M threshold", &catalog.Model{Name: "edge"}, nil, []string{"claude", "--model", "edge[1m]"}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -214,6 +219,14 @@ func TestCodexCommand(t *testing.T) {
 		t.Error("key not only in the environment")
 	}
 
+	// Unknown limits (0) are left to codex.
+	cmd, _ = l.Command(context.Background(), &catalog.Model{Name: "x"}, nil, env)
+	if slices.ContainsFunc(cmd.Args, func(a string) bool {
+		return strings.HasPrefix(a, "model_context_window") || strings.HasPrefix(a, "model_max_output")
+	}) {
+		t.Errorf("unknown limits passed: %q", cmd.Args)
+	}
+
 	// A provider name with a dot would be a nested TOML key.
 	cfg.Gateway.Name = "my.gw"
 	cmd, _ = l.Command(context.Background(), nil, []string{"-m", "x"}, env)
@@ -230,5 +243,76 @@ func TestCodexCommand(t *testing.T) {
 	}
 	if _, hint := l.Supports(catalog.Model{}); hint == "" {
 		t.Error("model without Responses API not flagged")
+	}
+}
+
+func TestOpencodeCommand(t *testing.T) {
+	tg, _ := Get("opencode")
+	cmd, err := tg.(Launcher).Command(context.Background(), nil, []string{"-m", "x"}, Env{APIKey: "secret"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Equal(cmd.Args, []string{"opencode", "-m", "x"}) || !slices.Contains(cmd.Env, "LLMENU_API_KEY=secret") {
+		t.Errorf("Args = %q, key in environment: %v", cmd.Args, slices.Contains(cmd.Env, "LLMENU_API_KEY=secret"))
+	}
+}
+
+func TestInstalled(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("executables need an extension")
+	}
+	dir := t.TempDir()
+	t.Setenv("PATH", dir)
+	if _, ok := Installed(pi{}); ok {
+		t.Error("pi found in an empty PATH")
+	}
+	bin := filepath.Join(dir, "pi")
+	if err := os.WriteFile(bin, []byte("#!/bin/sh\n"), 0o700); err != nil { //nolint:gosec // G306: must be executable
+		t.Fatal(err)
+	}
+	if p, ok := Installed(pi{}); !ok || p != bin {
+		t.Errorf("Installed = %q, %v; want %q, true", p, ok, bin)
+	}
+}
+
+func TestConfigPathDefaults(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home) // Windows
+	tests := []struct {
+		name   string
+		target interface{ ConfigPath() (string, error) }
+		create string // file created beforehand
+		want   string
+	}{
+		{"pi", pi{}, "", filepath.Join(home, ".pi", "agent", "models.json")},
+		{"opencode", opencode{}, "", filepath.Join(home, ".config", "opencode", "opencode.json")},
+		{"opencode prefers jsonc", opencode{}, filepath.Join(home, ".config", "opencode", "opencode.jsonc"),
+			filepath.Join(home, ".config", "opencode", "opencode.jsonc")},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.create != "" {
+				if err := os.MkdirAll(filepath.Dir(tt.create), 0o700); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.WriteFile(tt.create, []byte("{}"), 0o600); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if got, err := tt.target.ConfigPath(); err != nil || got != tt.want {
+				t.Errorf("ConfigPath() = %q, %v; want %q", got, err, tt.want)
+			}
+		})
+	}
+
+	if runtime.GOOS == "windows" || runtime.GOOS == "plan9" {
+		return
+	}
+	t.Setenv("HOME", "")
+	for _, tg := range []interface{ ConfigPath() (string, error) }{pi{}, opencode{}} {
+		if p, err := tg.ConfigPath(); err == nil {
+			t.Errorf("%T: ConfigPath() without HOME = %q, want an error", tg, p)
+		}
 	}
 }

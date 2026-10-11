@@ -1,0 +1,59 @@
+exec llmenu config set gateway.name testgw
+
+! exec llmenu sync
+stderr 'no sync targets active'
+
+mkdir $HOME/.pi/agent
+cp pi-models.json $HOME/.pi/agent/models.json
+
+# Dry run shows the diff and writes nothing.
+exec llmenu sync pi --dry-run
+stdout '^pi: would change$'
+stdout '^\+ +"testgw": \{'
+cmp $HOME/.pi/agent/models.json pi-models.json
+! exists $HOME/.pi/agent/models.json.bak
+stderr 'gateway key comes from LLMENU_API_KEY'
+
+exec llmenu sync pi opencode
+stdout '^pi: 8 models written under "testgw"'
+stdout '^opencode: 8 models written under "testgw"'
+cmp $HOME/.pi/agent/models.json.bak pi-models.json
+grep '"apiKey": "!llmenu secrets get gateway"' $HOME/.pi/agent/models.json
+grep '"baseUrl": "https://other/"' $HOME/.pi/agent/models.json
+grep '"baseUrl": "http://127.0.0.1:\d+/v1"' $HOME/.pi/agent/models.json
+grep '"id": "aws/claude-opus-latest"' $HOME/.pi/agent/models.json
+grep '"\$schema": "https://opencode.ai/config.json"' $HOME/.config/opencode/opencode.json
+grep '"apiKey": "\{env:LLMENU_API_KEY\}"' $HOME/.config/opencode/opencode.json
+
+# Repeating changes nothing.
+exec llmenu sync pi opencode
+stdout '^pi: unchanged'
+stdout '^opencode: unchanged'
+
+# Configured targets are used without arguments.
+exec llmenu config set sync.targets pi
+exec llmenu sync
+stdout '^pi: unchanged'
+! stdout opencode
+
+# Errors in one target do not stop the others.
+! exec llmenu sync claude nope pi
+stderr '^claude: not a sync target'
+stderr '^nope: not a sync target'
+stdout '^pi: unchanged'
+stderr 'failed: \[claude nope\]'
+
+# A broken config file is reported, not overwritten.
+cp broken.json $HOME/.pi/agent/models.json
+! exec llmenu sync pi
+stderr '^pi: '
+cmp $HOME/.pi/agent/models.json broken.json
+
+-- pi-models.json --
+{
+  "providers": {
+    "other": {"baseUrl": "https://other/", "models": []}
+  }
+}
+-- broken.json --
+{ "providers": 

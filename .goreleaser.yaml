@@ -1,10 +1,13 @@
 # Release configuration (ADR-0001, section on release and distribution).
-# Check: goreleaser check; dry run without publishing: goreleaser release --snapshot --clean
+# Check: goreleaser check; dry run without publishing: mise run release-check
+# Published by .github/workflows/release.yml when a GitHub release is published.
 version: 2
+
+project_name: llmenu
 
 before:
   hooks:
-    - go mod tidy
+    - go mod tidy -diff
     - go test ./...
 
 builds:
@@ -14,44 +17,65 @@ builds:
       - CGO_ENABLED=0
     goos: [darwin, linux, windows]
     goarch: [amd64, arm64]
+    flags:
+      - -trimpath
     ldflags:
       - -s -w -X github.com/schowave/llmenu/internal/cli.version={{ .Version }}
 
 archives:
   - formats: [tar.gz]
     format_overrides:
+      # Scoop needs a zip for Windows.
       - goos: windows
         formats: [zip]
+    files:
+      - LICENSE
+      - README.md
 
 checksum:
   name_template: checksums.txt
 
 changelog:
   sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
 
-# TODO: enable once it is settled where the tool repo, tap and bucket live
-# (ADR-0001, follow-up work). Replace OWNER; the token needs write access
-# to both repos.
-#
-# homebrew_casks:
-#   - name: llmenu
-#     repository:
-#       owner: OWNER
-#       name: homebrew-tap
-#       token: "{{ .Env.TAP_GITHUB_TOKEN }}"
-#     description: Choose models from a LiteLLM gateway and wire them into coding tools
-#     hooks:
-#       post:
-#         install: |
-#           if system_command("/usr/bin/xattr", args: ["-h"]).exit_status == 0
-#             system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/llmenu"]
-#           end
-#
-# scoops:
-#   - name: llmenu
-#     repository:
-#       owner: OWNER
-#       name: scoop-bucket
-#       token: "{{ .Env.TAP_GITHUB_TOKEN }}"
-#     description: Choose models from a LiteLLM gateway and wire them into coding tools
-#     license: MIT
+release:
+  # The release is created in the GitHub UI; keep its title and notes and
+  # only add the artifacts.
+  mode: keep-existing
+  replace_existing_artifacts: true
+
+# Tap and bucket live in their own repos; GITHUB_TOKEN cannot write there, so
+# the workflow passes TAP_GITHUB_TOKEN (fine-grained PAT, contents read/write
+# on both repos). envOrDefault keeps snapshot builds working without it.
+homebrew_casks:
+  - name: llmenu
+    binaries: [llmenu]
+    homepage: https://github.com/schowave/llmenu
+    description: Pick LLMs from a LiteLLM gateway and wire them into Claude Code, Codex CLI, pi and opencode
+    repository:
+      owner: schowave
+      name: homebrew-tap
+      token: '{{ envOrDefault "TAP_GITHUB_TOKEN" "" }}'
+    commit_msg_template: "llmenu {{ .Tag }}"
+    hooks:
+      post:
+        # The binaries are not signed; without this macOS refuses to start them.
+        install: |
+          if OS.mac?
+            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/llmenu"]
+          end
+
+scoops:
+  - name: llmenu
+    homepage: https://github.com/schowave/llmenu
+    description: Pick LLMs from a LiteLLM gateway and wire them into Claude Code, Codex CLI, pi and opencode
+    license: MIT
+    repository:
+      owner: schowave
+      name: scoop-bucket
+      token: '{{ envOrDefault "TAP_GITHUB_TOKEN" "" }}'
+    commit_msg_template: "llmenu {{ .Tag }}"

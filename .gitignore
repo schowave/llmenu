@@ -2,3 +2,6 @@
 /llmenu
 /llmenu.exe
 /.idea/
+/.sandbox/
+/coverage.out
+/mutation.json

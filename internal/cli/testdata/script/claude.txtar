@@ -1,0 +1,48 @@
+# Without a terminal and without --model, the default is used: slot opus ->
+# its gateway suggestion (latest alias) -> the concrete model, with [1m] for
+# 1M context.
+exec llmenu claude -p hi
+stdout '^claude args: --model aws/claude-opus-5-5\[1m\] -p hi$'
+stdout '^ANTHROPIC_DEFAULT_OPUS_MODEL=aws/claude-opus-latest\[1m\]$'
+stdout '^ANTHROPIC_DEFAULT_SONNET_MODEL=gcp/claude-sonnet-4-5$'
+! stdout 'ANTHROPIC_DEFAULT_HAIKU_MODEL'
+stdout '^ANTHROPIC_MODEL=opus$'
+stdout '^ANTHROPIC_BASE_URL=http://127.0.0.1:\d+/$'
+stdout '^ANTHROPIC_AUTH_TOKEN=sk-test$'
+stdout '^CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1$'
+! stdout 'DISABLE_AUTO_COMPACTION'
+
+# An explicit --model wins and everything is passed through unchanged.
+exec llmenu claude --model sonnet -c --resume
+stdout '^claude args: --model sonnet -c --resume$'
+
+# --help belongs to claude, not to llmenu (the default model is still added).
+exec llmenu claude --help
+stdout '^claude args: --model aws/claude-opus-5-5\[1m\] --help$'
+
+# Settings from the config file.
+exec llmenu config set claude.default sonnet
+exec llmenu config set claude.auto_compact false
+exec llmenu config set claude.haiku azure/gpt-6-sol
+exec llmenu config set claude.env.FOO bar
+exec llmenu claude
+stdout '^claude args: --model gcp/claude-sonnet-4-5$'
+stdout '^ANTHROPIC_MODEL=sonnet$'
+stdout '^ANTHROPIC_DEFAULT_HAIKU_MODEL=azure/gpt-6-sol\[1m\]$'
+stdout '^DISABLE_AUTO_COMPACTION=1$'
+# An own variable is added to the default ones.
+stdout '^FOO=bar$'
+stdout '^CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1$'
+# A model name as default is passed with [1m].
+exec llmenu config set claude.default aws/claude-opus-5-5
+exec llmenu claude
+stdout '^ANTHROPIC_MODEL=aws/claude-opus-5-5\[1m\]$'
+
+# The tool's exit code is passed through (checked exactly in Go tests).
+env FAKE_EXIT=7
+! exec llmenu claude --model x
+
+# run is the long form.
+env FAKE_EXIT=
+exec llmenu run claude --model x
+stdout '^claude args: --model x$'
