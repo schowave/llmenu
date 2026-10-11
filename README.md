@@ -75,6 +75,18 @@ that model — no environment variables to export, no config files to edit.
 
 Or download an archive from the [releases page](https://github.com/schowave/llmenu/releases).
 
+**Updating** to the [latest release](https://github.com/schowave/llmenu/releases/latest):
+
+| Platform | Update | Uninstall |
+|---|---|---|
+| Homebrew | `brew upgrade --cask llmenu` | `brew uninstall --cask llmenu` |
+| Scoop | `scoop update` (refreshes the bucket), then `scoop update llmenu` | `scoop uninstall llmenu` |
+| Go | `go install github.com/schowave/llmenu/cmd/llmenu@latest` | delete `$(go env GOPATH)/bin/llmenu` |
+
+`llmenu --version` shows the installed version. Your settings, keys and
+benchmark cache survive updates; uninstalling leaves them in place too
+(`llmenu config path` shows where they are).
+
 **Shell completion** (Tab completes commands, settings, key names and model
 names) is set up automatically by Homebrew. With Scoop or `go install`, set it
 up once:
