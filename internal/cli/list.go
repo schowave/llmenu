@@ -17,10 +17,14 @@ func newListCmd() *cobra.Command {
 	var sortBy string
 	cmd := &cobra.Command{
 		Use:   "list",
-		Short: "Print models as a table, without the menu",
-		Long: `Shows the gateway's chat models, sorted by benchmark (bench.metric) or,
-with --sort price, by price. Aliases and duplicates (the same model from
-several providers) are hidden; --all shows them.`,
+		Short: "Show the gateway's models as a table",
+		Long: `Shows the gateway's chat models with context size, prices per million tokens
+and, after llmenu bench, benchmark scores; sorted by the benchmark in
+bench.metric, or by price. Aliases and the same model from several providers
+are folded together; --all shows them.`,
+		Example: `  llmenu list
+  llmenu list --sort price --all
+  llmenu list --json`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if sortBy != "bench" && sortBy != "price" {

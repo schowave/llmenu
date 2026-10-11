@@ -22,7 +22,7 @@ func init() { register(codex{}) }
 type codex struct{}
 
 func (codex) Name() string        { return "codex" }
-func (codex) Description() string { return "launch Codex CLI against the gateway" }
+func (codex) Description() string { return "Pick a model and start Codex CLI" }
 func (codex) Binary() string      { return "codex" }
 
 func (codex) HasModelArg(args []string) bool { return hasFlag(args, "-m", "--model") }

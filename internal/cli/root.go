@@ -48,12 +48,37 @@ func Execute() int {
 	}
 }
 
+const (
+	groupStart    = "start"
+	groupLaunch   = "launch"
+	groupModels   = "models"
+	groupSync     = "sync"
+	groupSettings = "settings"
+	groupOther    = "other"
+)
+
 func newRootCmd() *cobra.Command {
 	root := &cobra.Command{
 		Use:   "llmenu",
-		Short: "Pick models from a LiteLLM gateway and wire them into coding tools",
-		Long: `Without a subcommand, llmenu opens the menu and prints the selected
-model name, e.g. for: strix --model "$(llmenu)"`,
+		Short: "Pick LLMs from a LiteLLM gateway and use them in coding tools",
+		Long: `llmenu reads the models of your LiteLLM gateway with context size, prices
+and benchmark scores, lets you pick one in a menu and starts your coding tool
+with it, or writes the model list into the tool's configuration.
+
+Without a command, llmenu just opens the menu and prints the chosen name:
+  strix --model "$(llmenu)"
+
+Getting started:
+  llmenu setup     set up gateway, key and defaults (repeatable)
+  llmenu claude    pick a model and start Claude Code
+
+Supported tools:
+  Claude Code   llmenu claude starts it with the chosen model
+  Codex CLI     llmenu codex starts it with the chosen model
+  opencode      llmenu sync writes the models into its config,
+                llmenu opencode starts it with the gateway key
+  pi            llmenu sync writes the models into its config;
+                pi then picks the model and gets the key from llmenu`,
 		Version:       buildVersion(),
 		Args:          cobra.NoArgs,
 		SilenceUsage:  true,
@@ -74,6 +99,17 @@ model name, e.g. for: strix --model "$(llmenu)"`,
 			return nil
 		},
 	}
+	// Group the help output by task instead of one alphabetical list.
+	root.AddGroup(
+		&cobra.Group{ID: groupStart, Title: "Getting started:"},
+		&cobra.Group{ID: groupLaunch, Title: "Pick a model and start a tool:"},
+		&cobra.Group{ID: groupModels, Title: "Models and benchmarks:"},
+		&cobra.Group{ID: groupSync, Title: "Write models into tool configs:"},
+		&cobra.Group{ID: groupSettings, Title: "Settings and keys:"},
+		&cobra.Group{ID: groupOther, Title: "Other:"},
+	)
+	root.SetHelpCommandGroupID(groupOther)
+	root.SetCompletionCommandGroupID(groupOther)
 	root.AddCommand(
 		newRunCmd(),
 		newSyncCmd(),
@@ -90,5 +126,25 @@ model name, e.g. for: strix --model "$(llmenu)"`,
 			root.AddCommand(newLaunchCmd(l))
 		}
 	}
+	for _, c := range root.Commands() {
+		if g, ok := commandGroups[c.Name()]; ok {
+			c.GroupID = g
+		} else if c.GroupID == "" {
+			c.GroupID = groupLaunch // launch shorthands from the registry
+		}
+	}
 	return root
+}
+
+var commandGroups = map[string]string{
+	"setup":      groupStart,
+	"run":        groupLaunch,
+	"list":       groupModels,
+	"bench":      groupModels,
+	"sync":       groupSync,
+	"config":     groupSettings,
+	"secrets":    groupSettings,
+	"targets":    groupSettings,
+	"help":       groupOther,
+	"completion": groupOther,
 }

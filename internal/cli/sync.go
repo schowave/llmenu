@@ -16,9 +16,14 @@ func newSyncCmd() *cobra.Command {
 	var dryRun bool
 	cmd := &cobra.Command{
 		Use:   "sync [target…]",
-		Short: "Write the gateway's model list into the targets' config",
-		Long: `Without arguments, the active targets from sync.targets apply (llmenu setup sync).
-Only llmenu's own provider entry is changed; the old file is kept as *.bak.`,
+		Short: "Write the gateway's models into pi and opencode",
+		Long: `Writes all chat models of the gateway, with limits and prices, into the
+configuration of the given tools, or of those chosen in llmenu setup sync.
+Only llmenu's own provider entry is changed; comments and other providers
+stay, and the previous file is kept as *.bak.`,
+		Example: `  llmenu sync --dry-run
+  llmenu sync
+  llmenu sync pi`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			env, err := loadEnv(cmd.Context())
 			if err != nil {

@@ -18,12 +18,17 @@ import (
 func newConfigCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "config",
-		Short: "Read and set individual settings without a dialog",
+		Short: "Show and change single settings",
+		Long: `Settings live in config.toml (llmenu config path). llmenu config list shows
+every key with its current value and where it comes from.`,
+		Example: `  llmenu config set claude.default sonnet
+  llmenu config set bench.metric tb4
+  llmenu config unset claude.opus`,
 	}
 	cmd.AddCommand(
 		&cobra.Command{
 			Use:   "list",
-			Short: "all settings with their source; keys only as set/missing",
+			Short: "List all settings with value and source",
 			Args:  cobra.NoArgs,
 			RunE: func(cmd *cobra.Command, _ []string) error {
 				cfg, err := config.Load()
@@ -51,7 +56,7 @@ func newConfigCmd() *cobra.Command {
 		},
 		&cobra.Command{
 			Use:   "get <key>",
-			Short: "print the effective value",
+			Short: "Print the value of a setting",
 			Args:  cobra.ExactArgs(1),
 			RunE: func(cmd *cobra.Command, args []string) error {
 				cfg, err := config.Load()
@@ -68,19 +73,19 @@ func newConfigCmd() *cobra.Command {
 		},
 		&cobra.Command{
 			Use:   "set <key> <value>",
-			Short: "set a value, e.g. llmenu config set claude.default sonnet",
+			Short: "Change a setting",
 			Args:  cobra.ExactArgs(2),
 			RunE:  func(cmd *cobra.Command, args []string) error { return setConfig(args[0], args[1]) },
 		},
 		&cobra.Command{
 			Use:   "unset <key>",
-			Short: "remove an entry; the default applies again",
+			Short: "Remove a setting so the default applies again",
 			Args:  cobra.ExactArgs(1),
 			RunE:  func(cmd *cobra.Command, args []string) error { return setConfig(args[0], "") },
 		},
 		&cobra.Command{
 			Use:   "path",
-			Short: "path of the config file",
+			Short: "Print the path of config.toml",
 			Args:  cobra.NoArgs,
 			RunE: func(cmd *cobra.Command, _ []string) error {
 				p, err := config.Path()
@@ -122,13 +127,15 @@ func orDash(s string) string {
 func newSecretsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "secrets",
-		Short: "Manage API keys in the operating system's keyring",
-		Long:  "Known keys: gateway, artificialanalysis.",
+		Short: "Store and remove API keys in the OS keyring",
+		Long: `Known keys: gateway (the LiteLLM gateway) and artificialanalysis (benchmarks).
+Keys are read hidden from the terminal or from stdin, never from arguments,
+so they do not end up in the shell history.`,
 	}
 	cmd.AddCommand(
 		&cobra.Command{
 			Use:   "set <name>",
-			Short: "store a key; prompted for hidden or read from stdin",
+			Short: "Store a key (asked for hidden, or read from stdin)",
 			Args:  cobra.ExactArgs(1),
 			RunE: func(cmd *cobra.Command, args []string) error {
 				value, err := readSecret("Key for " + args[0] + ": ")
@@ -140,7 +147,7 @@ func newSecretsCmd() *cobra.Command {
 		},
 		&cobra.Command{
 			Use:   "get <name>",
-			Short: "print a key, e.g. for pi: !llmenu secrets get gateway",
+			Short: "Print a key (pi uses: !llmenu secrets get gateway)",
 			Args:  cobra.ExactArgs(1),
 			RunE: func(cmd *cobra.Command, args []string) error {
 				v, _, err := secrets.Get(args[0])
@@ -156,7 +163,7 @@ func newSecretsCmd() *cobra.Command {
 		},
 		&cobra.Command{
 			Use:   "delete <name>",
-			Short: "delete a key",
+			Short: "Delete a key",
 			Args:  cobra.ExactArgs(1),
 			RunE:  func(cmd *cobra.Command, args []string) error { return secrets.Delete(args[0]) },
 		},

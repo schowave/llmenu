@@ -21,9 +21,11 @@ import (
 func newRunCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "run <target> [args…]",
-		Short: "Launch a tool with the gateway and a model",
-		Long: `Everything after the target name is passed to the tool unchanged, including --help.
-If the arguments already contain a model, no menu opens.`,
+		Short: "Start a target by name (long form of llmenu claude, …)",
+		Long: `Starts the named target, e.g. claude, codex or opencode (see llmenu targets).
+Everything after the target name is passed to the tool unchanged, including
+--help. If the arguments already select a model, no menu opens.`,
+		Example:            `  llmenu run claude --model sonnet`,
 		DisableFlagParsing: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 || args[0] == "-h" || args[0] == "--help" {
@@ -45,12 +47,36 @@ If the arguments already contain a model, no menu opens.`,
 func newLaunchCmd(l targets.Launcher) *cobra.Command {
 	return &cobra.Command{
 		Use:                l.Name() + " [args…]",
-		Short:              l.Description() + " (shorthand for run " + l.Name() + ")",
+		Short:              l.Description(),
+		Long:               launchHelp(l),
+		Example:            launchExamples[l.Name()],
 		DisableFlagParsing: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return launch(cmd.Context(), l, args)
 		},
 	}
+}
+
+func launchHelp(l targets.Launcher) string {
+	name := l.Name()
+	help := l.Description() + ".\n\nAll arguments are passed to " + name + " unchanged, including --help.\n"
+	if _, own := l.(targets.OwnSelection); own {
+		help += name + " picks the model itself, so no menu opens.\n"
+	} else {
+		help += "Without a model argument the menu opens with the cursor on your default;\nwithout a terminal the default is used directly.\n"
+	}
+	return help + "Same as: llmenu run " + name + " …"
+}
+
+var launchExamples = map[string]string{
+	"claude": `  llmenu claude
+  llmenu claude --model sonnet -c
+  llmenu claude -p "explain this repository"`,
+	"codex": `  llmenu codex
+  llmenu codex exec "fix the failing test"
+  llmenu codex -m azure/gpt-6-sol`,
+	"opencode": `  llmenu opencode
+  llmenu opencode run "explain this repository"`,
 }
 
 func launch(ctx context.Context, l targets.Launcher, args []string) error {

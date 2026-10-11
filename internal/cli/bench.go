@@ -29,11 +29,14 @@ is free:
 func newBenchCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "bench",
-		Short: "Fetch benchmarks from Artificial Analysis and match them to the models",
-		Long: `Fetches Intelligence Index, Coding Index and Terminal-Bench v4 and matches them
-to the gateway's models. Variants (-high, -max, …) count as one model
-with the best score. Fixed mappings: llmenu config set bench.map.<model> <slug>.
-Key: llmenu setup benchmarks or LLMENU_AA_API_KEY.`,
+		Short: "Fetch benchmark scores from Artificial Analysis",
+		Long: `Fetches Intelligence Index, Terminal-Bench and Coding Index from Artificial
+Analysis and matches them to the gateway's models; the menu and llmenu list
+then show and sort by them. Variants such as -high or -max count as one model
+with its best score.
+
+Needs a free API key (llmenu setup benchmarks). If a model is not matched,
+map it by hand: llmenu config set bench.map.<model> <slug>`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			key, _, err := secrets.Get(secrets.ArtificialAnalysis)

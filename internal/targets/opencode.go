@@ -22,7 +22,7 @@ type opencode struct {
 
 func (opencode) Name() string { return "opencode" }
 func (opencode) Description() string {
-	return "write models into the opencode configuration; launch with key"
+	return "Start opencode with the gateway key"
 }
 func (opencode) Binary() string { return "opencode" }
 

@@ -20,7 +20,7 @@ func init() { register(claude{}) }
 type claude struct{}
 
 func (claude) Name() string        { return "claude" }
-func (claude) Description() string { return "launch Claude Code against the gateway" }
+func (claude) Description() string { return "Pick a model and start Claude Code" }
 func (claude) Binary() string      { return "claude" }
 
 func (claude) HasModelArg(args []string) bool { return hasFlag(args, "--model") }

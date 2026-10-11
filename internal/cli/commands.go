@@ -12,7 +12,7 @@ import (
 func newTargetsCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "targets",
-		Short: "Targets with capabilities, install status and config path",
+		Short: "Show supported tools, install status and config files",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			w := tabwriter.NewWriter(cmd.OutOrStdout(), 0, 0, 2, ' ', 0)

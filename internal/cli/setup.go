@@ -24,11 +24,20 @@ var sections = []string{"gateway", "claude", "benchmarks", "sync"}
 func newSetupCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "setup [" + strings.Join(sections, "|") + "]",
-		Short: "Prompt for settings; repeatable, Enter keeps the current value",
-		Long: `Without a section, all sections are walked through. Defaults are the current
-values, otherwise gateway suggestions. Single values without a dialog: llmenu config set.
-LLMENU_ACCESSIBLE=1 asks line by line instead of drawing forms, for screen
-readers; it also reads the answers from stdin without a terminal.`,
+		Short: "Set up gateway, key, defaults and sync targets",
+		Long: `Walks through all sections, or only the given one:
+  gateway     URL and key of the LiteLLM gateway (checked right away)
+  claude      models for Claude Code's opus/sonnet/haiku slots, default, compaction
+  benchmarks  free Artificial Analysis key for llmenu bench
+  sync        which tools llmenu sync writes to
+
+Run it again any time: Enter keeps the current value. To change a single
+value without the dialog, use llmenu config set.
+
+LLMENU_ACCESSIBLE=1 asks line by line instead of drawing forms, e.g. for
+screen readers; the answers can then also come from stdin.`,
+		Example: `  llmenu setup
+  llmenu setup claude`,
 		Args:      cobra.MatchAll(cobra.MaximumNArgs(1), cobra.OnlyValidArgs),
 		ValidArgs: sections,
 		RunE: func(cmd *cobra.Command, args []string) error {

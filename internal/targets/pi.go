@@ -22,7 +22,7 @@ type pi struct {
 }
 
 func (pi) Name() string        { return "pi" }
-func (pi) Description() string { return "write models into ~/.pi/agent/models.json" }
+func (pi) Description() string { return "Models are written into ~/.pi/agent/models.json by sync" }
 func (pi) Binary() string      { return "pi" }
 
 func (p pi) ConfigPath() (string, error) {
