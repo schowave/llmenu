@@ -1,0 +1,75 @@
+# setup tools in accessible mode: numbers toggle, 0 confirms. On PATH are the
+# stand-ins for claude, codex and opencode; pi is not installed.
+env LLMENU_ACCESSIBLE=1
+
+# Without a choice, the installed tools are preselected.
+stdin confirm.txt
+exec llmenu setup tools
+stderr '^1\. ✓ Claude Code'
+stderr '^4\.   pi .* - not installed$'
+grep '^tools = \[.claude., .codex., .opencode.\]$' config.toml
+
+# claude and codex off, pi on.
+stdin toggle.txt
+exec llmenu setup tools
+grep '^tools = \[.opencode., .pi.\]$' config.toml
+
+# The choice wins over installed tools; Enter keeps it.
+stdin confirm.txt
+exec llmenu setup tools
+stderr '^1\.   Claude Code'
+stderr '^4\. ✓ pi'
+! stderr 'Saved:'
+
+# Launchers of unused tools disappear from the help but keep working.
+exec llmenu --help
+stdout '^  opencode '
+! stdout '^  claude '
+! stdout '^  codex '
+exec llmenu claude --model x
+stdout '^claude args: --model x$'
+
+# The claude section is skipped in a full setup when Claude Code is not used.
+expandenv full.txt
+stdin full.txt
+exec llmenu setup
+! stderr 'Model for opus'
+
+# Deselecting all is stored as a deliberate "none" ...
+stdin toggle-off.txt
+exec llmenu setup tools
+grep '^tools = \[\]$' config.toml
+! exec llmenu sync
+stderr 'none of your tools keeps a model list'
+
+# ... and kept by the next setup instead of preselecting installed tools.
+stdin confirm.txt
+exec llmenu setup tools
+! stderr '✓'
+! stderr 'Saved:'
+
+# A config file that cannot be written is reported.
+[!windows] mkdir ro
+[!windows] chmod 0500 ro
+[!windows] env LLMENU_CONFIG=$WORK/ro/config.toml
+[!windows] stdin confirm.txt
+[!windows] ! exec llmenu setup tools
+[!windows] stderr 'permission denied'
+
+-- confirm.txt --
+0
+-- toggle.txt --
+1
+2
+4
+0
+-- toggle-off.txt --
+3
+4
+0
+-- full.txt --
+$LLMENU_BASE_URL
+
+
+0
+

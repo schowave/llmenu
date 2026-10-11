@@ -21,13 +21,13 @@ grep '^opus = .aws/claude-opus-5-5.$' config.toml
 ! grep '^sonnet' config.toml
 grep '^haiku = .azure/gpt-6-sol.$' config.toml
 grep '^auto_compact = false$' config.toml
-grep '^targets = \[.opencode., .pi.\]$' config.toml
+grep '^tools = \[.claude., .opencode., .pi.\]$' config.toml
 exec llmenu secrets get gateway
 stdout '^sk-test$'
 exec llmenu secrets get artificialanalysis
 stdout '^aa-test$'
 
-# Repeated with Enter only (0 confirms the sync selection): unchanged.
+# Repeated with Enter only (0 confirms the tool selection): unchanged.
 cp config.toml before.toml
 stdin enter.txt
 exec llmenu setup
@@ -46,24 +46,25 @@ $GW
 sk-test
 team-gw
 2
+4
+0
+2
 
 9
 2
 n
 aa-test
-2
-0
 -- enter.txt --
 
 
 
-
-
-
-
-
-
 0
+
+
+
+
+
+
 -- gateway-only.txt --
 
 

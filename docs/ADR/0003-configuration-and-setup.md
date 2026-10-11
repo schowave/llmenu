@@ -76,9 +76,12 @@ for CI and for trying things out. For tests and the development sandbox
 stores keys in a plain-text file instead of the OS keyring and is not meant
 for real keys.
 
-`sync.targets` distinguishes "never configured" (the setup preselects the
-installed tools) from a deliberate empty selection, which is written as
-`targets = []` and kept on the next setup.
+`tools` lists the coding tools in use (claude, codex, opencode, pi). The
+setup only asks the claude and codex sections for tools in use, `llmenu sync`
+without arguments writes into the tools in use that keep a model list, and
+the help hides the launch commands of tools not in use. `tools` distinguishes
+"never configured" (the installed tools apply) from a deliberate empty
+selection, which is written as `tools = []` and kept on the next setup.
 
 `llmenu` writes the file. Comments added by hand are lost the next time it
 is written. A comment at the top of the file points this out.
@@ -86,6 +89,8 @@ is written. A comment at the top of the file points this out.
 ### Schema
 
 ```toml
+tools = ["claude", "pi"]            # coding tools in use
+
 [gateway]
 url  = "https://llm.example.com/"   # required
 name = "example"                    # provider name in other tools' configurations (sync)
@@ -103,8 +108,6 @@ CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC = "1"
 [codex]
 default = "…"                       # optional; default model for llmenu codex (ADR-0002)
 
-[sync]
-targets = ["pi", "opencode"]        # enabled sync targets
 ```
 
 The only built-in defaults are those that apply to every gateway:
@@ -150,7 +153,7 @@ are removed and the first remaining part is taken. So
 | Command | Purpose |
 |---|---|
 | `llmenu setup` | go through all sections; defaults are the current values, otherwise the derived suggestions |
-| `llmenu setup <section>` | only `gateway`, `claude`, `benchmarks` or `sync` |
+| `llmenu setup <section>` | only `gateway`, `tools`, `claude`, `codex` or `benchmarks` |
 | `llmenu config list` | all values and where they come from (file, environment, default); keys only shown as "set" |
 | `llmenu config get <key>` | single value, e.g. `claude.default` |
 | `llmenu config set <key> <value>` | change a single value without a dialog |

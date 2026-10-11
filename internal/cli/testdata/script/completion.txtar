@@ -1,0 +1,71 @@
+# Shell completion (cobra's hidden __complete command). The last line is the
+# directive: 4 = no file completion, 6 = also no trailing space, 0 = default.
+
+# Model names come from the cache that every gateway command refreshes.
+exec llmenu __complete claude --model ''
+! stdout '/'
+exec llmenu list
+exec llmenu __complete claude --model ''
+stdout '^aws/claude-opus-5-5$'
+stdout '^:4$'
+exec llmenu __complete claude --model=gcp
+stdout '^--model=gcp/claude-sonnet-4-5$'
+exec llmenu __complete codex -m azure
+stdout '^azure/gpt-6-sol$'
+exec llmenu config set gateway.name testgw
+exec llmenu __complete opencode -m testgw/azure
+stdout '^testgw/azure/gpt-6-sol$'
+
+# Other arguments go to the tool: the shell completes files.
+exec llmenu __complete claude -c ''
+stdout '^:0$'
+
+exec llmenu __complete run ''
+stdout '^claude$'
+! stdout '^pi$'
+exec llmenu __complete run codex -m azure
+stdout '^azure/gpt-6-sol$'
+
+# config keys and values that fit the key.
+exec llmenu __complete config set ''
+stdout '^claude.default$'
+stdout '^tools$'
+exec llmenu __complete config set claude.e
+stdout '^claude.env.$'
+stdout '^:6$'
+exec llmenu __complete config set bench.map.gcp
+stdout '^bench.map.gcp/claude-sonnet-4-5$'
+exec llmenu __complete config set claude.default ''
+stdout '^opus$'
+stdout '^aws/claude-opus-5-5$'
+exec llmenu __complete config set codex.default azure
+stdout '^azure/gpt-6-sol$'
+exec llmenu __complete config set bench.metric ''
+stdout '^tb4$'
+exec llmenu __complete config set claude.auto_compact ''
+stdout '^false$'
+exec llmenu __complete config set tools ''
+stdout '^none$'
+stdout '^pi$'
+exec llmenu __complete config set gateway.url ''
+! stdout 'http'
+exec llmenu __complete config set tools pi ''
+! stdout 'pi'
+exec llmenu __complete config unset claude.o
+stdout '^claude.opus$'
+exec llmenu __complete config get claude.opus ''
+! stdout 'claude'
+
+# Key names and sync targets, without repeating given ones.
+exec llmenu __complete secrets delete ''
+stdout '^gateway$'
+exec llmenu __complete secrets delete gateway ''
+! stdout 'gateway'
+exec llmenu __complete sync pi ''
+stdout '^opencode$'
+! stdout '^pi$'
+exec llmenu __complete setup ''
+stdout '^tools$'
+
+exec llmenu completion zsh
+stdout 'compdef'

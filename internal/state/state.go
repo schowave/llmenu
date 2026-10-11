@@ -3,6 +3,7 @@
 package state
 
 import (
+	"bytes"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -71,4 +72,54 @@ func (s State) Save() error {
 		return err
 	}
 	return os.Rename(tmp, p)
+}
+
+// modelsPath is next to state.json: the gateway's model names, cached for
+// shell completion so pressing Tab never waits for the network.
+func modelsPath() (string, error) {
+	p, err := Path()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(filepath.Dir(p), "models.json"), nil
+}
+
+// SaveModels caches the model names; only written when they changed.
+func SaveModels(names []string) error {
+	p, err := modelsPath()
+	if err != nil {
+		return err
+	}
+	b, err := json.Marshal(names)
+	if err != nil {
+		return err
+	}
+	if old, err := os.ReadFile(p); err == nil && bytes.Equal(old, b) {
+		return nil
+	}
+	if err := os.MkdirAll(filepath.Dir(p), 0o700); err != nil {
+		return err
+	}
+	tmp := p + ".tmp"
+	if err := os.WriteFile(tmp, b, 0o600); err != nil {
+		return err
+	}
+	return os.Rename(tmp, p)
+}
+
+// LoadModels returns the cached model names, or nil.
+func LoadModels() []string {
+	p, err := modelsPath()
+	if err != nil {
+		return nil
+	}
+	b, err := os.ReadFile(p)
+	if err != nil {
+		return nil
+	}
+	var names []string
+	if json.Unmarshal(b, &names) != nil {
+		return nil
+	}
+	return names
 }

@@ -19,17 +19,20 @@ import (
 	"github.com/schowave/llmenu/internal/targets"
 )
 
-var sections = []string{"gateway", "claude", "benchmarks", "sync"}
+var sections = []string{"gateway", "tools", "claude", "codex", "benchmarks"}
 
 func newSetupCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "setup [" + strings.Join(sections, "|") + "]",
-		Short: "Set up gateway, key, defaults and sync targets",
+		Short: "Set up gateway, key, your coding tools and their defaults",
 		Long: `Walks through all sections, or only the given one:
   gateway     URL and key of the LiteLLM gateway (checked right away)
+  tools       which coding tools you use (Claude Code, Codex CLI, opencode, pi)
   claude      models for Claude Code's opus/sonnet/haiku slots, default, compaction
+  codex       default model for Codex CLI
   benchmarks  free Artificial Analysis key for llmenu bench
-  sync        which tools llmenu sync writes to
+
+The claude and codex sections are only asked for the tools you use.
 
 Run it again any time: Enter keeps the current value. To change a single
 value without the dialog, use llmenu config set.
@@ -64,28 +67,51 @@ func runSetup(ctx context.Context, args []string) error {
 	}
 
 	var models []catalog.Model
-	if only == "" || only == "gateway" {
+	gatewayModels := func() ([]catalog.Model, error) {
+		if models == nil {
+			env, err := loadEnv(ctx)
+			if err != nil {
+				return nil, err
+			}
+			models = env.Models
+		}
+		return models, nil
+	}
+	// A section runs when asked for by name, or in a full run when relevant.
+	want := func(section string, relevant bool) bool {
+		return only == section || (only == "" && relevant)
+	}
+
+	if want("gateway", true) {
 		if err := setupGateway(ctx, cfg); err != nil {
 			return err
 		}
 	}
-	if only == "" || only == "claude" {
-		env, err := loadEnv(ctx)
+	if want("tools", true) {
+		if err := setupTools(cfg); err != nil {
+			return err
+		}
+	}
+	if want("claude", toolEnabled(cfg, "claude")) {
+		m, err := gatewayModels()
 		if err != nil {
 			return err
 		}
-		models = env.Models
-		if err := setupClaude(cfg, models); err != nil {
+		if err := setupClaude(cfg, m); err != nil {
 			return err
 		}
 	}
-	if only == "" || only == "benchmarks" {
+	if want("codex", toolEnabled(cfg, "codex")) {
+		m, err := gatewayModels()
+		if err != nil {
+			return err
+		}
+		if err := setupCodex(cfg, m); err != nil {
+			return err
+		}
+	}
+	if want("benchmarks", true) {
 		if err := setupBenchmarks(); err != nil {
-			return err
-		}
-	}
-	if only == "" || only == "sync" {
-		if err := setupSync(cfg); err != nil {
 			return err
 		}
 	}
@@ -311,51 +337,4 @@ func setupBenchmarks() error {
 		return nil
 	}
 	return secrets.Set(secrets.ArtificialAnalysis, key)
-}
-
-func setupSync(cfg *config.Config) error {
-	var opts []huh.Option[string]
-	for _, t := range syncTargets() {
-		label := t.Name()
-		if _, installed := targets.Installed(t); !installed {
-			label += "  (not installed)"
-		}
-		opts = append(opts, huh.NewOption(label, t.Name()))
-	}
-	selected := syncPreselection(cfg, func(t targets.Target) bool { _, ok := targets.Installed(t); return ok })
-	if err := runPrompt(huh.NewMultiSelect[string]().Title("Sync targets").
-		Description("`llmenu sync` writes the gateway's models into these tools. Space selects.").
-		Options(opts...).Value(&selected)); err != nil {
-		return err
-	}
-	if selected == nil {
-		selected = []string{} // deliberately none, not "unset"
-	}
-	cfg.Sync.Set(selected)
-	return save(cfg)
-}
-
-func syncTargets() []targets.Target {
-	var out []targets.Target
-	for _, t := range targets.All() {
-		if _, ok := t.(targets.Syncer); ok {
-			out = append(out, t)
-		}
-	}
-	return out
-}
-
-// syncPreselection is what the sync section starts with: the configured
-// targets, or all installed sync targets if nothing is configured yet.
-func syncPreselection(cfg *config.Config, installed func(targets.Target) bool) []string {
-	if cfg.Sync.Configured() {
-		return cfg.Sync.List()
-	}
-	var out []string
-	for _, t := range syncTargets() {
-		if installed(t) {
-			out = append(out, t.Name())
-		}
-	}
-	return out
 }

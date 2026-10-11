@@ -6,10 +6,12 @@ import (
 	"fmt"
 	"os"
 	"runtime/debug"
+	"slices"
 	"strings"
 
 	"github.com/spf13/cobra"
 
+	"github.com/schowave/llmenu/internal/config"
 	"github.com/schowave/llmenu/internal/targets"
 )
 
@@ -133,11 +135,18 @@ Report a problem:      https://github.com/schowave/llmenu/issues
 			root.AddCommand(newLaunchCmd(l))
 		}
 	}
+	// Launch shorthands for tools you do not use are hidden from the help
+	// (they keep working). Without a config, nothing is hidden.
+	var used []string
+	if cfg, err := config.Load(); err == nil && cfg.ToolsConfigured() {
+		used = cfg.ToolList()
+	}
 	for _, c := range root.Commands() {
 		if g, ok := commandGroups[c.Name()]; ok {
 			c.GroupID = g
 		} else if c.GroupID == "" {
 			c.GroupID = groupLaunch // launch shorthands from the registry
+			c.Hidden = used != nil && !slices.Contains(used, c.Name())
 		}
 	}
 	return root

@@ -15,10 +15,11 @@ import (
 func newSyncCmd() *cobra.Command {
 	var dryRun bool
 	cmd := &cobra.Command{
-		Use:   "sync [target…]",
-		Short: "Write the gateway's models into pi and opencode",
+		Use:               "sync [target…]",
+		ValidArgsFunction: completeArgs(func() []string { return targetNames(isSyncer) }),
+		Short:             "Write the gateway's models into pi and opencode",
 		Long: `Writes all chat models of the gateway, with limits and prices, into the
-configuration of the given tools, or of those chosen in llmenu setup sync.
+configuration of the given tools, or of your tools (llmenu setup tools).
 Only llmenu's own provider entry is changed; comments and other providers
 stay, and the previous file is kept as *.bak.`,
 		Example: `  llmenu sync --dry-run
@@ -31,10 +32,16 @@ stay, and the previous file is kept as *.bak.`,
 			}
 			names := args
 			if len(names) == 0 {
-				names = env.Config.Sync.List()
+				for _, t := range enabledTools(env.Config) {
+					if tg, ok := targets.Get(t); ok {
+						if _, isSyncer := tg.(targets.Syncer); isSyncer {
+							names = append(names, t)
+						}
+					}
+				}
 			}
 			if len(names) == 0 {
-				return errors.New("no sync targets active: llmenu setup sync, or name a target, e.g. llmenu sync pi")
+				return errors.New("none of your tools keeps a model list: llmenu setup tools, or name one, e.g. llmenu sync pi")
 			}
 			warnKeySource()
 

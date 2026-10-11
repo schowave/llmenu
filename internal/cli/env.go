@@ -57,6 +57,7 @@ func loadEnv(ctx context.Context) (targets.Env, error) {
 		fmt.Fprintln(os.Stderr, "llmenu: cannot read benchmarks:", err)
 	}
 	st.Apply(env.Models)
+	cacheModelNames(env.Models)
 	return env, nil
 }
 

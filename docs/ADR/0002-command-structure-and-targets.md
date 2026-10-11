@@ -77,7 +77,7 @@ compiled in for now.
 | `llmenu` | Open the menu, print the selected model name to stdout. This way any tool without its own target can be integrated: `strix --model "$(llmenu)"` | `_gateway-pick` |
 | `llmenu run <target> [args…]` | Launch the tool with gateway and model (only targets with launch) | `claude-api`, `claude-pick` |
 | `llmenu claude [args…]`, `llmenu codex [args…]` | Shorthands for `run`, one per launch target | |
-| `llmenu sync [target…] [--dry-run]` | Write the model list into the targets' configuration; without arguments, all sync targets enabled in the configuration. `--dry-run` shows the diff | Configuration part of `pi-pick` |
+| `llmenu sync [target…] [--dry-run]` | Write the model list into the targets' configuration; without arguments, the tools in use (setting `tools`, ADR-0003) that keep a model list. `--dry-run` shows the diff | Configuration part of `pi-pick` |
 | `llmenu bench` | Refresh benchmarks. No automatic `sync`: pi and opencode do not store benchmark values | `claude-benchmark` |
 | `llmenu list [--json]` | Table without menu | new |
 | `llmenu secrets set\|get\|delete <name>` | Keys in the OS keychain | `creds` |

@@ -21,11 +21,14 @@ import (
 // Config is the content of config.toml. Empty fields mean "not set"; the
 // accessor methods supply the defaults.
 type Config struct {
-	Gateway Gateway `toml:"gateway,omitempty"`
-	Claude  Claude  `toml:"claude,omitempty"`
-	Sync    Sync    `toml:"sync,omitempty"`
-	Bench   Bench   `toml:"bench,omitempty"`
-	Codex   Codex   `toml:"codex,omitempty"`
+	// Tools are the coding tools in use (claude, codex, opencode, pi). nil:
+	// never chosen, the installed tools apply; an empty list is a deliberate
+	// "none" and is written as `tools = []`.
+	Tools   *[]string `toml:"tools,omitempty"`
+	Gateway Gateway   `toml:"gateway,omitempty"`
+	Claude  Claude    `toml:"claude,omitempty"`
+	Bench   Bench     `toml:"bench,omitempty"`
+	Codex   Codex     `toml:"codex,omitempty"`
 }
 
 type Codex struct {
@@ -49,31 +52,25 @@ type Claude struct {
 	Env         map[string]string `toml:"env,omitempty"` // nil: DefaultClaudeEnv
 }
 
-type Sync struct {
-	// nil: never configured (setup preselects installed tools); an empty
-	// list is a deliberate "no targets" and is written as `targets = []`.
-	Targets *[]string `toml:"targets,omitempty"`
-}
-
-// List returns the configured targets.
-func (s Sync) List() []string {
-	if s.Targets == nil {
+// ToolList returns the chosen tools.
+func (c *Config) ToolList() []string {
+	if c.Tools == nil {
 		return nil
 	}
-	return *s.Targets
+	return *c.Tools
 }
 
-// Configured reports whether targets were ever chosen, even none.
-func (s Sync) Configured() bool { return s.Targets != nil }
+// ToolsConfigured reports whether tools were ever chosen, even none.
+func (c *Config) ToolsConfigured() bool { return c.Tools != nil }
 
-// Set stores the targets; an empty list means "none", nil means "unset".
-func (s *Sync) Set(targets []string) {
-	if targets == nil {
-		s.Targets = nil
+// SetTools stores the tools; an empty list means "none", nil means "unset".
+func (c *Config) SetTools(tools []string) {
+	if tools == nil {
+		c.Tools = nil
 		return
 	}
-	list := append([]string{}, targets...)
-	s.Targets = &list
+	list := append([]string{}, tools...)
+	c.Tools = &list
 }
 
 // Metrics are the benchmarks the menu and `list` can sort by.

@@ -55,9 +55,10 @@ every key with its current value and where it comes from.`,
 			},
 		},
 		&cobra.Command{
-			Use:   "get <key>",
-			Short: "Print the value of a setting",
-			Args:  cobra.ExactArgs(1),
+			Use:               "get <key>",
+			ValidArgsFunction: completeConfigKey,
+			Short:             "Print the value of a setting",
+			Args:              cobra.ExactArgs(1),
 			RunE: func(cmd *cobra.Command, args []string) error {
 				cfg, err := config.Load()
 				if err != nil {
@@ -72,16 +73,18 @@ every key with its current value and where it comes from.`,
 			},
 		},
 		&cobra.Command{
-			Use:   "set <key> <value>",
-			Short: "Change a setting",
-			Args:  cobra.ExactArgs(2),
-			RunE:  func(cmd *cobra.Command, args []string) error { return setConfig(args[0], args[1]) },
+			Use:               "set <key> <value>",
+			ValidArgsFunction: completeConfigSet,
+			Short:             "Change a setting",
+			Args:              cobra.ExactArgs(2),
+			RunE:              func(cmd *cobra.Command, args []string) error { return setConfig(args[0], args[1]) },
 		},
 		&cobra.Command{
-			Use:   "unset <key>",
-			Short: "Remove a setting so the default applies again",
-			Args:  cobra.ExactArgs(1),
-			RunE:  func(cmd *cobra.Command, args []string) error { return setConfig(args[0], "") },
+			Use:               "unset <key>",
+			ValidArgsFunction: completeConfigKey,
+			Short:             "Remove a setting so the default applies again",
+			Args:              cobra.ExactArgs(1),
+			RunE:              func(cmd *cobra.Command, args []string) error { return setConfig(args[0], "") },
 		},
 		&cobra.Command{
 			Use:   "path",
@@ -136,9 +139,10 @@ so they do not end up in the shell history.`,
 	}
 	cmd.AddCommand(
 		&cobra.Command{
-			Use:   "set <name>",
-			Short: "Store a key (asked for hidden, or read from stdin)",
-			Args:  cobra.ExactArgs(1),
+			Use:               "set <name>",
+			ValidArgsFunction: completeFirst(secretNames),
+			Short:             "Store a key (asked for hidden, or read from stdin)",
+			Args:              cobra.ExactArgs(1),
 			RunE: func(cmd *cobra.Command, args []string) error {
 				value, err := readSecret("Key for " + args[0] + ": ")
 				if err != nil {
@@ -148,9 +152,10 @@ so they do not end up in the shell history.`,
 			},
 		},
 		&cobra.Command{
-			Use:   "get <name>",
-			Short: "Print a key (pi uses: !llmenu secrets get gateway)",
-			Args:  cobra.ExactArgs(1),
+			Use:               "get <name>",
+			ValidArgsFunction: completeFirst(secretNames),
+			Short:             "Print a key (pi uses: !llmenu secrets get gateway)",
+			Args:              cobra.ExactArgs(1),
 			RunE: func(cmd *cobra.Command, args []string) error {
 				v, _, err := secrets.Get(args[0])
 				if err != nil {
@@ -164,10 +169,11 @@ so they do not end up in the shell history.`,
 			},
 		},
 		&cobra.Command{
-			Use:   "delete <name>",
-			Short: "Delete a key",
-			Args:  cobra.ExactArgs(1),
-			RunE:  func(cmd *cobra.Command, args []string) error { return secrets.Delete(args[0]) },
+			Use:               "delete <name>",
+			ValidArgsFunction: completeFirst(secretNames),
+			Short:             "Delete a key",
+			Args:              cobra.ExactArgs(1),
+			RunE:              func(cmd *cobra.Command, args []string) error { return secrets.Delete(args[0]) },
 		},
 	)
 	return cmd

@@ -270,32 +270,24 @@ func TestApplyClaude(t *testing.T) {
 	}
 }
 
-func TestSyncPreselection(t *testing.T) {
-	installed := func(t targets.Target) bool { return t.Name() == "pi" }
-	if got := syncPreselection(&config.Config{}, installed); !slices.Equal(got, []string{"pi"}) {
-		t.Errorf("unconfigured: %v, want installed targets", got)
-	}
+func TestEnabledTools(t *testing.T) {
+	orig := installed
+	t.Cleanup(func() { installed = orig })
+	installed = func(tg targets.Target) bool { return tg.Name() == "pi" || tg.Name() == "claude" }
+
 	cfg := &config.Config{}
-	cfg.Sync.Set([]string{"opencode"})
-	if got := syncPreselection(cfg, installed); !slices.Equal(got, []string{"opencode"}) {
+	if got := enabledTools(cfg); !slices.Equal(got, []string{"claude", "pi"}) {
+		t.Errorf("unconfigured: %v, want the installed tools", got)
+	}
+	cfg.SetTools([]string{"opencode"})
+	if got := enabledTools(cfg); !slices.Equal(got, []string{"opencode"}) || toolEnabled(cfg, "claude") {
 		t.Errorf("configured: %v", got)
 	}
 	// Deliberately none stays none instead of falling back to installed tools.
-	cfg.Sync.Set([]string{})
-	if got := syncPreselection(cfg, installed); len(got) != 0 {
+	cfg.SetTools([]string{})
+	if got := enabledTools(cfg); len(got) != 0 {
 		t.Errorf("configured as none: %v", got)
 	}
-	if got := targetNames(syncTargets()); !slices.Equal(got, []string{"opencode", "pi"}) {
-		t.Errorf("sync targets %v", got)
-	}
-}
-
-func targetNames(ts []targets.Target) []string {
-	var out []string
-	for _, t := range ts {
-		out = append(out, t.Name())
-	}
-	return out
 }
 
 func TestSlotOptions(t *testing.T) {

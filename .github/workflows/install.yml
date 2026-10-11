@@ -65,6 +65,11 @@ jobs:
             echo "::error::$bin still has the quarantine attribute"; exit 1
           fi
           spctl --assess --type execute "$bin" 2>&1 || true
+      - name: Check shell completion was installed
+        run: |
+          f="$(brew --prefix)/share/zsh/site-functions/_llmenu"
+          test -s "$f" || { echo "::error::$f missing"; exit 1; }
+          grep -q compdef "$f"
       - name: Smoke test
         run: llmenu targets
       - name: Uninstall

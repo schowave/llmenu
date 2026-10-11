@@ -3,7 +3,9 @@ package state
 import (
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
+	"time"
 )
 
 func TestPath(t *testing.T) {
@@ -81,3 +83,51 @@ func TestSaveError(t *testing.T) {
 }
 
 func ptr(s string) *string { return &s }
+
+func TestModelsCache(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("LLMENU_CACHE_DIR", dir)
+	if got := LoadModels(); got != nil {
+		t.Errorf("empty cache: %v", got)
+	}
+	names := []string{"a/x", "b/y"}
+	if err := SaveModels(names); err != nil {
+		t.Fatal(err)
+	}
+	if got := LoadModels(); !slices.Equal(got, names) {
+		t.Errorf("LoadModels = %v, want %v", got, names)
+	}
+
+	// Unchanged names are not written again.
+	p := filepath.Join(dir, "models.json")
+	old := time.Now().Add(-time.Hour)
+	if err := os.Chtimes(p, old, old); err != nil {
+		t.Fatal(err)
+	}
+	if err := SaveModels(names); err != nil {
+		t.Fatal(err)
+	}
+	if fi, _ := os.Stat(p); !fi.ModTime().Equal(old) {
+		t.Error("unchanged model list rewritten")
+	}
+
+	if err := os.WriteFile(p, []byte("{broken"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if got := LoadModels(); got != nil {
+		t.Errorf("corrupt cache: %v", got)
+	}
+
+	// A cache "directory" that is a file: saving fails, loading returns nil.
+	file := filepath.Join(t.TempDir(), "file")
+	if err := os.WriteFile(file, nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("LLMENU_CACHE_DIR", file)
+	if err := SaveModels(names); err == nil {
+		t.Error("save into a file path succeeded")
+	}
+	if got := LoadModels(); got != nil {
+		t.Errorf("load from a file path: %v", got)
+	}
+}

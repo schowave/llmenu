@@ -58,8 +58,8 @@ func TestGetSet(t *testing.T) {
 	if c.Claude.AutoCompactEnabled() {
 		t.Error("auto_compact=false has no effect")
 	}
-	must(c.Set("sync.targets", "pi, opencode"))
-	check("sync.targets", "pi,opencode", "file")
+	must(c.Set("tools", "pi, opencode"))
+	check("tools", "pi,opencode", "file")
 
 	// A custom variable takes over the defaults and adds to them.
 	must(c.Set("claude.env.FOO", "bar"))
@@ -140,10 +140,10 @@ func TestDefaults(t *testing.T) {
 	}
 }
 
-func TestSyncTargetsNoneSurvivesSave(t *testing.T) {
+func TestToolsNoneSurvivesSave(t *testing.T) {
 	t.Setenv("LLMENU_CONFIG", filepath.Join(t.TempDir(), "config.toml"))
 	c := &Config{}
-	c.Sync.Set([]string{})
+	c.SetTools([]string{})
 	if _, err := c.Save(); err != nil {
 		t.Fatal(err)
 	}
@@ -151,18 +151,18 @@ func TestSyncTargetsNoneSurvivesSave(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !got.Sync.Configured() || len(got.Sync.List()) != 0 {
-		t.Errorf("deliberately empty targets lost: configured=%v list=%v", got.Sync.Configured(), got.Sync.List())
+	if !got.ToolsConfigured() || len(got.ToolList()) != 0 {
+		t.Errorf("deliberately empty targets lost: configured=%v list=%v", got.ToolsConfigured(), got.ToolList())
 	}
 
-	if err := got.Set("sync.targets", "none"); err != nil || !got.Sync.Configured() || len(got.Sync.List()) != 0 {
-		t.Errorf("set none: %v %v", err, got.Sync.List())
+	if err := got.Set("tools", "none"); err != nil || !got.ToolsConfigured() || len(got.ToolList()) != 0 {
+		t.Errorf("set none: %v %v", err, got.ToolList())
 	}
-	if err := got.Set("sync.targets", ""); err != nil || got.Sync.Configured() {
-		t.Errorf("unset: %v configured=%v", err, got.Sync.Configured())
+	if err := got.Set("tools", ""); err != nil || got.ToolsConfigured() {
+		t.Errorf("unset: %v configured=%v", err, got.ToolsConfigured())
 	}
-	got.Sync.Set(nil)
-	if got.Sync.List() != nil {
+	got.SetTools(nil)
+	if got.ToolList() != nil {
 		t.Error("nil list after unset expected")
 	}
 }

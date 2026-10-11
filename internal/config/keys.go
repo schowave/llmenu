@@ -77,15 +77,15 @@ var Keys = []Key{
 		},
 	},
 	{
-		Name: "sync.targets",
-		Help: "active sync targets, comma-separated",
+		Name: "tools",
+		Help: "coding tools in use, comma-separated (claude, codex, opencode, pi), or none",
 		get: func(c *Config) (string, bool) {
-			return strings.Join(c.Sync.List(), ","), c.Sync.Configured()
+			return strings.Join(c.ToolList(), ","), c.ToolsConfigured()
 		},
 		// "" removes the entry (unset); "none" stores a deliberate empty list.
 		put: func(c *Config, v string) error {
 			if strings.TrimSpace(v) == "" {
-				c.Sync.Set(nil)
+				c.SetTools(nil)
 				return nil
 			}
 			list := []string{}
@@ -94,7 +94,7 @@ var Keys = []Key{
 					list = append(list, t)
 				}
 			}
-			c.Sync.Set(list)
+			c.SetTools(list)
 			return nil
 		},
 	},

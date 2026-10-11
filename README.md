@@ -81,7 +81,7 @@ Or download an archive from the [releases page](https://github.com/schowave/llme
 ## Quick start
 
 ```sh
-llmenu setup        # gateway URL and key, Claude Code slots, benchmarks, sync targets
+llmenu setup        # gateway URL and key, your coding tools, their defaults, benchmarks
 llmenu claude       # pick a model, start Claude Code
 ```
 
@@ -136,6 +136,25 @@ llmenu targets                             # supported tools, install status, co
 | `LLMENU_AA_API_KEY` | Artificial Analysis key |
 | `LLMENU_CONFIG`, `LLMENU_CACHE_DIR` | alternative config file and cache directory |
 | `LLMENU_ACCESSIBLE=1` | line-based setup prompts with numbered options, e.g. for screen readers |
+
+### Shell completion
+
+Homebrew sets it up automatically. After `go install` or with Scoop, set it
+up once for your shell:
+
+```sh
+llmenu completion zsh > "${fpath[1]}/_llmenu"            # zsh
+llmenu completion bash > ~/.local/share/bash-completion/completions/llmenu   # bash
+llmenu completion fish > ~/.config/fish/completions/llmenu.fish              # fish
+```
+
+```powershell
+# PowerShell (Scoop): add to your profile
+Add-Content $PROFILE 'llmenu completion powershell | Out-String | Invoke-Expression'
+```
+
+Tab completes commands, setting names and values, key names, sync targets and
+model names after `--model` (from the last gateway call, so it is instant).
 
 ## Supported tools
 

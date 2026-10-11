@@ -20,8 +20,9 @@ import (
 
 func newRunCmd() *cobra.Command {
 	return passThrough(&cobra.Command{
-		Use:   "run <target> [args…]",
-		Short: "Start a target by name (long form of llmenu claude, …)",
+		Use:               "run <target> [args…]",
+		ValidArgsFunction: completeRun,
+		Short:             "Start a target by name (long form of llmenu claude, …)",
 		Long: `Starts the named target, e.g. claude, codex or opencode (see llmenu targets).
 Everything after the target name is passed to the tool unchanged, including
 --help. If the arguments already select a model, no menu opens.`,
@@ -47,6 +48,7 @@ Everything after the target name is passed to the tool unchanged, including
 func newLaunchCmd(l targets.Launcher) *cobra.Command {
 	return passThrough(&cobra.Command{
 		Use:                l.Name() + " [args…]",
+		ValidArgsFunction:  completeLaunch(l.Name()),
 		Short:              l.Description(),
 		Long:               launchHelp(l),
 		Example:            launchExamples[l.Name()],

@@ -1,7 +1,9 @@
 exec llmenu config set gateway.name testgw
 
+# Claude Code keeps no model list, so there is nothing to sync.
+exec llmenu config set tools claude
 ! exec llmenu sync
-stderr 'no sync targets active'
+stderr 'none of your tools keeps a model list'
 
 mkdir $HOME/.pi/agent
 cp pi-models.json $HOME/.pi/agent/models.json
@@ -30,8 +32,8 @@ exec llmenu sync pi opencode
 stdout '^pi: unchanged'
 stdout '^opencode: unchanged'
 
-# Configured targets are used without arguments.
-exec llmenu config set sync.targets pi
+# Without arguments, your tools that keep a model list are synced.
+exec llmenu config set tools claude,pi
 exec llmenu sync
 stdout '^pi: unchanged'
 ! stdout opencode

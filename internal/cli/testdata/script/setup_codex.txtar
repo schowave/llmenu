@@ -1,0 +1,28 @@
+# setup codex: the default model for Codex CLI, in accessible mode.
+env LLMENU_ACCESSIBLE=1
+
+# Enter keeps "no default"; models without a Responses API are marked.
+stdin enter.txt
+exec llmenu setup codex
+stderr '^1\. \(no default: pick in the menu or pass -m\)$'
+stderr '^2\. aws/claude-opus-5-5  ! no Responses API$'
+stderr '^4\. azure/gpt-6-sol$'
+! grep 'codex' config.toml
+
+stdin pick.txt
+exec llmenu setup codex
+grep '^default = .azure/gpt-6-sol.$' config.toml
+exec llmenu codex exec hi
+stdout ' -c model="azure/gpt-6-sol" '
+
+# A default the gateway no longer offers stays selectable.
+exec llmenu config set codex.default gone/model
+stdin enter.txt
+exec llmenu setup codex
+stderr '^2\. gone/model  \(no longer in gateway\)$'
+grep '^default = .gone/model.$' config.toml
+
+-- enter.txt --
+
+-- pick.txt --
+4
