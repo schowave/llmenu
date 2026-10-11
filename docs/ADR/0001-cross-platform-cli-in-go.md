@@ -125,7 +125,7 @@ Guardrails for the implementation:
 - **Selection:** a built-in table picker on bubbletea and lipgloss (the same
   Charm stack as the setup forms) with fuzzy search (`sahilm/fuzzy`), so the
   tool needs no fzf. Search line and column header on top, best model first,
-  Tab cycles the sort column, unsuitable models are dimmed, and a preview
+  Tab cycles the sort column, and a preview
   shows details, benchmark source and a column legend. The first version used
   `ktr0731/go-fuzzyfinder`; its fzf layout (prompt and header at the bottom,
   list drawn bottom-up, single-line header) proved unintuitive for a table,

@@ -251,8 +251,8 @@ func (p *picker) nameWidth() int {
 	return min(w, nameMax)
 }
 
-// tableWidth: cursor and mark (4) + name + context, prices, benchmarks.
-func tableWidth(name int) int { return 4 + name + 8 + 9 + 9 + 7 + 7 + 7 }
+// tableWidth: cursor (2) + name + context, prices, benchmarks.
+func tableWidth(name int) int { return 2 + name + 8 + 9 + 9 + 7 + 7 + 7 }
 
 func (p *picker) View() string {
 	nw := p.nameWidth()
@@ -301,7 +301,7 @@ func (p *picker) header(nw int) string {
 		}
 		return fmt.Sprintf("%*s", width, label)
 	}
-	h := "    " + fmt.Sprintf("%-*s", nw, "MODEL") +
+	h := "  " + fmt.Sprintf("%-*s", nw, "MODEL") +
 		fmt.Sprintf("%8s", "CONTEXT") + fmt.Sprintf("%9s", "$IN/1M") + col("$OUT/1M", "price", 9) +
 		col("INTEL", "intel", 7) + col("TB4 %", "tb4", 7) + col("CODE", "code", 7)
 	return p.st.header.Render(h)
@@ -309,25 +309,17 @@ func (p *picker) header(nw int) string {
 
 func (p *picker) row(i int, selected bool, nw int) string {
 	m := p.models[i]
-	hinted := p.hint(m) != ""
-	marker, mark := "  ", "  "
+	// Hints (e.g. "not a Claude model") only appear in the preview: every model
+	// is a valid choice, so rows are neither marked nor dimmed.
+	marker := "  "
+	base := p.st.normal
 	if selected {
 		marker = p.st.marker.Render("▶ ")
-	}
-	if hinted {
-		mark = p.st.warn.Render("! ")
-	}
-
-	base := p.st.normal
-	switch {
-	case selected:
 		base = p.st.selected
-	case hinted:
-		base = p.st.dim
 	}
 	name := p.highlight(truncate(m.Name, nw), p.matches[i], base)
 	nums := base.Render(fmt.Sprintf("%8s%9.2f%9.2f", table.Tokens(m.ContextTokens), m.InputPrice, m.OutputPrice))
-	return marker + mark + padRight(name, nw) + nums +
+	return marker + padRight(name, nw) + nums +
 		p.score(m, "intel", base) + p.score(m, "tb4", base) + p.score(m, "code", base)
 }
 
@@ -389,7 +381,7 @@ func (p *picker) compactDetails() string {
 			table.Tokens(m.ContextTokens), table.Tokens(m.MaxOutputTokens), m.InputPrice, m.OutputPrice),
 	}
 	if h := p.hint(m); h != "" {
-		lines = append(lines, p.st.warn.Render("! "+h))
+		lines = append(lines, "Note: "+h)
 	}
 	if p.opt.Note != "" {
 		lines = append(lines, p.st.dim.Render(p.opt.Note))
@@ -398,10 +390,6 @@ func (p *picker) compactDetails() string {
 }
 
 func (p *picker) footer() string {
-	mark := ""
-	if l := legend(p.models, p.hint); l != "" {
-		mark = "   " + p.st.warn.Render("!") + p.st.dim.Render(strings.TrimPrefix(l, "   !"))
-	}
 	sortHint := ""
 	if p.hasBench() {
 		sortHint = " · tab sort (" + sortLabels[p.sortKey] + ")"
@@ -412,11 +400,11 @@ func (p *picker) footer() string {
 		"↑↓ move · enter select · esc cancel" + sortHint,
 		"↑↓ enter esc" + strings.Replace(sortHint, " · tab sort", " · tab", 1),
 	} {
-		if f := p.st.dim.Render(keys) + mark; lipgloss.Width(f) <= p.width {
+		if f := p.st.dim.Render(keys); lipgloss.Width(f) <= p.width {
 			return f
 		}
 	}
-	return ansi.Truncate(p.st.dim.Render("↑↓ enter esc")+mark, p.width, "…")
+	return ansi.Truncate(p.st.dim.Render("↑↓ enter esc"), p.width, "…")
 }
 
 func truncate(s string, w int) string {
@@ -437,7 +425,7 @@ func padRight(s string, w int) string {
 // styles are created from a renderer bound to the menu's output, so colors
 // match that terminal even when stdout is a pipe (`$(llmenu)`).
 type styles struct {
-	normal, selected, dim, header, prompt, cursorBlock, marker, warn, good, match, preview lipgloss.Style
+	normal, selected, dim, header, prompt, cursorBlock, marker, good, match, preview lipgloss.Style
 }
 
 func newStyles(r *lipgloss.Renderer) styles {
@@ -449,7 +437,6 @@ func newStyles(r *lipgloss.Renderer) styles {
 		prompt:      r.NewStyle().Bold(true).Foreground(lipgloss.Color("12")),
 		cursorBlock: r.NewStyle().Reverse(true),
 		marker:      r.NewStyle().Bold(true).Foreground(lipgloss.Color("12")),
-		warn:        r.NewStyle().Foreground(lipgloss.Color("11")),
 		good:        r.NewStyle().Foreground(lipgloss.Color("10")),
 		match:       r.NewStyle().Underline(true).Bold(true),
 		preview:     r.NewStyle().PaddingLeft(2).BorderStyle(lipgloss.NormalBorder()).BorderLeft(true).BorderForeground(lipgloss.Color("8")),

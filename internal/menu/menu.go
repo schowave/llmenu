@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"slices"
 	"strconv"
 	"strings"
 
@@ -24,7 +23,7 @@ var ErrAborted = errors.New("selection aborted")
 type Options struct {
 	Note      string                     // note in the preview, e.g. the benchmark source
 	Preselect int                        // index of the model the cursor starts on; -1 for the first
-	Hint      func(catalog.Model) string // per-model hint: marks the row with "!" and dims it
+	Hint      func(catalog.Model) string // per-model note, shown in the preview
 	Metric    string                     // benchmark the models are sorted by (bench.metric)
 }
 
@@ -54,7 +53,7 @@ func Details(m catalog.Model, hint string) string {
 		fmt.Fprintf(&b, "→ %s\n", m.Target)
 	}
 	if hint != "" {
-		fmt.Fprintf(&b, "\n! %s\n", hint)
+		fmt.Fprintf(&b, "\nNote: %s\n", hint)
 	}
 	fmt.Fprintf(&b, "\nContext  %s · output %s\n", table.Tokens(m.ContextTokens), table.Tokens(m.MaxOutputTokens))
 	fmt.Fprintf(&b, "Vision %s · reasoning %s\n", yesNo(m.Vision), yesNo(m.Reasoning && !m.NoThinking))
@@ -95,27 +94,4 @@ func yesNo(v bool) string {
 		return "yes"
 	}
 	return "no"
-}
-
-// legend explains the "!" marker in the header, because the preview with the
-// full hint is hidden in narrow terminals. It uses the hints' first clause,
-// e.g. "! not a Claude model".
-func legend(models []catalog.Model, hint func(catalog.Model) string) string {
-	var short []string
-	for _, m := range models {
-		h := hint(m)
-		if h == "" {
-			continue
-		}
-		if i := strings.IndexAny(h, ",;"); i >= 0 {
-			h = h[:i]
-		}
-		if !slices.Contains(short, h) {
-			short = append(short, h)
-		}
-	}
-	if len(short) == 0 {
-		return ""
-	}
-	return "   ! " + strings.Join(short, " / ")
 }

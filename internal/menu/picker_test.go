@@ -64,14 +64,29 @@ func TestPickerLayout(t *testing.T) {
 	if !strings.Contains(lines[2], "▶ ") || !strings.Contains(lines[2], "aws/claude-opus-5-5") || !strings.Contains(lines[2], "1M") {
 		t.Errorf("first row: %q", lines[2])
 	}
-	if !strings.Contains(lines[3], "! azure/gpt-6-sol") || !strings.Contains(lines[3], "922k") {
-		t.Errorf("hinted row: %q", lines[3])
+	// Hints are no longer marked in the rows, only noted in the preview.
+	if !strings.HasPrefix(lines[3], "  azure/gpt-6-sol") || strings.Contains(lines[3], "!") || !strings.Contains(lines[3], "922k") {
+		t.Errorf("row with a hint: %q", lines[3])
 	}
 	view := strings.Join(lines, "\n")
-	for _, want := range []string{"→ bedrock/eu.anthropic.claude-opus-5-5", "Columns", "Terminal-Bench v4", "Benchmarks: test data", "tab sort (INTEL)", "! not a Claude model"} {
+	for _, want := range []string{"→ bedrock/eu.anthropic.claude-opus-5-5", "Columns", "Terminal-Bench v4", "Benchmarks: test data", "tab sort (INTEL)"} {
 		if !strings.Contains(view, want) {
 			t.Errorf("view lacks %q", want)
 		}
+	}
+}
+
+func TestPickerHintInPreviewOnly(t *testing.T) {
+	p := newTestPicker(Options{Hint: notClaude})
+	p.Update(tea.WindowSizeMsg{Width: 160, Height: 40})
+	p.Update(key(tea.KeyDown)) // azure/gpt-6-sol
+	view := strings.Join(plain(p), "\n")
+	if !strings.Contains(view, "Note: not a Claude model") {
+		t.Errorf("hint missing from the preview:\n%s", view)
+	}
+	p.Update(key(tea.KeyUp)) // a Claude model: no note
+	if strings.Contains(strings.Join(plain(p), "\n"), "Note:") {
+		t.Error("note shown for a model without a hint")
 	}
 }
 
@@ -214,8 +229,8 @@ func TestPickerNarrowAndScroll(t *testing.T) {
 	if !strings.Contains(view, "local/Qwen3-Next") || strings.Contains(view, "aws/claude-opus-5-5 ") {
 		t.Errorf("scrolled view:\n%s", view)
 	}
-	if !strings.Contains(view, "! not a Claude model") {
-		t.Error("legend missing from footer")
+	if strings.Contains(view, "!") {
+		t.Errorf("marker shown:\n%s", view)
 	}
 }
 
@@ -227,9 +242,6 @@ func TestPickerFooterFits(t *testing.T) {
 		footer := lines[len(lines)-1]
 		if ansiWidth(footer) > w {
 			t.Errorf("width %d: footer %q is %d wide", w, footer, ansiWidth(footer))
-		}
-		if w >= 60 && !strings.Contains(footer, "! not a Claude model") {
-			t.Errorf("width %d: legend lost: %q", w, footer)
 		}
 		if !strings.Contains(footer, "enter") {
 			t.Errorf("width %d: keys lost: %q", w, footer)

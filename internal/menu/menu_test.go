@@ -32,7 +32,7 @@ func TestDetails(t *testing.T) {
 	}
 	got := Details(m, "slot mismatch")
 	for _, want := range []string{
-		"aws/claude-opus-5-5\n→ bedrock/eu.anthropic.claude-opus-5-5\n\n! slot mismatch\n",
+		"aws/claude-opus-5-5\n→ bedrock/eu.anthropic.claude-opus-5-5\n\nNote: slot mismatch\n",
 		"Context  1M · output 128k\n",
 		"Vision yes · reasoning yes\n",
 		"$ per 1M tokens\n  in 5.00 · out 25.00\n  cache read 0.50 · write 6.25\n",
@@ -52,7 +52,7 @@ func TestDetails(t *testing.T) {
 	// Without thinking, reasoning is off; no hint, endpoints or benchmarks.
 	m = catalog.Model{Name: "local/qwen3-next", Reasoning: true, NoThinking: true}
 	got = Details(m, "")
-	for _, unwanted := range []string{"!", "Endpoints", "Benchmarks", "→"} {
+	for _, unwanted := range []string{"Note:", "Endpoints", "Benchmarks", "→"} {
 		if strings.Contains(got, unwanted) {
 			t.Errorf("Details shows %q:\n%s", unwanted, got)
 		}
@@ -62,22 +62,6 @@ func TestDetails(t *testing.T) {
 			t.Errorf("Details misses %q:\n%s", want, got)
 		}
 	}
-}
-
-func TestLegend(t *testing.T) {
-	models := []catalog.Model{{Name: "a"}, {Name: "b"}, {Name: "c"}}
-	hints := map[string]string{
-		"a": "not a Claude model, runs through the gateway's translation",
-		"b": "not a Claude model, runs through the gateway's translation",
-		"c": "gateway reports no Responses API; LiteLLM translates",
-	}
-	if got := legend(models, func(m catalog.Model) string { return hints[m.Name] }); got != "   ! not a Claude model / gateway reports no Responses API" {
-		t.Errorf("legend = %q", got)
-	}
-	if got := legend(models, func(catalog.Model) string { return "" }); got != "" {
-		t.Errorf("legend without hints = %q", got)
-	}
-
 }
 
 func TestMoney(t *testing.T) {

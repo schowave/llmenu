@@ -268,9 +268,9 @@ llmenu bench                       # refresh benchmark scores
 ```
 
 In the menu, type to search, **Tab** switches the sort column (INTEL, TB4,
-CODE, price) and Enter picks. The best model is on top, models that do not
-suit the tool (e.g. non-Claude models in `llmenu claude`) are dimmed and
-marked `!`, and the preview on the right explains the columns.
+CODE, price) and Enter picks. The best model is on top; the preview on the
+right shows details, explains the columns and notes when a model does not
+suit the tool (e.g. a non-Claude model in `llmenu claude`).
 
 ## Configuration
 
