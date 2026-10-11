@@ -37,6 +37,8 @@ with its best score.
 
 Needs a free API key (llmenu setup benchmarks). If a model is not matched,
 map it by hand: llmenu config set bench.map.<model> <slug>`,
+		Example: `  llmenu bench
+  llmenu config set bench.map.mistral/mistral-large-2512 mistral-large-3`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			key, _, err := secrets.Get(secrets.ArtificialAnalysis)

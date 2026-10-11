@@ -65,20 +65,21 @@ func newRootCmd() *cobra.Command {
 and benchmark scores, lets you pick one in a menu and starts your coding tool
 with it, or writes the model list into the tool's configuration.
 
-Without a command, llmenu just opens the menu and prints the chosen name:
-  strix --model "$(llmenu)"
-
-Getting started:
-  llmenu setup     set up gateway, key and defaults (repeatable)
-  llmenu claude    pick a model and start Claude Code
-
 Supported tools:
-  Claude Code   llmenu claude starts it with the chosen model
-  Codex CLI     llmenu codex starts it with the chosen model
-  opencode      llmenu sync writes the models into its config,
-                llmenu opencode starts it with the gateway key
-  pi            llmenu sync writes the models into its config;
-                pi then picks the model and gets the key from llmenu`,
+  Claude Code   started with the chosen model          llmenu claude
+  Codex CLI     started with the chosen model          llmenu codex
+  opencode      models written into its config         llmenu sync, llmenu opencode
+  pi            models written into its config         llmenu sync
+
+Without a command, llmenu only opens the menu and prints the chosen name.`,
+		Example: `  # First run: gateway, key and defaults (Enter keeps values on later runs)
+  llmenu setup
+
+  # Pick a model and start Claude Code
+  llmenu claude
+
+  # Use the picked model name in any other tool
+  strix --model "$(llmenu)"`,
 		Version:       buildVersion(),
 		Args:          cobra.NoArgs,
 		SilenceUsage:  true,
@@ -109,6 +110,11 @@ Supported tools:
 		&cobra.Group{ID: groupOther, Title: "Other:"},
 	)
 	root.SetHelpCommandGroupID(groupOther)
+	root.SetUsageTemplate(root.UsageTemplate() + `{{if not .HasParent}}
+Environment variables: llmenu help environment
+Documentation:         https://github.com/schowave/llmenu#readme
+Report a problem:      https://github.com/schowave/llmenu/issues
+{{end}}`)
 	root.SetCompletionCommandGroupID(groupOther)
 	root.AddCommand(
 		newRunCmd(),
@@ -119,6 +125,7 @@ Supported tools:
 		newSetupCmd(),
 		newConfigCmd(),
 		newTargetsCmd(),
+		newEnvironmentTopic(),
 	)
 	// Shorthands for run, one per launch target: llmenu claude …
 	for _, t := range targets.All() {
@@ -147,4 +154,26 @@ var commandGroups = map[string]string{
 	"targets":    groupSettings,
 	"help":       groupOther,
 	"completion": groupOther,
+}
+
+// newEnvironmentTopic is a help topic: `llmenu help environment`.
+func newEnvironmentTopic() *cobra.Command {
+	return &cobra.Command{
+		Use:   "environment",
+		Short: "Environment variables that override settings",
+		Long: `Environment variables take precedence over config.toml and the keyring.
+
+  LLMENU_BASE_URL       gateway URL, e.g. https://llm.example.com/
+  LLMENU_API_KEY        gateway key
+  LLMENU_AA_API_KEY     Artificial Analysis key for llmenu bench
+  LLMENU_CONFIG         path of config.toml (default: llmenu config path)
+  LLMENU_CACHE_DIR      directory for benchmarks and the last selection
+  LLMENU_ACCESSIBLE=1   line-based setup prompts, e.g. for screen readers
+
+For tests and the development sandbox (see CONTRIBUTING.md):
+
+  LLMENU_KEYRING_FILE      keep keys in this plain-text file instead of the keyring
+  LLMENU_KEYRING_SERVICE   keyring service name (default llmenu)
+  LLMENU_AA_URL            Artificial Analysis API URL`,
+	}
 }

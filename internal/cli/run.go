@@ -19,7 +19,7 @@ import (
 )
 
 func newRunCmd() *cobra.Command {
-	return &cobra.Command{
+	return passThrough(&cobra.Command{
 		Use:   "run <target> [args…]",
 		Short: "Start a target by name (long form of llmenu claude, …)",
 		Long: `Starts the named target, e.g. claude, codex or opencode (see llmenu targets).
@@ -41,11 +41,11 @@ Everything after the target name is passed to the tool unchanged, including
 			}
 			return launch(cmd.Context(), l, args[1:])
 		},
-	}
+	})
 }
 
 func newLaunchCmd(l targets.Launcher) *cobra.Command {
-	return &cobra.Command{
+	return passThrough(&cobra.Command{
 		Use:                l.Name() + " [args…]",
 		Short:              l.Description(),
 		Long:               launchHelp(l),
@@ -54,7 +54,16 @@ func newLaunchCmd(l targets.Launcher) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return launch(cmd.Context(), l, args)
 		},
-	}
+	})
+}
+
+// passThrough hides llmenu's own flags from the help of commands that hand
+// every argument, --help included, to the tool.
+func passThrough(c *cobra.Command) *cobra.Command {
+	c.DisableFlagsInUseLine = true
+	c.InitDefaultHelpFlag()
+	_ = c.Flags().MarkHidden("help")
+	return c
 }
 
 func launchHelp(l targets.Launcher) string {
@@ -65,7 +74,8 @@ func launchHelp(l targets.Launcher) string {
 	} else {
 		help += "Without a model argument the menu opens with the cursor on your default;\nwithout a terminal the default is used directly.\n"
 	}
-	return help + "Same as: llmenu run " + name + " …"
+	return help + "Same as: llmenu run " + name + " …\n\n" +
+		"llmenu help " + name + " shows this text; llmenu " + name + " --help shows " + name + "'s own help."
 }
 
 var launchExamples = map[string]string{

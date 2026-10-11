@@ -131,6 +131,8 @@ func newSecretsCmd() *cobra.Command {
 		Long: `Known keys: gateway (the LiteLLM gateway) and artificialanalysis (benchmarks).
 Keys are read hidden from the terminal or from stdin, never from arguments,
 so they do not end up in the shell history.`,
+		Example: `  llmenu secrets set gateway
+  echo "$KEY" | llmenu secrets set artificialanalysis`,
 	}
 	cmd.AddCommand(
 		&cobra.Command{
