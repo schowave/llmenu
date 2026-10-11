@@ -38,8 +38,12 @@ func captureStderr(t *testing.T, f func()) string {
 	}
 	orig := os.Stderr
 	os.Stderr = tmp
-	defer func() { os.Stderr = orig }()
 	f()
+	os.Stderr = orig
+	// Close before reading and before cleanup: Windows cannot delete open files.
+	if err := tmp.Close(); err != nil {
+		t.Fatal(err)
+	}
 	b, err := os.ReadFile(tmp.Name())
 	if err != nil {
 		t.Fatal(err)

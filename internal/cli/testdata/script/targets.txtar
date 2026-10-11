@@ -1,7 +1,7 @@
 # Capabilities, install status (only the fake tools are on PATH) and config path.
 exec llmenu targets
 stdout '^TARGET +CAPABILITY +INSTALLED +CONFIG$'
-stdout '^claude +launch +\S+claude +-$'
-stdout '^codex +launch +\S+codex +-$'
-stdout '^opencode +sync\+launch +\S+opencode +\S+opencode\.json$'
+stdout '^claude +launch +\S+claude(\.exe)? +-$'
+stdout '^codex +launch +\S+codex(\.exe)? +-$'
+stdout '^opencode +sync\+launch +\S+opencode(\.exe)? +\S+opencode\.json$'
 stdout '^pi +sync +no +\S+models\.json$'

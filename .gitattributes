@@ -1,0 +1,3 @@
+# Keep LF everywhere: golden files in testdata are compared byte by byte,
+# also on Windows.
+* text=auto eol=lf
