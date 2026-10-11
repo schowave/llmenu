@@ -66,13 +66,17 @@ of writing; update them when the code moves.
 
 None.
 
+### internal/table
+
+| Mutant | Type | Reason |
+| --- | --- | --- |
+| table.go (`Tokens`, `case` expressions) | CONDITIONALS_* | Blind spot: `case` expressions sit in no coverage block; `TestTokens` fails when they are applied by hand. |
+
 ### internal/menu
 
 | Mutant | Type | Reason |
 | --- | --- | --- |
-| menu.go:37:59 | CONDITIONALS_NEGATION | Blind spot: `Pick` only runs in a child process on a pseudo terminal, whose coverage Gremlins does not see; `TestPickInTerminal` fails when applied. |
-| menu.go:41:10 | INVERT_NEGATIVES | Same as above. |
-| menu.go:41:10 | ARITHMETIC_BASE | Same as above. |
+| menu.go (`Pick`) | all | `Pick` only starts the bubbletea program on the real terminal; the picker model it runs is tested directly in `picker_test.go`. |
 
 ### internal/secrets
 

@@ -167,6 +167,7 @@ func chooseModel(all []catalog.Model, c choice) (*catalog.Model, error) {
 		Note:      benchNote(),
 		Preselect: catalog.Resolve(all, shown, cmp.Or(c.defaultName, st.LastModel[c.key])),
 		Hint:      func(m catalog.Model) string { return hints[m.Name] },
+		Metric:    c.config.Bench.MetricOrDefault(),
 	})
 	if errors.Is(err, menu.ErrAborted) {
 		return nil, exitCodeError{130}

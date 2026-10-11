@@ -267,8 +267,10 @@ llmenu list --json                 # for scripts
 llmenu bench                       # refresh benchmark scores
 ```
 
-In the menu, `!` marks models that do not suit the tool (e.g. non-Claude
-models in `llmenu claude`); the legend is in the header.
+In the menu, type to search, **Tab** switches the sort column (INTEL, TB4,
+CODE, price) and Enter picks. The best model is on top, models that do not
+suit the tool (e.g. non-Claude models in `llmenu claude`) are dimmed and
+marked `!`, and the preview on the right explains the columns.
 
 ## Configuration
 

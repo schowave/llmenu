@@ -96,7 +96,7 @@ completion are generated from the registry. See
 | `internal/gateway` | client for the LiteLLM gateway (`/model/info`) |
 | `internal/catalog` | models: normalization, aliases, duplicates, slot suggestions |
 | `internal/bench` | fetching and matching benchmarks, cache `bench.json` |
-| `internal/menu`, `internal/table` | menu (go-fuzzyfinder) and table format |
+| `internal/menu`, `internal/table` | menu (bubbletea) and table format |
 | `internal/config`, `internal/secrets` | `config.toml` and keys ([ADR-0003](docs/ADR/0003-configuration-and-setup.md)) |
 | `internal/state`, `internal/fetch` | last selection per target; HTTP GET with readable errors |
 | `internal/guard` | keeps tests inside the temp directory |

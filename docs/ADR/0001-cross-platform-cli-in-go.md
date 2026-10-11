@@ -122,11 +122,15 @@ Guardrails for the implementation:
   the flags for Claude Code (`DISABLE_AUTO_COMPACTION` etc.) are stored in a
   TOML file under `os.UserConfigDir()`. The defaults are embedded in the
   binary. Today they are hard-coded.
-- **Selection:** `ktr0731/go-fuzzyfinder` is built in and replaces fzf, so
-  the tool has no external dependency. The header line with the benchmark
-  source and a preview pane with details (including the matched benchmark
-  slug) are kept. Data preparation is separated from presentation so that
-  `list --json` delivers the same data.
+- **Selection:** a built-in table picker on bubbletea and lipgloss (the same
+  Charm stack as the setup forms) with fuzzy search (`sahilm/fuzzy`), so the
+  tool needs no fzf. Search line and column header on top, best model first,
+  Tab cycles the sort column, unsuitable models are dimmed, and a preview
+  shows details, benchmark source and a column legend. The first version used
+  `ktr0731/go-fuzzyfinder`; its fzf layout (prompt and header at the bottom,
+  list drawn bottom-up, single-line header) proved unintuitive for a table,
+  so it was replaced. Data preparation is separated from presentation so
+  that `list --json` delivers the same data.
 - **Matching logic:** There is a single normalization function with the
   stop-word list as a parameter. The fact that the picker and the benchmark
   use different lists is then stated explicitly in the code instead of
@@ -202,7 +206,7 @@ Anyone who wants to keep the old names can create thin aliases:
   (especially for casks because of the quarantine attribute) and SmartScreen
   or virus scanners on Windows. Signing and notarization cost effort and
   certificates.
-- go-fuzzyfinder is less mature than fzf. Anyone used to fzf key bindings
+- The picker is our own code instead of fzf; anyone used to fzf key bindings
   will notice differences.
 - The rewrite costs a one-time effort. Until everything works equally well,
   both variants exist side by side.
@@ -275,10 +279,8 @@ Anyone who wants to keep the old names can create thin aliases:
   `~/.zshrc`
 - goreleaser: <https://goreleaser.com/> (Homebrew: <https://goreleaser.com/customization/homebrew_casks/>, Scoop: <https://goreleaser.com/customization/scoop/>)
 - go-keyring: <https://github.com/zalando/go-keyring>
-- go-fuzzyfinder: <https://github.com/ktr0731/go-fuzzyfinder>
+- bubbletea: <https://github.com/charmbracelet/bubbletea>
 - cobra: <https://github.com/spf13/cobra>
 - Homebrew taps: <https://docs.brew.sh/How-to-Create-and-Maintain-a-Tap>
 - Scoop buckets: <https://github.com/ScoopInstaller/Scoop/wiki/Buckets>
-- Revisit: if go-fuzzyfinder does not match fzf in daily use (alternative:
-  declare fzf as a dependency in tap and bucket and call it externally) or
-  if the signing warnings hinder distribution.
+- Revisit: if the signing warnings hinder distribution.

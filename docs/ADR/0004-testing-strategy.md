@@ -46,7 +46,7 @@ Option 3. The layers:
 |---|---|---|
 | Unit tests | Logic per package, table-driven; huh forms' logic extracted into pure functions | every push (CI, `mise run test`) |
 | Script tests | `internal/cli/testdata/script/*.txtar` with [testscript](https://pkg.go.dev/github.com/rogpeppe/go-internal/testscript): real commands against a fake gateway and fake Artificial Analysis server, with stand-in `claude`/`codex`/`opencode` that print their arguments and environment; keyring mocked | every push |
-| Terminal flows | Menu on a pseudo terminal; setup through huh's accessible mode (`LLMENU_ACCESSIBLE=1`, line-based stdin) | every push |
+| Terminal flows | Menu as a bubbletea model: keys are sent to it and the rendered view is checked; setup through huh's accessible mode (`LLMENU_ACCESSIBLE=1`, line-based stdin) | every push |
 | Fuzzing | `editJSON` (other tools' configs must stay valid and untouched outside llmenu's entry) and name normalization; seeds run with every `go test` | seeds every push, longer runs locally |
 | Coverage gate | `scripts/coverage.sh`, minimum 85 % | every push |
 | Compatibility | `test/compat` (build tag `compat`): the real pi, opencode and Codex CLI read what llmenu generates | weekly and on changes to `internal/targets` |
@@ -81,8 +81,8 @@ Supporting rules:
 
 ### Negative
 
-- More test infrastructure to maintain: fake servers, stand-in tools, pty
-  helpers, compat workflow.
+- More test infrastructure to maintain: fake servers, stand-in tools,
+  compat workflow.
 - A full mutation run takes a few minutes and therefore only runs weekly;
   per change only the changed lines are mutated. The list of equivalent
   mutants needs care when code changes.

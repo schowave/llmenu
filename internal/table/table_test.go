@@ -30,7 +30,7 @@ func TestFormat(t *testing.T) {
 			models: []catalog.Model{opus, gpt},
 			header: "MODEL                CONTEXT      $ IN     $ OUT",
 			rows: []string{
-				"aws/claude-opus-5-5    1000k      5.00     25.00",
+				"aws/claude-opus-5-5       1M      5.00     25.00",
 				"azure/gpt-5.6-sol       400k      1.25     10.00",
 			},
 		},
@@ -38,7 +38,7 @@ func TestFormat(t *testing.T) {
 			name:   "alias without target",
 			models: []catalog.Model{alias},
 			header: "MODEL                   CONTEXT      $ IN     $ OUT",
-			rows:   []string{"aws/claude-opus-latest    1000k      5.00     25.00"},
+			rows:   []string{"aws/claude-opus-latest       1M      5.00     25.00"},
 		},
 		{
 			name:   "alias with target",
@@ -46,8 +46,8 @@ func TestFormat(t *testing.T) {
 			opt:    Options{ShowAliasTarget: true},
 			header: "MODEL                                      CONTEXT      $ IN     $ OUT",
 			rows: []string{
-				"aws/claude-opus-latest -> claude-opus-5-5    1000k      5.00     25.00",
-				"aws/claude-opus-5-5                          1000k      5.00     25.00",
+				"aws/claude-opus-latest -> claude-opus-5-5       1M      5.00     25.00",
+				"aws/claude-opus-5-5                             1M      5.00     25.00",
 			},
 		},
 		{
@@ -61,7 +61,7 @@ func TestFormat(t *testing.T) {
 			}},
 			header: "  MODEL                CONTEXT      $ IN     $ OUT",
 			rows: []string{
-				"  aws/claude-opus-5-5    1000k      5.00     25.00",
+				"  aws/claude-opus-5-5       1M      5.00     25.00",
 				"! azure/gpt-5.6-sol       400k      1.25     10.00",
 			},
 		},
@@ -70,7 +70,7 @@ func TestFormat(t *testing.T) {
 			models: []catalog.Model{opus},
 			opt:    Options{Mark: func(catalog.Model) string { return "" }},
 			header: "MODEL                CONTEXT      $ IN     $ OUT",
-			rows:   []string{"aws/claude-opus-5-5    1000k      5.00     25.00"},
+			rows:   []string{"aws/claude-opus-5-5       1M      5.00     25.00"},
 		},
 		{
 			name:   "benchmarks, multi-byte name",
@@ -104,5 +104,16 @@ func TestFormatEmpty(t *testing.T) {
 	header, rows := Format(nil, Options{})
 	if header != "MODEL  CONTEXT      $ IN     $ OUT" || len(rows) != 0 {
 		t.Errorf("Format(nil) = %q, %q", header, rows)
+	}
+}
+
+func TestTokens(t *testing.T) {
+	for n, want := range map[int]string{
+		0: "-", -1: "-", 999: "0k", 200_000: "200k", 922_000: "922k", 999_999: "999k",
+		1_000_000: "1M", 1_048_576: "1.05M", 2_000_000: "2M", 1_500_000: "1.5M",
+	} {
+		if got := Tokens(n); got != want {
+			t.Errorf("Tokens(%d) = %q, want %q", n, got, want)
+		}
 	}
 }

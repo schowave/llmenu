@@ -1,14 +1,17 @@
-// Package menu shows the interactive model picker. The menu draws directly to
-// the terminal (/dev/tty or the console), so stdout stays free for `$(llmenu)`.
+// Package menu shows the interactive model picker: a table with search, best
+// model on top, sortable with Tab, and a preview of the selected model.
 package menu
 
 import (
 	"errors"
 	"fmt"
+	"os"
 	"slices"
+	"strconv"
 	"strings"
 
-	"github.com/ktr0731/go-fuzzyfinder"
+	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 
 	"github.com/schowave/llmenu/internal/catalog"
 	"github.com/schowave/llmenu/internal/table"
@@ -19,75 +22,46 @@ var ErrAborted = errors.New("selection aborted")
 
 // Options controls the menu.
 type Options struct {
-	Note      string                     // note at the bottom of the preview, e.g. the benchmark source
-	Preselect int                        // index of the model the cursor starts on; -1 for none
-	Hint      func(catalog.Model) string // per-model hint, marks the row with "!"
+	Note      string                     // note in the preview, e.g. the benchmark source
+	Preselect int                        // index of the model the cursor starts on; -1 for the first
+	Hint      func(catalog.Model) string // per-model hint: marks the row with "!" and dims it
+	Metric    string                     // benchmark the models are sorted by (bench.metric)
 }
 
-// Pick lets the user choose a model and returns its index.
+// Pick lets the user choose a model and returns its index. The menu runs in
+// the alternate screen, reads from the terminal and draws to stderr, so
+// stdout stays free for `$(llmenu)`.
 func Pick(models []catalog.Model, opt Options) (int, error) {
 	if len(models) == 0 {
 		return -1, errors.New("no models to choose from")
 	}
-	header, rows, preview := view(models, opt)
-
-	i, err := fuzzyfinder.Find(models,
-		func(i int) string { return rows[i] },
-		fuzzyfinder.WithPromptString("model> "),
-		fuzzyfinder.WithHeader(header), // single line, go-fuzzyfinder cannot do more
-		fuzzyfinder.WithPreselected(func(i int) bool { return i == opt.Preselect }),
-		fuzzyfinder.WithPreviewWindow(func(i, _, _ int) string { return preview(i) }),
-	)
-	if errors.Is(err, fuzzyfinder.ErrAbort) {
-		return -1, ErrAborted
+	p := newPicker(models, opt, newStyles(lipgloss.NewRenderer(os.Stderr)))
+	final, err := tea.NewProgram(p, tea.WithAltScreen(), tea.WithInputTTY(), tea.WithOutput(os.Stderr)).Run()
+	if err != nil {
+		return -1, err
 	}
-	return i, err
-}
-
-// view returns what the menu shows: the table header, one row per model and
-// the preview for the model at index i (-1: none). It needs no terminal.
-func view(models []catalog.Model, opt Options) (header string, rows []string, preview func(i int) string) {
-	hint := func(catalog.Model) string { return "" }
-	if opt.Hint != nil {
-		hint = opt.Hint
+	if fp := final.(*picker); !fp.aborted && fp.chosen >= 0 {
+		return fp.chosen, nil
 	}
-	header, rows = table.Format(models, table.Options{Mark: func(m catalog.Model) string {
-		if hint(m) != "" {
-			return "!"
-		}
-		return ""
-	}})
-	header += legend(models, hint)
-	preview = func(i int) string {
-		if i < 0 || i >= len(models) {
-			return ""
-		}
-		d := Details(models[i], hint(models[i]))
-		if opt.Note != "" {
-			d += "\n" + opt.Note + "\n"
-		}
-		return d
-	}
-	return header, rows, preview
+	return -1, ErrAborted
 }
 
 // Details describes a model for the preview.
 func Details(m catalog.Model, hint string) string {
 	var b strings.Builder
-	fmt.Fprintf(&b, "%s\n\n", m.Name)
-	if hint != "" {
-		fmt.Fprintf(&b, "! %s\n\n", hint)
+	fmt.Fprintf(&b, "%s\n", m.Name)
+	if m.Target != "" && m.Target != m.Name {
+		fmt.Fprintf(&b, "→ %s\n", m.Target)
 	}
-	fmt.Fprintf(&b, "Target model %s\n", m.Target)
-	fmt.Fprintf(&b, "Context      %d tokens\n", m.ContextTokens)
-	fmt.Fprintf(&b, "Max. output  %d tokens\n", m.MaxOutputTokens)
-	fmt.Fprintf(&b, "Vision       %s\n", yesNo(m.Vision))
-	fmt.Fprintf(&b, "Reasoning    %s\n", yesNo(m.Reasoning && !m.NoThinking))
-	fmt.Fprintf(&b, "\n$ per million tokens\n")
-	fmt.Fprintf(&b, "  Input        %8.3f\n  Output       %8.3f\n", m.InputPrice, m.OutputPrice)
-	fmt.Fprintf(&b, "  Cache-Read   %8.3f\n  Cache-Write  %8.3f\n", m.CacheReadPrice, m.CacheWritePrice)
+	if hint != "" {
+		fmt.Fprintf(&b, "\n! %s\n", hint)
+	}
+	fmt.Fprintf(&b, "\nContext  %s · output %s\n", table.Tokens(m.ContextTokens), table.Tokens(m.MaxOutputTokens))
+	fmt.Fprintf(&b, "Vision %s · reasoning %s\n", yesNo(m.Vision), yesNo(m.Reasoning && !m.NoThinking))
+	fmt.Fprintf(&b, "\n$ per 1M tokens\n  in %s · out %s\n  cache read %s · write %s\n",
+		money(m.InputPrice), money(m.OutputPrice), money(m.CacheReadPrice), money(m.CacheWritePrice))
 	if len(m.Endpoints) > 0 {
-		fmt.Fprintf(&b, "\nEndpoints\n  %s\n", strings.Join(m.Endpoints, "\n  "))
+		fmt.Fprintf(&b, "\nEndpoints  %s\n", strings.Join(m.Endpoints, ", "))
 	}
 	if m.Bench != nil {
 		fmt.Fprintf(&b, "\nBenchmarks (%s)\n", m.Bench.Slug)
@@ -96,16 +70,24 @@ func Details(m catalog.Model, hint string) string {
 			value *float64
 			unit  string
 		}{
-			{"Intelligence", m.Bench.Intelligence, ""},
-			{"Terminal-B. 4", m.Bench.TerminalBench, " %"},
-			{"Coding", m.Bench.Coding, ""},
+			{"Intelligence  ", m.Bench.Intelligence, ""},
+			{"Terminal-Bench", m.Bench.TerminalBench, " %"},
+			{"Coding        ", m.Bench.Coding, ""},
 		} {
 			if v.value != nil {
-				fmt.Fprintf(&b, "  %-13s %6.1f%s\n", v.label, *v.value, v.unit)
+				fmt.Fprintf(&b, "  %s %5.1f%s\n", v.label, *v.value, v.unit)
 			}
 		}
 	}
 	return b.String()
+}
+
+// money formats a price; prices below a cent keep their precision.
+func money(v float64) string {
+	if v != 0 && v < 0.01 {
+		return strconv.FormatFloat(v, 'f', -1, 64)
+	}
+	return fmt.Sprintf("%.2f", v)
 }
 
 func yesNo(v bool) string {

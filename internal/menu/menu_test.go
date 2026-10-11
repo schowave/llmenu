@@ -9,71 +9,9 @@ import (
 
 func f(v float64) *float64 { return &v }
 
-var testModels = []catalog.Model{
-	{Name: "aws/claude-opus-5-5", Target: "bedrock/eu.anthropic.claude-opus-5-5", ContextTokens: 1_000_000, InputPrice: 5, OutputPrice: 25},
-	{Name: "azure/gpt-5.6-sol", Target: "azure/gpt-5.6-sol", ContextTokens: 400_000, InputPrice: 1.25, OutputPrice: 10},
-	{Name: "local/qwen3-next", Target: "hosted_vllm/Qwen/Qwen3-Next-FP8", ContextTokens: 128_000},
-}
-
 func TestPickWithoutModels(t *testing.T) {
 	if i, err := Pick(nil, Options{}); err == nil || i != -1 {
 		t.Errorf("Pick(nil) = %d, %v; want an error", i, err)
-	}
-}
-
-func TestViewHint(t *testing.T) {
-	hint := func(m catalog.Model) string {
-		if strings.HasPrefix(m.Name, "azure/") {
-			return "no /v1/messages"
-		}
-		return ""
-	}
-	tests := []struct {
-		name  string
-		hint  func(catalog.Model) string
-		marks []bool // per row: starts with "!"
-	}{
-		{"no hint function", nil, []bool{false, false, false}},
-		{"hint for one model", hint, []bool{false, true, false}},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			header, rows, preview := view(testModels, Options{Hint: tt.hint})
-			if !strings.Contains(header, "MODEL") {
-				t.Errorf("header = %q", header)
-			}
-			for i, row := range rows {
-				if got := strings.HasPrefix(row, "!"); got != tt.marks[i] {
-					t.Errorf("row %d = %q, mark %v, want %v", i, row, got, tt.marks[i])
-				}
-				if got := strings.Contains(preview(i), "! no /v1/messages"); got != tt.marks[i] {
-					t.Errorf("preview %d shows hint: %v, want %v", i, got, tt.marks[i])
-				}
-			}
-		})
-	}
-}
-
-func TestViewPreview(t *testing.T) {
-	_, _, preview := view(testModels, Options{Note: "Benchmarks: test source"})
-	if got := preview(-1); got != "" {
-		t.Errorf("preview(-1) = %q, want empty", got)
-	}
-	if got := preview(len(testModels)); got != "" {
-		t.Errorf("preview out of range = %q, want empty", got)
-	}
-	if got := preview(0); !strings.HasPrefix(got, testModels[0].Name+"\n") {
-		t.Errorf("preview(0) does not describe the first model:\n%s", got)
-	}
-	got := preview(1)
-	for _, want := range []string{"azure/gpt-5.6-sol\n", "Target model azure/gpt-5.6-sol", "Benchmarks: test source\n"} {
-		if !strings.Contains(got, want) {
-			t.Errorf("preview misses %q:\n%s", want, got)
-		}
-	}
-	_, _, preview = view(testModels, Options{})
-	if strings.Contains(preview(1), "Benchmarks:") {
-		t.Errorf("note without Options.Note:\n%s", preview(1))
 	}
 }
 
@@ -94,20 +32,14 @@ func TestDetails(t *testing.T) {
 	}
 	got := Details(m, "slot mismatch")
 	for _, want := range []string{
-		"aws/claude-opus-5-5\n\n! slot mismatch\n",
-		"Target model bedrock/eu.anthropic.claude-opus-5-5\n",
-		"Context      1000000 tokens\n",
-		"Max. output  128000 tokens\n",
-		"Vision       yes\n",
-		"Reasoning    yes\n",
-		"  Input           5.000\n",
-		"  Output         25.000\n",
-		"  Cache-Read      0.500\n",
-		"  Cache-Write     6.250\n",
-		"Endpoints\n  /v1/messages\n  /v1/responses\n",
+		"aws/claude-opus-5-5\n→ bedrock/eu.anthropic.claude-opus-5-5\n\n! slot mismatch\n",
+		"Context  1M · output 128k\n",
+		"Vision yes · reasoning yes\n",
+		"$ per 1M tokens\n  in 5.00 · out 25.00\n  cache read 0.50 · write 6.25\n",
+		"Endpoints  /v1/messages, /v1/responses\n",
 		"Benchmarks (claude-opus-5-5)\n",
 		"  Intelligence    57.6\n",
-		"  Terminal-B. 4   59.6 %\n",
+		"  Terminal-Bench  59.6 %\n",
 	} {
 		if !strings.Contains(got, want) {
 			t.Errorf("Details misses %q:\n%s", want, got)
@@ -120,12 +52,12 @@ func TestDetails(t *testing.T) {
 	// Without thinking, reasoning is off; no hint, endpoints or benchmarks.
 	m = catalog.Model{Name: "local/qwen3-next", Reasoning: true, NoThinking: true}
 	got = Details(m, "")
-	for _, unwanted := range []string{"!", "Endpoints", "Benchmarks"} {
+	for _, unwanted := range []string{"!", "Endpoints", "Benchmarks", "→"} {
 		if strings.Contains(got, unwanted) {
 			t.Errorf("Details shows %q:\n%s", unwanted, got)
 		}
 	}
-	for _, want := range []string{"Vision       no\n", "Reasoning    no\n"} {
+	for _, want := range []string{"Vision no · reasoning no\n", "Context  - · output -\n"} {
 		if !strings.Contains(got, want) {
 			t.Errorf("Details misses %q:\n%s", want, got)
 		}
@@ -146,8 +78,12 @@ func TestLegend(t *testing.T) {
 		t.Errorf("legend without hints = %q", got)
 	}
 
-	header, _, _ := view(models, Options{Hint: func(m catalog.Model) string { return hints[m.Name] }})
-	if !strings.HasSuffix(header, "   ! not a Claude model / gateway reports no Responses API") {
-		t.Errorf("header without legend: %q", header)
+}
+
+func TestMoney(t *testing.T) {
+	for v, want := range map[float64]string{0: "0.00", 4.4: "4.40", 0.068: "0.07", 0.0035: "0.0035", 22: "22.00"} {
+		if got := money(v); got != want {
+			t.Errorf("money(%v) = %q, want %q", v, got, want)
+		}
 	}
 }

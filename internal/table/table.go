@@ -4,6 +4,7 @@ package table
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 	"unicode/utf8"
 
@@ -51,7 +52,7 @@ func Format(models []catalog.Model, opt Options) (header string, rows []string) 
 		if withMark {
 			fmt.Fprintf(&b, "%-1s ", marks[i])
 		}
-		fmt.Fprintf(&b, "%-*s %7dk %9.2f %9.2f", width, labels[i], m.ContextTokens/1000, m.InputPrice, m.OutputPrice)
+		fmt.Fprintf(&b, "%-*s %8s %9.2f %9.2f", width, labels[i], Tokens(m.ContextTokens), m.InputPrice, m.OutputPrice)
 		if withBench {
 			var bench catalog.Bench
 			if m.Bench != nil {
@@ -69,4 +70,18 @@ func score(v *float64) string {
 		return "-"
 	}
 	return fmt.Sprintf("%.1f", *v)
+}
+
+// Tokens formats a token count compactly: 200000 -> "200k", 1000000 -> "1M",
+// 1048576 -> "1.05M", unknown (0) -> "-".
+func Tokens(n int) string {
+	switch {
+	case n <= 0:
+		return "-"
+	case n < 1_000_000:
+		return fmt.Sprintf("%dk", n/1000)
+	}
+	s := strconv.FormatFloat(float64(n)/1e6, 'f', 2, 64)
+	s = strings.TrimRight(strings.TrimRight(s, "0"), ".")
+	return s + "M"
 }
