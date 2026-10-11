@@ -1,0 +1,24 @@
+version: "2"
+
+linters:
+  default: standard
+  enable:
+    - bodyclose
+    - gosec
+    - misspell
+    - unconvert
+  settings:
+    gosec:
+      excludes:
+        # llmenu starts tools chosen by the user (claude, codex, opencode) by design.
+        - G204
+        # Paths come from the user's own config/cache directories.
+        - G304
+  exclusions:
+    presets:
+      - common-false-positives
+      - std-error-handling
+
+formatters:
+  enable:
+    - gofmt

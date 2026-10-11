@@ -1,0 +1,79 @@
+{
+  "data": [
+    {
+      "model_name": "aws/claude-sonnet-4-5",
+      "litellm_params": {"model": "bedrock/eu.anthropic.claude-sonnet-4-5-20250929-v1:0"},
+      "model_info": {
+        "mode": "chat", "max_input_tokens": 200000, "max_output_tokens": 64000,
+        "supports_vision": true, "supports_reasoning": true,
+        "input_cost_per_token": 3.3e-6, "output_cost_per_token": 1.65e-5,
+        "cache_read_input_token_cost": 3.3e-7, "cache_creation_input_token_cost": 4.125e-6
+      }
+    },
+    {
+      "model_name": "gcp/claude-sonnet-4-5",
+      "litellm_params": {"model": "vertex_ai/claude-sonnet-4-5@20250929"},
+      "model_info": {
+        "mode": "chat", "max_input_tokens": 200000, "max_output_tokens": 64000,
+        "input_cost_per_token": 3e-6, "output_cost_per_token": 1.5e-5
+      }
+    },
+    {
+      "model_name": "aws/claude-opus-latest",
+      "litellm_params": {"model": "bedrock/eu.anthropic.claude-opus-5-5"},
+      "model_info": {
+        "mode": "chat", "max_input_tokens": 1000000, "max_output_tokens": 128000,
+        "input_cost_per_token": 4.4e-6, "output_cost_per_token": 2.2e-5
+      }
+    },
+    {
+      "model_name": "aws/claude-opus-5-5",
+      "litellm_params": {"model": "bedrock/eu.anthropic.claude-opus-5-5"},
+      "model_info": {
+        "mode": "chat", "max_input_tokens": 1000000, "max_output_tokens": 128000,
+        "input_cost_per_token": 4.4e-6, "output_cost_per_token": 2.2e-5
+      }
+    },
+    {
+      "model_name": "local/Qwen3-Next",
+      "litellm_params": {"model": "hosted_vllm/Qwen/Qwen3-Next-FP8"},
+      "model_info": {
+        "mode": "chat", "max_input_tokens": 229376.0, "max_output_tokens": 32768,
+        "input_cost_per_token": 0.0, "output_cost_per_token": 0.0
+      }
+    },
+    {
+      "model_name": "local/Qwen3-Next-non-thinking",
+      "litellm_params": {
+        "model": "hosted_vllm/Qwen/Qwen3-Next-FP8",
+        "extra_body": {"chat_template_kwargs": {"enable_thinking": false}}
+      },
+      "model_info": {
+        "mode": "chat", "max_input_tokens": 229376, "max_output_tokens": 32768,
+        "input_cost_per_token": 0.0, "output_cost_per_token": 0.0
+      }
+    },
+    {
+      "model_name": "mistral/mistral-large-4",
+      "litellm_params": {"model": "mistral/mistral-large-4"},
+      "model_info": {
+        "mode": "chat", "max_input_tokens": 1048576, "max_output_tokens": null,
+        "input_cost_per_token": 6.8e-7, "output_cost_per_token": 2.09e-6
+      }
+    },
+    {
+      "model_name": "azure/gpt-6-sol",
+      "litellm_params": {"model": "azure/gpt-6-sol"},
+      "model_info": {
+        "mode": "chat", "max_input_tokens": 922000, "max_output_tokens": 128000,
+        "supported_endpoints": ["/v1/chat/completions", "/v1/responses"],
+        "input_cost_per_token": 2e-6, "output_cost_per_token": 1e-5
+      }
+    },
+    {
+      "model_name": "azure/text-embedding",
+      "litellm_params": {"model": "azure/text-embedding-3-large"},
+      "model_info": {"mode": "embedding", "max_input_tokens": 8191}
+    }
+  ]
+}

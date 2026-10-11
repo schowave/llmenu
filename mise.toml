@@ -1,0 +1,60 @@
+# Local toolchain and tasks. `mise install` once, then e.g. `mise run ci`.
+# Keep tool versions in sync with .github/workflows/ci.yml.
+
+[tools]
+go = "1.27.2"
+golangci-lint = "2.14.0"
+goreleaser = "2.18.3"
+actionlint = "1.7.12"
+"go:golang.org/x/vuln/cmd/govulncheck" = "1.9.0"
+
+[tasks.fmt]
+description = "Format all Go files"
+run = "gofmt -w ."
+
+[tasks.fmt-check]
+description = "Fail if a Go file is not gofmt-formatted"
+run = '''
+unformatted=$(gofmt -l .)
+if [ -n "$unformatted" ]; then echo "Not gofmt-formatted:"; echo "$unformatted"; exit 1; fi
+'''
+
+[tasks.tidy-check]
+description = "Fail if go.mod/go.sum are not tidy"
+run = ["go mod verify", "go mod tidy -diff"]
+
+[tasks.vet]
+description = "go vet"
+run = "go vet ./..."
+
+[tasks.test]
+description = "Unit tests with race detector"
+run = "go test -race -shuffle=on ./..."
+
+[tasks.lint]
+description = "golangci-lint (includes gosec)"
+run = "golangci-lint run ./..."
+
+[tasks.vuln]
+description = "Known vulnerabilities in reachable code (govulncheck)"
+run = "govulncheck ./..."
+
+[tasks.workflows]
+description = "Lint GitHub Actions workflows"
+run = "actionlint"
+
+[tasks.release-check]
+description = "Validate .goreleaser.yaml and build a local snapshot into dist/ (needs a git remote)"
+run = ["goreleaser check", "goreleaser release --snapshot --clean"]
+
+[tasks.build]
+description = "Build llmenu into dist/"
+run = "go build -o dist/llmenu ./cmd/llmenu"
+
+[tasks.install]
+description = "Install llmenu into $(go env GOPATH)/bin"
+run = "go install ./cmd/llmenu"
+
+[tasks.ci]
+description = "Everything CI checks, except the snapshot release"
+depends = ["fmt-check", "tidy-check", "vet", "test", "lint", "vuln", "workflows"]

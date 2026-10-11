@@ -1,0 +1,57 @@
+# Release configuration (ADR-0001, section on release and distribution).
+# Check: goreleaser check; dry run without publishing: goreleaser release --snapshot --clean
+version: 2
+
+before:
+  hooks:
+    - go mod tidy
+    - go test ./...
+
+builds:
+  - main: ./cmd/llmenu
+    binary: llmenu
+    env:
+      - CGO_ENABLED=0
+    goos: [darwin, linux, windows]
+    goarch: [amd64, arm64]
+    ldflags:
+      - -s -w -X github.com/schowave/llmenu/internal/cli.version={{ .Version }}
+
+archives:
+  - formats: [tar.gz]
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+
+checksum:
+  name_template: checksums.txt
+
+changelog:
+  sort: asc
+
+# TODO: enable once it is settled where the tool repo, tap and bucket live
+# (ADR-0001, follow-up work). Replace OWNER; the token needs write access
+# to both repos.
+#
+# homebrew_casks:
+#   - name: llmenu
+#     repository:
+#       owner: OWNER
+#       name: homebrew-tap
+#       token: "{{ .Env.TAP_GITHUB_TOKEN }}"
+#     description: Choose models from a LiteLLM gateway and wire them into coding tools
+#     hooks:
+#       post:
+#         install: |
+#           if system_command("/usr/bin/xattr", args: ["-h"]).exit_status == 0
+#             system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/llmenu"]
+#           end
+#
+# scoops:
+#   - name: llmenu
+#     repository:
+#       owner: OWNER
+#       name: scoop-bucket
+#       token: "{{ .Env.TAP_GITHUB_TOKEN }}"
+#     description: Choose models from a LiteLLM gateway and wire them into coding tools
+#     license: MIT
