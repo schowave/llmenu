@@ -48,6 +48,7 @@ func TestPathDefault(t *testing.T) {
 	t.Setenv("LLMENU_CACHE_DIR", "")
 	t.Setenv("XDG_CACHE_HOME", "")
 	t.Setenv("HOME", t.TempDir())
+	t.Setenv("LOCALAPPDATA", t.TempDir()) // the cache dir on Windows
 	dir, err := os.UserCacheDir()
 	if err != nil {
 		t.Skipf("no cache directory: %v", err)
