@@ -14,6 +14,8 @@ import (
 	"strings"
 
 	"github.com/pelletier/go-toml/v2"
+
+	"github.com/schowave/llmenu/internal/guard"
 )
 
 // Config is the content of config.toml. Empty fields mean "not set"; the
@@ -169,6 +171,14 @@ func NameFromURL(raw string) string {
 
 // Path returns the location of config.toml.
 func Path() (string, error) {
+	p, err := path()
+	if err != nil {
+		return "", err
+	}
+	return guard.Path(p)
+}
+
+func path() (string, error) {
 	if p := os.Getenv("LLMENU_CONFIG"); p != "" {
 		return p, nil
 	}

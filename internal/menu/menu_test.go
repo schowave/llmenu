@@ -131,3 +131,23 @@ func TestDetails(t *testing.T) {
 		}
 	}
 }
+
+func TestLegend(t *testing.T) {
+	models := []catalog.Model{{Name: "a"}, {Name: "b"}, {Name: "c"}}
+	hints := map[string]string{
+		"a": "not a Claude model, runs through the gateway's translation",
+		"b": "not a Claude model, runs through the gateway's translation",
+		"c": "gateway reports no Responses API; LiteLLM translates",
+	}
+	if got := legend(models, func(m catalog.Model) string { return hints[m.Name] }); got != "   ! not a Claude model / gateway reports no Responses API" {
+		t.Errorf("legend = %q", got)
+	}
+	if got := legend(models, func(catalog.Model) string { return "" }); got != "" {
+		t.Errorf("legend without hints = %q", got)
+	}
+
+	header, _, _ := view(models, Options{Hint: func(m catalog.Model) string { return hints[m.Name] }})
+	if !strings.HasSuffix(header, "   ! not a Claude model / gateway reports no Responses API") {
+		t.Errorf("header without legend: %q", header)
+	}
+}

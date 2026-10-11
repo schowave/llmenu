@@ -18,6 +18,8 @@ import (
 
 	"github.com/schowave/llmenu/internal/catalog"
 	"github.com/schowave/llmenu/internal/fetch"
+
+	"github.com/schowave/llmenu/internal/guard"
 )
 
 const (
@@ -129,6 +131,14 @@ type Store struct {
 
 // Path returns the cache location.
 func Path() (string, error) {
+	p, err := path()
+	if err != nil {
+		return "", err
+	}
+	return guard.Path(p)
+}
+
+func path() (string, error) {
 	if dir := os.Getenv("LLMENU_CACHE_DIR"); dir != "" {
 		return filepath.Join(dir, "bench.json"), nil
 	}

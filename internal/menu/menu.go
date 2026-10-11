@@ -5,6 +5,7 @@ package menu
 import (
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/ktr0731/go-fuzzyfinder"
@@ -56,6 +57,7 @@ func view(models []catalog.Model, opt Options) (header string, rows []string, pr
 		}
 		return ""
 	}})
+	header += legend(models, hint)
 	preview = func(i int) string {
 		if i < 0 || i >= len(models) {
 			return ""
@@ -111,4 +113,27 @@ func yesNo(v bool) string {
 		return "yes"
 	}
 	return "no"
+}
+
+// legend explains the "!" marker in the header, because the preview with the
+// full hint is hidden in narrow terminals. It uses the hints' first clause,
+// e.g. "! not a Claude model".
+func legend(models []catalog.Model, hint func(catalog.Model) string) string {
+	var short []string
+	for _, m := range models {
+		h := hint(m)
+		if h == "" {
+			continue
+		}
+		if i := strings.IndexAny(h, ",;"); i >= 0 {
+			h = h[:i]
+		}
+		if !slices.Contains(short, h) {
+			short = append(short, h)
+		}
+	}
+	if len(short) == 0 {
+		return ""
+	}
+	return "   ! " + strings.Join(short, " / ")
 }

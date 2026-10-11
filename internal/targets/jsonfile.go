@@ -12,6 +12,8 @@ import (
 
 	"github.com/pmezard/go-difflib/difflib"
 	"github.com/tailscale/hujson"
+
+	"github.com/schowave/llmenu/internal/guard"
 )
 
 // syncJSON replaces the value under path (e.g. ["providers", "mygateway"]) in
@@ -21,6 +23,9 @@ import (
 // backup of the old version as *.bak.
 func syncJSON(file string, initial []byte, path []string, update func(old any) any, dryRun bool) (Diff, error) {
 	d := Diff{Path: file}
+	if _, err := guard.Path(file); err != nil {
+		return d, err
+	}
 	orig, err := os.ReadFile(file)
 	exists := err == nil
 	if os.IsNotExist(err) {

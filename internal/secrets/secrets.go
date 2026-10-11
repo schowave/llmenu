@@ -12,6 +12,8 @@ import (
 	"slices"
 
 	"github.com/zalando/go-keyring"
+
+	"github.com/schowave/llmenu/internal/guard"
 )
 
 const (
@@ -124,6 +126,9 @@ func (f fileStore) label() string { return "keyring file" }
 
 func (f fileStore) load() (map[string]string, error) {
 	m := map[string]string{}
+	if _, err := guard.Path(string(f)); err != nil {
+		return nil, err
+	}
 	b, err := os.ReadFile(string(f))
 	if os.IsNotExist(err) {
 		return m, nil

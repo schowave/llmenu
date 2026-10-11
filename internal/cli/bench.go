@@ -14,6 +14,18 @@ import (
 	"github.com/schowave/llmenu/internal/secrets"
 )
 
+// aaKeyURL explains how to get the free Artificial Analysis key.
+const aaKeyURL = "https://artificialanalysis.ai/api-reference#authentication"
+
+const noAAKeyHelp = `llmenu can show benchmark scores from Artificial Analysis (Intelligence Index,
+Terminal-Bench, Coding Index) next to each model and sort by them. Their API
+is free:
+
+  1. Create an account on the Artificial Analysis Insights Platform and
+     generate an API key: ` + aaKeyURL + `
+  2. Store it:  llmenu setup benchmarks   (or: llmenu secrets set artificialanalysis)
+  3. Run llmenu bench again.`
+
 func newBenchCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "bench",
@@ -29,7 +41,9 @@ Key: llmenu setup benchmarks or LLMENU_AA_API_KEY.`,
 				return err
 			}
 			if key == "" {
-				return errors.New("no Artificial Analysis key: llmenu setup benchmarks")
+				fmt.Fprintln(cmd.ErrOrStderr(), noAAKeyHelp)
+				fmt.Fprintln(cmd.ErrOrStderr())
+				return errors.New("no Artificial Analysis key yet")
 			}
 			env, err := loadEnv(cmd.Context())
 			if err != nil {

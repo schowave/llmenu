@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+
+	"github.com/schowave/llmenu/internal/guard"
 )
 
 // State is stored as JSON in the user's cache directory.
@@ -15,6 +17,14 @@ type State struct {
 
 // Path returns the storage location, e.g. ~/Library/Caches/llmenu/state.json.
 func Path() (string, error) {
+	p, err := path()
+	if err != nil {
+		return "", err
+	}
+	return guard.Path(p)
+}
+
+func path() (string, error) {
 	if dir := os.Getenv("LLMENU_CACHE_DIR"); dir != "" {
 		return filepath.Join(dir, "state.json"), nil
 	}

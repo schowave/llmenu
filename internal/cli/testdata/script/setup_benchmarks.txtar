@@ -5,7 +5,7 @@ env LLMENU_KEYRING_FILE=$WORK/keyring.json
 # Empty skips: no key is stored.
 stdin enter.txt
 exec llmenu setup benchmarks
-stderr 'Free key: https://artificialanalysis.ai\. Leave empty to skip\.'
+stderr 'Free key: https://artificialanalysis\.ai/api-reference#authentication\. Leave empty to skip\.'
 ! exec llmenu secrets get artificialanalysis
 
 stdin key.txt

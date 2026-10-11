@@ -57,7 +57,14 @@ Supporting rules:
 
 - Every test sets `LLMENU_API_KEY` or mocks the keyring, so the OS keyring is
   never used. `HOME` is only redirected where the keyring cannot be reached
-  (macOS opens a dialog otherwise).
+  (macOS opens a dialog otherwise). Packages that handle keys mock the keyring
+  in `TestMain`, not per test.
+- **Path guard (`internal/guard`):** under `go test`, every file llmenu reads
+  or writes must be inside the OS temp directory, otherwise the call fails.
+  Overrides like `LLMENU_CONFIG` alone are not enough: during mutation testing
+  a mutant flipped such a check, and the test then wrote into the developer's
+  real llmenu config, pi config and opencode config. A mutant changes one spot
+  at a time, so the guard and the override cannot both be disabled at once.
 - Live checks against a real gateway are manual (`mise run sandbox:live`),
   never in CI, because they need secrets and cost money.
 - `mise run ci` runs the same checks as the CI workflow.

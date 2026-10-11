@@ -110,7 +110,9 @@ func setupGateway(ctx context.Context, cfg *config.Config) error {
 			keyHelp = "Leave empty to keep the existing key (" + keySource + ")."
 		}
 		err := runPrompt(asForm{huh.NewForm(huh.NewGroup(
+			// The example is a placeholder, not a value: nothing to delete first.
 			huh.NewInput().Title(titled("Gateway URL", urlHelp)).Description(urlHelp).
+				Placeholder("https://llm.example.com/").
 				Value(&u).Validate(enterKeeps(&u, validateURL)),
 			huh.NewInput().Title(titled("Gateway key", keyHelp)).Description(keyHelp).
 				EchoMode(secretEcho()).Value(&key).
@@ -287,7 +289,7 @@ func setupBenchmarks() error {
 	if err != nil {
 		return err
 	}
-	help := "Optional, for `llmenu bench`. Free key: https://artificialanalysis.ai. Leave empty to skip."
+	help := "Optional, for `llmenu bench`. Free key: " + aaKeyURL + ". Leave empty to skip."
 	if source != "" {
 		help = "Leave empty to keep the existing key (" + source + ")."
 	}

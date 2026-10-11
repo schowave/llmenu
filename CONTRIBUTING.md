@@ -65,7 +65,11 @@ The testing strategy is described in [ADR-0004](docs/ADR/0004-testing-strategy.m
 - **Mutation testing** with [Gremlins](https://github.com/go-gremlins/gremlins);
   known equivalent mutants are listed in [docs/mutation-testing.md](docs/mutation-testing.md).
 
-Tests never touch the OS keyring, real tool configs or paid APIs.
+Tests never touch the OS keyring, real tool configs or paid APIs. Two safety
+nets enforce this even if a test (or a mutant) loses an override: under
+`go test`, `internal/guard` refuses every path outside the OS temp directory,
+and the packages that handle keys mock the keyring in `TestMain`. New code
+that reads or writes files must go through `guard.Path`.
 
 ## Pull requests
 
@@ -95,6 +99,7 @@ completion are generated from the registry. See
 | `internal/menu`, `internal/table` | menu (go-fuzzyfinder) and table format |
 | `internal/config`, `internal/secrets` | `config.toml` and keys ([ADR-0003](docs/ADR/0003-configuration-and-setup.md)) |
 | `internal/state`, `internal/fetch` | last selection per target; HTTP GET with readable errors |
+| `internal/guard` | keeps tests inside the temp directory |
 | `test/compat` | compatibility tests against the real tools |
 | `tools/`, `scripts/` | fake gateway and stand-in tools for the sandbox; coverage and mutation scripts |
 

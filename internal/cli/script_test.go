@@ -24,6 +24,8 @@ func TestMain(m *testing.M) {
 		n, _ := strconv.Atoi(code)
 		os.Exit(n)
 	}
+	// In-process tests never reach the real keychain either.
+	keyring.MockInit()
 	testscript.Main(m, map[string]func(){
 		"llmenu": func() {
 			keyring.MockInit() // never touch the real keyring from tests
@@ -113,6 +115,11 @@ func TestScripts(t *testing.T) {
 				"LLMENU_CONFIG":          filepath.Join(env.WorkDir, "config.toml"),
 				"LLMENU_CACHE_DIR":       filepath.Join(env.WorkDir, "cache"),
 				"LLMENU_KEYRING_SERVICE": "llmenu-test",
+				// testscript points TMPDIR at $WORK/.tmp; the path guard
+				// (internal/guard) must see $WORK as inside the temp dir.
+				"TMPDIR": os.TempDir(),
+				"TMP":    os.TempDir(),
+				"TEMP":   os.TempDir(),
 			} {
 				env.Setenv(k, v)
 			}
