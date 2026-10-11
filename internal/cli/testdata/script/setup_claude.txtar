@@ -34,7 +34,7 @@ stdout '^DISABLE_AUTO_COMPACTION=1$'
 exec llmenu config set claude.default local/Qwen3-Next
 stdin enter.txt
 exec llmenu setup claude
-stderr '(?s)Default model.*\n4\. local/Qwen3-Next\nEnter a number between 1 and 4'
+stderr '(?s)Claude Code: default model.*\n4\. local/Qwen3-Next\nEnter a number between 1 and 4'
 grep '^default = .local/Qwen3-Next.$' config.toml
 
 # Back to the defaults: slot opus and compaction on are not pinned.

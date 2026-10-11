@@ -222,19 +222,22 @@ func validateURL(s string) error {
 func setupClaude(cfg *config.Config, models []catalog.Model) error {
 	c := &cfg.Claude
 	values := map[string]*string{}
-	var fields []huh.Field
+	// One page per question: a single long form pushed the first title off
+	// short terminals, and each slot needs its own explanation.
+	var groups []*huh.Group
 	for _, slot := range config.Slots {
 		v := c.Slot(slot)
 		if v == "" {
 			v = catalog.Suggest(models, slot)
 		}
 		values[slot] = &v
-		fields = append(fields, huh.NewSelect[string]().
-			Title("Model for "+slot).
-			Description("-latest aliases follow new versions without rerunning setup. / filters.").
+		help := slotHelp[slot] + " -latest aliases follow new versions without rerunning setup. Type / to filter."
+		groups = append(groups, huh.NewGroup(huh.NewSelect[string]().
+			Title(titled(fmt.Sprintf("Claude Code: model for the %q slot", slot), help)).
+			Description(help).
 			Options(slotOptions(models, slot, v)...).
-			Filtering(false).Height(10).
-			Value(&v))
+			Filtering(false).Height(12).
+			Value(&v)))
 	}
 
 	def := c.DefaultOrOpus()
@@ -243,15 +246,16 @@ func setupClaude(cfg *config.Config, models []catalog.Model) error {
 		defOpts = append(defOpts, huh.NewOption(def, def))
 	}
 	autoCompact := c.AutoCompactEnabled()
+	const defaultHelp = "The slot (or model) Claude Code starts with; the llmenu menu cursor starts there too."
 	const compactHelp = "Off: context grows up to the limit, which costs considerably more with large contexts."
-	fields = append(fields,
-		huh.NewSelect[string]().Title("Default model").
-			Description("The menu cursor starts here; without a terminal it is used directly.").
+	groups = append(groups, huh.NewGroup(
+		huh.NewSelect[string]().Title(titled("Claude Code: default model", defaultHelp)).
+			Description(defaultHelp).
 			Options(defOpts...).Value(&def),
-		huh.NewConfirm().Title(titled("Automatic compaction?", compactHelp)).Description(compactHelp).
+		huh.NewConfirm().Title(titled("Claude Code: automatic compaction?", compactHelp)).Description(compactHelp).
 			Affirmative("On").Negative("Off").Value(&autoCompact),
-	)
-	if err := runPrompt(asForm{huh.NewForm(huh.NewGroup(fields...))}); err != nil {
+	))
+	if err := runPrompt(asForm{huh.NewForm(groups...)}); err != nil {
 		return err
 	}
 
@@ -263,6 +267,13 @@ func setupClaude(cfg *config.Config, models []catalog.Model) error {
 		fmt.Fprintln(os.Stderr, "Warning:", w)
 	}
 	return save(cfg)
+}
+
+// slotHelp explains what Claude Code uses each slot for.
+var slotHelp = map[string]string{
+	"opus":   "Strongest model; Claude Code's default unless you choose otherwise on the last page.",
+	"sonnet": "Balanced model, picked with /model sonnet in Claude Code.",
+	"haiku":  "Fast model Claude Code uses for background tasks and subagents.",
 }
 
 // applyClaude stores the answers of the claude section. Accepted suggestions

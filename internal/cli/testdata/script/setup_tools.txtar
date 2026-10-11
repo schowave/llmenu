@@ -34,7 +34,7 @@ stdout '^claude args: --model x$'
 expandenv full.txt
 stdin full.txt
 exec llmenu setup
-! stderr 'Model for opus'
+! stderr 'model for the "opus" slot'
 
 # Deselecting all is stored as a deliberate "none" ...
 stdin toggle-off.txt
