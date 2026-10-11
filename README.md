@@ -79,7 +79,7 @@ Or download an archive from the [releases page](https://github.com/schowave/llme
 
 | Platform | Update | Uninstall |
 |---|---|---|
-| Homebrew | `brew upgrade --cask llmenu` | `brew uninstall --cask llmenu` |
+| Homebrew | `brew update && brew upgrade --cask llmenu` (`brew update` fetches the new cask from the tap) | `brew uninstall --cask llmenu` |
 | Scoop | `scoop update` (refreshes the bucket), then `scoop update llmenu` | `scoop uninstall llmenu` |
 | Go | `go install github.com/schowave/llmenu/cmd/llmenu@latest` | delete `$(go env GOPATH)/bin/llmenu` |
 

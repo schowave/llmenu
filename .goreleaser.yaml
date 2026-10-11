@@ -69,6 +69,9 @@ homebrew_casks:
     hooks:
       post:
         # The binaries are not signed; without this macOS refuses to start them.
+        # GoReleaser still emits the `postflight` stanza that Homebrew 7 warns
+        # about; switch to `postflight_steps` once GoReleaser supports it
+        # (goreleaser/goreleaser#6870, #6873).
         install: |
           if OS.mac?
             system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/llmenu"]
