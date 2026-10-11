@@ -1,152 +1,169 @@
-# llmenu
+<h1 align="center">llmenu</h1>
 
-Picks models from a LiteLLM gateway, with context, prices
-and benchmarks, and wires them into coding tools: Claude Code and Codex CLI
-are launched with the selected model, and for pi and opencode the model
-list is written into their configuration.
+<p align="center">
+  <strong>Pick an LLM from your LiteLLM gateway — by price, context and benchmarks — and use it in Claude Code, Codex CLI, pi and opencode.</strong>
+</p>
 
-Decisions and rationale: [docs/ADR](docs/ADR).
+<p align="center">
+  <a href="https://github.com/schowave/llmenu/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/schowave/llmenu/actions/workflows/ci.yml/badge.svg"></a>
+  <a href="https://github.com/schowave/llmenu/actions/workflows/codeql.yml"><img alt="CodeQL" src="https://github.com/schowave/llmenu/actions/workflows/codeql.yml/badge.svg"></a>
+  <a href="https://github.com/schowave/llmenu/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/schowave/llmenu"></a>
+  <a href="go.mod"><img alt="Go version" src="https://img.shields.io/github/go-mod/go-version/schowave/llmenu"></a>
+  <a href="https://goreportcard.com/report/github.com/schowave/llmenu"><img alt="Go Report Card" src="https://goreportcard.com/badge/github.com/schowave/llmenu"></a>
+  <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/github/license/schowave/llmenu"></a>
+</p>
 
-> **Status:** Everything described here is implemented: setup and
-> configuration (`setup`, `config`, `secrets`), the menu (`llmenu`),
-> the launchers `llmenu claude`, `llmenu codex` and `llmenu opencode`,
-> `sync` for pi and opencode, `bench`, `list` and `targets`.
+---
+
+Many teams reach their models through a [LiteLLM](https://github.com/BerriAI/litellm)
+gateway: dozens of models from several providers, aliases like
+`claude-opus-latest`, different prices and context sizes — and every coding
+tool wants that configured differently. **llmenu** reads the model list from
+the gateway and does the wiring for you:
+
+```console
+$ llmenu claude
+MODEL                          CONTEXT      $ IN     $ OUT  INTEL    TB4   CODE
+aws/claude-opus-5-5              1000k      4.40     22.00   57.6   59.6   80.0
+azure/gpt-6-sol                   922k      2.00     10.00   47.6   43.9      -
+gcp/claude-sonnet-4-5             200k      3.00     15.00   42.0      -      -
+…
+model> █
+```
+
+Pick a model, press Enter, and Claude Code starts against your gateway with
+that model — no environment variables to export, no config files to edit.
+
+## Features
+
+- **Fuzzy menu** of all chat models on the gateway with context size, input
+  and output prices and benchmark scores from
+  [Artificial Analysis](https://artificialanalysis.ai) (Intelligence Index,
+  Terminal-Bench, Coding Index); aliases and provider duplicates are folded
+  together.
+- **Launches** Claude Code and Codex CLI against the gateway with the chosen
+  model. Your `~/.claude` and `~/.codex` configs stay untouched.
+- **Syncs** the gateway's models, limits and prices into pi and opencode, so
+  their own model pickers show everything. Comments and other providers in
+  those files are preserved, and a backup is kept.
+- **Works with any LiteLLM gateway.** Suggestions for Claude Code's
+  opus/sonnet/haiku slots are derived from the gateway's model list; nothing
+  is hard-coded.
+- **Keys stay in the OS keyring** (macOS Keychain, Windows Credential Manager,
+  Secret Service), never in config files or process arguments.
+- **Scriptable:** `llmenu list --json`, `strix --model "$(llmenu)"`; without a
+  terminal nothing ever waits for input.
+- **Single binary** for macOS, Linux and Windows on amd64 and arm64.
 
 ## Installation
 
+**Homebrew** (macOS, Linux)
+
 ```sh
-brew install --cask schowave/tap/llmenu        # macOS, Linux
-
-scoop bucket add schowave https://github.com/schowave/scoop-bucket
-scoop install llmenu                           # Windows
-
-go install github.com/schowave/llmenu/cmd/llmenu@latest   # from source, Go 1.27.2+
+brew install --cask schowave/tap/llmenu
 ```
+
+**Scoop** (Windows)
+
+```powershell
+scoop bucket add schowave https://github.com/schowave/scoop-bucket
+scoop install llmenu
+```
+
+**Go** (1.27.2 or later)
+
+```sh
+go install github.com/schowave/llmenu/cmd/llmenu@latest
+```
+
+Or download an archive from the [releases page](https://github.com/schowave/llmenu/releases).
+
+## Quick start
+
+```sh
+llmenu setup        # gateway URL and key, Claude Code slots, benchmarks, sync targets
+llmenu claude       # pick a model, start Claude Code
+```
+
+`llmenu setup` can be re-run at any time; Enter keeps the current value. If
+you run a command before setting up, llmenu offers to do it right there.
 
 ## Usage
 
-```sh
-llmenu setup                   # gateway, Claude slots, benchmarks, sync targets; repeatable
-llmenu setup claude            # just one section
-llmenu config list             # all values with their source
-llmenu config set claude.default sonnet
-
-llmenu claude                  # menu, cursor on the default
-llmenu claude --model sonnet   # without menu
-strix --model "$(llmenu)"      # menu, name on stdout
-llmenu list                    # table; --all with aliases, --json, --sort price
-llmenu bench                   # fetch benchmarks from Artificial Analysis (key: setup benchmarks)
-llmenu config set bench.metric tb4                                  # sort by Terminal-Bench
-llmenu config set bench.map.mistral/mistral-large-2512 mistral-large-3  # fixed mapping
-
-llmenu codex                   # menu, then Codex CLI via the gateway
-llmenu codex exec "fix the failing test"   # arguments go to codex unchanged
-llmenu config set codex.default <model>    # default model (needed without a terminal unless -m is given)
-
-llmenu sync --dry-run          # diff for the enabled sync targets (sync.targets)
-llmenu sync pi opencode        # write the models; the old file is kept as *.bak
-pi                             # fetches the key itself: !llmenu secrets get gateway
-llmenu opencode                # start opencode with the key (opencode reads it from LLMENU_API_KEY)
-```
-
-On the first run without setup, `llmenu` offers to run the setup. The
-configuration lives at `llmenu config path`, keys in the operating system's
-keychain. `LLMENU_BASE_URL`, `LLMENU_API_KEY`, `LLMENU_AA_API_KEY`,
-`LLMENU_CONFIG` and `LLMENU_CACHE_DIR` override these, e.g. for CI.
-
-`LLMENU_ACCESSIBLE=1` turns all setup forms into plain line-based questions
-with numbered options (huh's accessible mode), e.g. for screen readers.
-
-`llmenu codex` leaves `~/.codex/config.toml` untouched: provider and model
-are passed via `-c` overrides, and the key only goes into Codex's
-environment ([ADR-0002](docs/ADR/0002-command-structure-and-targets.md)).
-
-## Development
-
-Tools and tasks are managed with [mise](https://mise.jdx.dev) (`mise.toml`).
-`mise install` once, then:
+### Pick and launch
 
 ```sh
-mise run ci                    # everything CI checks: fmt, tidy, vet, tests (-race), coverage, lint, govulncheck, workflows
-mise run test                  # unit and script tests only
-mise run cover                 # coverage report, fails below the threshold in mise.toml
-mise run mutation:changed      # mutation testing of your changes only (seconds); see docs/mutation-testing.md
-mise run mutation              # mutation testing of everything (a few minutes; also weekly on GitHub)
-mise run compat                # pi, opencode and codex read what llmenu generates (needs the tools installed)
-mise run release-check         # validate .goreleaser.yaml and build a snapshot into dist/
-mise tasks                     # all tasks
+llmenu claude                      # menu, cursor on your default model
+llmenu claude --model sonnet -c    # no menu; all arguments go to claude unchanged
+llmenu codex                       # the same for Codex CLI
+llmenu codex exec "fix the failing test"
+llmenu opencode                    # start opencode with the gateway key
+llmenu                             # just pick: prints the model name, e.g. strix --model "$(llmenu)"
 ```
 
-### Sandbox
-
-To try llmenu by hand after a change, without touching your real setup:
+### Models and benchmarks
 
 ```sh
-mise run sandbox               # fresh sandbox, starts with the first-run experience
-mise run sandbox:resume        # continue with the state of the last session
-mise run sandbox:live          # same isolation, but against your real gateway
-mise run sandbox:clean         # delete .sandbox/
+llmenu list                        # table, best benchmark first
+llmenu list --sort price --all     # by price, including aliases and duplicates
+llmenu list --json                 # for scripts
+llmenu bench                       # refresh benchmarks (free Artificial Analysis key)
 ```
 
-The sandbox opens a shell in which llmenu, pi and opencode only see
-`.sandbox/`: its own HOME, config, cache and a plain-text key file instead of
-the OS keyring. A fake gateway answers on `http://127.0.0.1:4111/` (key
-`sk-dev`, benchmark key `aa-dev`), and `claude`/`codex` are stand-ins that
-print how llmenu would have started them. Exit the shell to leave.
+### Sync into pi and opencode
 
-### Tests
+```sh
+llmenu sync --dry-run              # show the diff
+llmenu sync                        # write the models into the enabled tools
+```
 
-- Unit tests next to the code; `internal/cli/testdata/script/*.txtar` are
-  end-to-end scripts ([testscript](https://pkg.go.dev/github.com/rogpeppe/go-internal/testscript))
-  that run the real commands against a fake gateway with stand-in tools.
-- Fuzz tests for JSON editing and name normalization:
-  `go test -run=^$ -fuzz=FuzzEditJSON ./internal/targets`.
-- `test/compat` (build tag `compat`) checks the generated configs against the
-  real pi, opencode and Codex CLI; it runs weekly on GitHub.
+pi fetches the key itself (`!llmenu secrets get gateway`); opencode reads it
+from the environment that `llmenu opencode` sets.
 
-Never redirect `HOME` on macOS while llmenu can reach the OS keyring:
-`security` then finds no keychain and opens a dialog — choose "Cancel",
-never "Reset to defaults". The sandbox avoids this with `LLMENU_KEYRING_FILE`.
+### Configuration
 
-### Releasing
+```sh
+llmenu config list                         # all settings and where they come from
+llmenu config set claude.default sonnet    # default model for Claude Code
+llmenu config set bench.metric tb4         # sort by Terminal-Bench
+llmenu secrets set gateway                 # store a key (read hidden, never as an argument)
+llmenu targets                             # supported tools, install status, config paths
+```
 
-1. One-time setup on GitHub:
-   - create the empty public repos `schowave/homebrew-tap` and
-     `schowave/scoop-bucket`;
-   - create a fine-grained personal access token with *Contents: read and
-     write* on exactly these two repos and store it in this repo as the
-     Actions secret `TAP_GITHUB_TOKEN`.
-2. For each release: GitHub → Releases → *Draft a new release*, create a new
-   tag like `v0.1.0` on `main`, write the notes, *Publish release*.
-3. `.github/workflows/release.yml` builds all platforms, attaches the
-   archives and checksums to that release and updates the cask in the tap and
-   the manifest in the bucket.
-
-On GitHub, CI runs on Linux, macOS and Windows for every push and pull
-request, plus CodeQL, dependency review and Dependabot updates.
-
-## Layout
-
-| Path | Contents |
+| Environment variable | Purpose |
 |---|---|
-| `cmd/llmenu` | Entry point |
-| `internal/cli` | Commands (cobra) |
-| `internal/targets` | Targets: `Target`, `Syncer`, `Launcher` and one file per tool |
-| `internal/gateway` | Client for the LiteLLM proxy (`/model/info`) |
-| `internal/menu`, `internal/table` | Menu (go-fuzzyfinder) and table format for the menu and `list` |
-| `internal/config`, `internal/secrets` | `config.toml` and keys in the keychain ([ADR-0003](docs/ADR/0003-configuration-and-setup.md)) |
-| `internal/state` | Most recently selected model per target |
-| `internal/bench` | Fetching and matching benchmarks, cache `bench.json` |
-| `internal/fetch` | HTTP GET with readable errors |
-| `internal/catalog` | Models with benchmarks; normalization, aliases, duplicates |
-| `test/compat` | Compatibility tests against the real tools (build tag `compat`) |
-| `tools/`, `scripts/sandbox.sh` | Fake gateway and stand-in tools for the sandbox |
-| `.goreleaser.yaml` | Release for macOS, Linux, Windows, Homebrew cask and Scoop manifest |
+| `LLMENU_BASE_URL`, `LLMENU_API_KEY` | gateway URL and key; override config and keyring, e.g. in CI |
+| `LLMENU_AA_API_KEY` | Artificial Analysis key |
+| `LLMENU_CONFIG`, `LLMENU_CACHE_DIR` | alternative config file and cache directory |
+| `LLMENU_ACCESSIBLE=1` | line-based setup prompts with numbered options, e.g. for screen readers |
 
-Adding a new tool: create a file under `internal/targets/`, implement
-`Syncer` and/or `Launcher`, register it in `init()`, add a test. Commands
-and help are generated from that.
+## Supported tools
+
+| Tool | How llmenu integrates it |
+|---|---|
+| [Claude Code](https://github.com/anthropics/claude-code) | launch with gateway, key and model slots in the environment |
+| [Codex CLI](https://github.com/openai/codex) | launch with the gateway as provider via `-c` overrides |
+| [pi](https://www.npmjs.com/package/@earendil-works/pi-coding-agent) | sync models into `~/.pi/agent/models.json` |
+| [opencode](https://opencode.ai) | sync models into the opencode config, launch with the key |
+
+Any other tool can use the picker directly: `tool --model "$(llmenu)"`. A new
+integration is a single file — see [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## How it works
+
+llmenu calls the gateway's `/model/info` endpoint, normalizes model names
+across providers (`bedrock/eu.anthropic.claude-sonnet-4-5-20250929-v1:0` and
+`vertex_ai/claude-sonnet-4-5@20250929` are the same model), folds aliases and
+duplicates, and matches benchmark results to the models. The design decisions
+are recorded as Architecture Decision Records in [docs/ADR](docs/ADR).
+
+## Contributing
+
+Contributions are welcome! [CONTRIBUTING.md](CONTRIBUTING.md) covers the
+development setup, the local sandbox, tests and releases. Please follow the
+[Code of Conduct](CODE_OF_CONDUCT.md). To report a security issue, see
+[SECURITY.md](SECURITY.md).
 
 ## License
 
-[MIT](LICENSE)
+[MIT](LICENSE) © David Schowalter

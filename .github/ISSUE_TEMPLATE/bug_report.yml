@@ -1,0 +1,45 @@
+name: Bug report
+description: Something does not work as expected
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting! Please do not include API keys or internal gateway URLs.
+        Security problems: use "Report a vulnerability" under the Security tab instead.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What did you run, what did you expect, what happened instead?
+      placeholder: |
+        llmenu sync pi
+        Expected: …
+        Got: …
+    validations:
+      required: true
+  - type: textarea
+    id: output
+    attributes:
+      label: Output
+      description: Error messages or relevant output (remove secrets).
+      render: shell
+  - type: input
+    id: version
+    attributes:
+      label: llmenu version
+      description: Output of `llmenu --version`
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options: [macOS, Linux, Windows]
+    validations:
+      required: true
+  - type: input
+    id: tools
+    attributes:
+      label: Tool and version, if relevant
+      placeholder: e.g. Claude Code 2.1, pi 1.1, opencode 1.19, codex 0.162
