@@ -93,3 +93,10 @@ jobs:
         with:
           version: v2.18.3
           args: release --snapshot --clean
+      - name: Cask must not run the binary during installation
+        # Homebrew would run the unsigned, still quarantined binary before the
+        # postflight hook removes the quarantine; macOS then blocks it.
+        run: |
+          if grep -n 'generate_completions_from_executable\|system_command.*llmenu"' dist/homebrew/Casks/llmenu.rb | grep -v xattr; then
+            echo "::error::the cask executes llmenu during installation"; exit 1
+          fi

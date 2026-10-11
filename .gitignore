@@ -5,3 +5,4 @@
 /.sandbox/
 /coverage.out
 /mutation.json
+/completions/
