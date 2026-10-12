@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Records docs/demo.gif from docs/demo.tape with VHS (https://github.com/charmbracelet/vhs)
-# against the fake gateway. Everything lives in a temporary directory: keys
+# against the fake gateway, with the sample models and benchmarks in
+# tools/fakegateway/demo/. Everything lives in a temporary directory: keys
 # come from the environment, claude is the sandbox stand-in, the OS keyring
 # and real tool configs are never touched.
 set -euo pipefail
