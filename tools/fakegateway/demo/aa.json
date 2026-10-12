@@ -1,0 +1,131 @@
+{
+ "data": [
+  {
+   "slug": "claude-opus-5-5",
+   "evaluations": {
+    "artificial_analysis_intelligence_index": 57.6,
+    "terminalbench_v4_0": 0.596,
+    "artificial_analysis_coding_index": 80
+   }
+  },
+  {
+   "slug": "claude-sonnet-5-5",
+   "evaluations": {
+    "artificial_analysis_intelligence_index": 52.1,
+    "terminalbench_v4_0": 0.548,
+    "artificial_analysis_coding_index": 74.2
+   }
+  },
+  {
+   "slug": "claude-haiku-5-5",
+   "evaluations": {
+    "artificial_analysis_intelligence_index": 41.3,
+    "terminalbench_v4_0": 0.392,
+    "artificial_analysis_coding_index": 58.4
+   }
+  },
+  {
+   "slug": "claude-sonnet-4-5",
+   "evaluations": {
+    "artificial_analysis_intelligence_index": 42.0,
+    "terminalbench_v4_0": 0.401,
+    "artificial_analysis_coding_index": 60.1
+   }
+  },
+  {
+   "slug": "gpt-6-sol",
+   "evaluations": {
+    "artificial_analysis_intelligence_index": 55.2,
+    "terminalbench_v4_0": 0.571,
+    "artificial_analysis_coding_index": 77.5
+   }
+  },
+  {
+   "slug": "gpt-6-luna",
+   "evaluations": {
+    "artificial_analysis_intelligence_index": 44.8,
+    "terminalbench_v4_0": 0.385,
+    "artificial_analysis_coding_index": 61.0
+   }
+  },
+  {
+   "slug": "gpt-6-codex",
+   "evaluations": {
+    "artificial_analysis_intelligence_index": 51.0,
+    "terminalbench_v4_0": 0.589,
+    "artificial_analysis_coding_index": 78.3
+   }
+  },
+  {
+   "slug": "gemini-3-pro",
+   "evaluations": {
+    "artificial_analysis_intelligence_index": 53.4,
+    "terminalbench_v4_0": 0.512,
+    "artificial_analysis_coding_index": 72.6
+   }
+  },
+  {
+   "slug": "gemini-3-flash",
+   "evaluations": {
+    "artificial_analysis_intelligence_index": 46.1,
+    "terminalbench_v4_0": 0.418,
+    "artificial_analysis_coding_index": 63.9
+   }
+  },
+  {
+   "slug": "mistral-large-4",
+   "evaluations": {
+    "artificial_analysis_intelligence_index": 36.2,
+    "artificial_analysis_coding_index": 49.5
+   }
+  },
+  {
+   "slug": "devstral-2",
+   "evaluations": {
+    "artificial_analysis_intelligence_index": 34.0,
+    "terminalbench_v4_0": 0.322,
+    "artificial_analysis_coding_index": 55.1
+   }
+  },
+  {
+   "slug": "deepseek-v4",
+   "evaluations": {
+    "artificial_analysis_intelligence_index": 47.3,
+    "terminalbench_v4_0": 0.433,
+    "artificial_analysis_coding_index": 66.2
+   }
+  },
+  {
+   "slug": "kimi-k3",
+   "evaluations": {
+    "artificial_analysis_intelligence_index": 48.9,
+    "terminalbench_v4_0": 0.461,
+    "artificial_analysis_coding_index": 67.0
+   }
+  },
+  {
+   "slug": "glm-5",
+   "evaluations": {
+    "artificial_analysis_intelligence_index": 45.7,
+    "terminalbench_v4_0": 0.427,
+    "artificial_analysis_coding_index": 64.8
+   }
+  },
+  {
+   "slug": "qwen3-coder-480b-a35b",
+   "evaluations": {
+    "artificial_analysis_intelligence_index": 38.4,
+    "terminalbench_v4_0": 0.351,
+    "artificial_analysis_coding_index": 59.7
+   }
+  },
+  {
+   "slug": "gpt-oss-120b",
+   "evaluations": {
+    "artificial_analysis_intelligence_index": 33.1,
+    "terminalbench_v4_0": 0.264,
+    "artificial_analysis_coding_index": 47.3
+   }
+  }
+ ]
+}

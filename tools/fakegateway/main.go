@@ -25,11 +25,19 @@ func main() {
 	models := flag.String("models", "internal/gateway/testdata/model_info.json", "response for /model/info")
 	key := flag.String("key", "sk-dev", "expected gateway key")
 	aaKey := flag.String("aa-key", "aa-dev", "expected Artificial Analysis key")
+	bench := flag.String("bench", "", "response for the Artificial Analysis API (default: a small built-in set)")
 	flag.Parse()
 
 	info, err := os.ReadFile(*models)
 	if err != nil {
 		log.Fatal(err)
+	}
+
+	aa := []byte(aaResponse)
+	if *bench != "" {
+		if aa, err = os.ReadFile(*bench); err != nil {
+			log.Fatal(err)
+		}
 	}
 
 	mux := http.NewServeMux()
@@ -47,7 +55,7 @@ func main() {
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(aaResponse))
+		_, _ = w.Write(aa)
 	})
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, `{"error":{"message":"sandbox gateway: only /model/info is implemented, no chat"}}`, http.StatusNotImplemented)

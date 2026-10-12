@@ -14,7 +14,7 @@ trap 'kill "${gw:-}" 2>/dev/null; rm -rf "$tmp"' EXIT
 go build -o "$tmp/llmenu" "$root/cmd/llmenu"
 go build -o "$tmp/fakegateway" "$root/tools/fakegateway"
 go build -o "$tmp/claude" "$root/tools/faketool"
-"$tmp/fakegateway" -addr "127.0.0.1:$port" -models "$root/internal/gateway/testdata/model_info.json" 2>"$tmp/fakegateway.log" &
+"$tmp/fakegateway" -addr "127.0.0.1:$port" -models "$root/tools/fakegateway/demo/model_info.json" -bench "$root/tools/fakegateway/demo/aa.json" 2>"$tmp/fakegateway.log" &
 gw=$!
 sleep 1
 
@@ -25,7 +25,7 @@ export LLMENU_API_KEY=sk-dev LLMENU_AA_API_KEY=aa-dev LLMENU_AA_URL=http://127.0
 llmenu config set gateway.url "http://127.0.0.1:$port/" >/dev/null
 llmenu config set gateway.name demo >/dev/null
 llmenu config set tools claude >/dev/null
-llmenu bench >/dev/null
+llmenu bench
 
 cd "$root"
 vhs docs/demo.tape

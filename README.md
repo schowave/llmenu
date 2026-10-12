@@ -23,6 +23,8 @@ the gateway and does the wiring for you:
 
 <p align="center">
   <img alt="llmenu claude: a menu of the gateway's models with context size, prices and benchmark scores; Tab changes the sort column, typing searches, Enter starts Claude Code with the chosen model" src="docs/demo.gif" width="900">
+  <br>
+  <sub>Recorded against a fake gateway with sample prices and scores (<code>mise run demo</code>).</sub>
 </p>
 
 Pick a model, press Enter, and Claude Code starts against your gateway with
