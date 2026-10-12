@@ -207,7 +207,7 @@ func (f fileStore) save(m map[string]string) error {
 		err = os.Rename(tmp.Name(), string(f)) // CreateTemp files are 0600
 	}
 	if err != nil {
-		os.Remove(tmp.Name())
+		_ = os.Remove(tmp.Name())
 	}
 	return err
 }
