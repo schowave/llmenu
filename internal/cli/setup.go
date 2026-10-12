@@ -210,6 +210,10 @@ func setupGateway(ctx context.Context, cfg *config.Config) error {
 		models, err := gateway.Client{BaseURL: u, APIKey: test}.Models(ctx)
 		if err == nil {
 			fmt.Fprintf(os.Stderr, "Gateway reachable, %d chat models.\n", len(models))
+			// The keys belong to the gateway just entered.
+			if err := secrets.SetOrigin(originOf(u)); err != nil {
+				return err
+			}
 			if key != "" {
 				if err := secrets.Set(secrets.Gateway, key); err != nil {
 					return err

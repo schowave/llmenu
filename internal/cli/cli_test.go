@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
@@ -12,6 +13,7 @@ import (
 	"github.com/schowave/llmenu/internal/catalog"
 	"github.com/schowave/llmenu/internal/config"
 	"github.com/schowave/llmenu/internal/menu"
+	"github.com/schowave/llmenu/internal/secrets"
 	"github.com/schowave/llmenu/internal/state"
 	"github.com/schowave/llmenu/internal/targets"
 )
@@ -355,5 +357,66 @@ func TestBuildVersion(t *testing.T) {
 	version = "dev"
 	if got := buildVersion(); got != "dev" {
 		t.Errorf("dev build: %q", got)
+	}
+}
+
+func TestTrustGateway(t *testing.T) {
+	t.Setenv("LLMENU_KEYRING_FILE", filepath.Join(t.TempDir(), "keys.json"))
+	t.Setenv("LLMENU_API_KEY", "")
+	origTerm, origConfirm := isTerminal, confirmOrigin
+	t.Cleanup(func() { isTerminal, confirmOrigin = origTerm, origConfirm })
+	isTerminal = func(*os.File) bool { return false }
+	t.Setenv("LLMENU_ACCESSIBLE", "")
+	confirmOrigin = func(string, string) (bool, error) { t.Fatal("asked without a terminal"); return false, nil }
+
+	env := func(url string) targets.Env { return targets.Env{BaseURL: url, APIKey: "sk-x"} }
+
+	// No key: nothing to protect. First use binds the key to the gateway.
+	if err := trustGateway(targets.Env{BaseURL: "https://a.example.com/"}); err != nil {
+		t.Fatal(err)
+	}
+	if o, _ := secrets.Origin(); o != "" {
+		t.Errorf("origin recorded without a key: %q", o)
+	}
+	if err := trustGateway(env("https://A.example.com/v1")); err != nil {
+		t.Fatal(err)
+	}
+	if o, _ := secrets.Origin(); o != "https://a.example.com" {
+		t.Errorf("origin = %q", o)
+	}
+
+	// Another path on the same gateway is fine; another host is not.
+	if err := trustGateway(env("https://a.example.com/other")); err != nil {
+		t.Errorf("same origin: %v", err)
+	}
+	err := trustGateway(env("https://evil.example.net/"))
+	if err == nil || !strings.Contains(err.Error(), "stored for https://a.example.com") {
+		t.Errorf("other host: %v", err)
+	}
+	if err := trustGateway(env("http://a.example.com/")); err == nil {
+		t.Error("other scheme accepted")
+	}
+
+	// On a terminal the user decides.
+	isTerminal = func(*os.File) bool { return true }
+	confirmOrigin = func(string, string) (bool, error) { return false, nil }
+	if err := trustGateway(env("https://b.example.com/")); err == nil {
+		t.Error("declined, but sent")
+	}
+	if o, _ := secrets.Origin(); o != "https://a.example.com" {
+		t.Errorf("declined, origin changed to %q", o)
+	}
+	confirmOrigin = func(string, string) (bool, error) { return true, nil }
+	if err := trustGateway(env("https://b.example.com/")); err != nil {
+		t.Fatal(err)
+	}
+	if o, _ := secrets.Origin(); o != "https://b.example.com" {
+		t.Errorf("confirmed, origin = %q", o)
+	}
+
+	// A key from the environment is not bound.
+	t.Setenv("LLMENU_API_KEY", "sk-env")
+	if err := trustGateway(env("https://c.example.com/")); err != nil {
+		t.Errorf("environment key: %v", err)
 	}
 }

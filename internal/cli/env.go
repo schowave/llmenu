@@ -4,8 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/url"
 	"os"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/charmbracelet/huh"
@@ -58,6 +60,9 @@ func loadEnv(ctx context.Context) (targets.Env, error) {
 		}
 	}
 
+	if err := trustGateway(env); err != nil {
+		return env, err
+	}
 	env.Models, err = gateway.Client{BaseURL: env.BaseURL, APIKey: env.APIKey}.Models(ctx)
 	if err != nil {
 		return env, err
@@ -124,6 +129,50 @@ func gatewayFrom(cfg *config.Config) (targets.Env, error) {
 	return env, nil
 }
 
+// originOf is scheme://host[:port] of a URL, the unit a key is bound to; empty
+// if there is none.
+func originOf(raw string) string {
+	u, err := url.Parse(raw)
+	if err != nil || u.Host == "" {
+		return ""
+	}
+	return strings.ToLower(u.Scheme) + "://" + strings.ToLower(u.Host)
+}
+
+// trustGateway makes sure the key is only sent to the gateway it was stored
+// for. Whoever can change config.toml or LLMENU_BASE_URL could otherwise point
+// llmenu at a server of their choice and read the key from the request. The
+// origin is recorded in the keyring when the key is stored (setup, config set
+// gateway.url); keys stored by older versions are bound on first use. A
+// different origin needs a confirmation on a terminal, otherwise it is an
+// error. A key from the environment is not bound: its owner sets both.
+func trustGateway(env targets.Env) error {
+	if env.APIKey == "" || os.Getenv(secrets.Names[secrets.Gateway]) != "" {
+		return nil
+	}
+	cur := originOf(env.BaseURL)
+	stored, err := secrets.Origin()
+	if err != nil {
+		return err
+	}
+	switch stored {
+	case cur:
+		return nil
+	case "":
+		if err := secrets.SetOrigin(cur); err != nil {
+			fmt.Fprintln(os.Stderr, "llmenu: cannot record the gateway for the key:", err)
+		}
+		return nil
+	}
+	if !canPrompt() {
+		return fmt.Errorf("the gateway key was stored for %s, but the gateway URL now points to %s: run llmenu config set gateway.url %s to send it there", stored, cur, env.BaseURL)
+	}
+	if ok, err := confirmOrigin(stored, cur); err != nil || !ok {
+		return errors.New("gateway key not sent")
+	}
+	return secrets.SetOrigin(cur)
+}
+
 // warnedURL keeps the warning to one per run.
 var warnedURL bool
 
@@ -140,6 +189,15 @@ func firstRun() bool {
 // Replaceable in tests.
 var (
 	isTerminal = func(f *os.File) bool { return term.IsTerminal(int(f.Fd())) }
+
+	confirmOrigin = func(stored, cur string) (bool, error) {
+		var ok bool
+		err := runPrompt(huh.NewConfirm().
+			Title("The gateway key was stored for " + stored + ". Send it to " + cur + " instead?").
+			Affirmative("Yes").Negative("No").
+			Value(&ok))
+		return ok, err
+	}
 
 	confirmSetup = func() (bool, error) {
 		start := true

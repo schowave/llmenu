@@ -1,0 +1,33 @@
+# The key is only sent to the gateway it was stored for.
+env GW=$LLMENU_BASE_URL
+env LLMENU_KEYRING_FILE=$WORK/keyring.json
+env LLMENU_API_KEY=
+stdin key.txt
+exec llmenu secrets set gateway
+
+# First use binds the key to this gateway.
+exec llmenu list
+stdout 'azure/gpt-6-sol'
+
+# A different URL (environment or hand-edited config) is refused ...
+env LLMENU_BASE_URL=http://127.0.0.1:1/
+! exec llmenu list
+stderr 'stored for http://127\.0\.0\.1:\d+, but the gateway URL now points to http://127\.0\.0\.1:1'
+stderr 'llmenu config set gateway.url'
+
+# ... and nothing is sent: the unreachable gateway is never contacted.
+! stderr 'request failed'
+
+# Typing the URL with config set is the confirmation.
+env LLMENU_BASE_URL=
+exec llmenu config set gateway.url $GW
+exec llmenu list
+stdout 'azure/gpt-6-sol'
+
+# A key from the environment (CI) is not bound.
+env LLMENU_API_KEY=sk-test
+env LLMENU_BASE_URL=$GW
+exec llmenu list
+
+-- key.txt --
+sk-test

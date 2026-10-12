@@ -160,3 +160,23 @@ func TestFileStoreTightensExistingMode(t *testing.T) {
 		t.Errorf("file mode: %v %v", fi, err)
 	}
 }
+
+func TestOrigin(t *testing.T) {
+	t.Setenv("LLMENU_KEYRING_SERVICE", "llmenu-origin-test")
+	if o, err := Origin(); o != "" || err != nil {
+		t.Fatalf("unset: %q %v", o, err)
+	}
+	if err := SetOrigin(""); err == nil {
+		t.Error("empty origin accepted")
+	}
+	if err := SetOrigin("https://gw.example.com"); err != nil {
+		t.Fatal(err)
+	}
+	if o, _ := Origin(); o != "https://gw.example.com" {
+		t.Errorf("origin = %q", o)
+	}
+	// Not a key: no environment override, not accepted as a name.
+	if err := Set("gateway-origin", "x"); err == nil {
+		t.Error("origin settable as a key")
+	}
+}

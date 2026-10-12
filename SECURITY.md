@@ -25,11 +25,15 @@ scope.
   processes of the same user can read it. A prompt injection that makes the
   tool run a command can therefore leak the key. Use a gateway key with a
   budget and a short lifetime, and one key per project (`llmenu project`).
-- **The key goes to the configured gateway URL.** `llmenu setup` and
+- **The key is bound to the gateway it was stored for.** `llmenu setup` and
   `llmenu config set gateway.url` only accept `https://` (and `http://` for
-  localhost). A URL from `config.toml` or `LLMENU_BASE_URL` is not checked that
-  strictly; llmenu warns about plain http, but whoever can change either value
-  can send the key to a server of their choice.
+  localhost) and record the gateway (scheme, host, port) next to the key in the
+  keyring; keys stored by older versions are bound on first use. If
+  `config.toml` or `LLMENU_BASE_URL` later points somewhere else, llmenu does
+  not send the key: on a terminal it asks, otherwise it fails. A URL from
+  `config.toml` or `LLMENU_BASE_URL` is not checked for https; llmenu only
+  warns about plain http. A key from `LLMENU_API_KEY` is not bound, its owner
+  sets both. This does not help against someone who can read the keyring.
 - **`LLMENU_KEYRING_FILE` stores keys in plain text.** It exists for tests and
   the development sandbox; the file is created with mode 0600. Do not use it
   for real keys.

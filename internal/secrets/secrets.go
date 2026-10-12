@@ -91,6 +91,35 @@ func check(name string) error {
 	return nil
 }
 
+// originName is the entry for the gateway the keys were stored for. It lives
+// next to the keys, out of reach of whoever can only edit config.toml or the
+// environment. It is not a key itself and has no environment override.
+const originName = "gateway-origin"
+
+// Origin returns the gateway origin (scheme://host[:port]) the gateway keys
+// belong to; empty if none was recorded yet.
+func Origin() (string, error) {
+	v, err := backend().Get(service(), originName)
+	if errors.Is(err, keyring.ErrNotFound) {
+		return "", nil
+	}
+	if err != nil {
+		return "", fmt.Errorf("keyring: %w", err)
+	}
+	return v, nil
+}
+
+// SetOrigin records the gateway origin the keys belong to.
+func SetOrigin(origin string) error {
+	if origin == "" {
+		return errors.New("empty origin")
+	}
+	if err := backend().Set(service(), originName, origin); err != nil {
+		return fmt.Errorf("keyring: %w", err)
+	}
+	return nil
+}
+
 // Get returns the key and where it comes from ("environment", "keyring" or
 // "keyring file").
 // If it is set nowhere, value is empty and err is nil.

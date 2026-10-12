@@ -120,8 +120,16 @@ func setConfig(key, value string) error {
 	if err := cfg.Set(key, value); err != nil {
 		return err
 	}
-	_, err = cfg.Save()
-	return err
+	if _, err = cfg.Save(); err != nil {
+		return err
+	}
+	// Typing the URL is the confirmation that the stored key may go there.
+	if key == "gateway.url" && value != "" {
+		if _, src, err := secrets.Get(secrets.Gateway); err == nil && src != "" && src != "environment" {
+			return secrets.SetOrigin(originOf(value))
+		}
+	}
+	return nil
 }
 
 func orDash(s string) string {
