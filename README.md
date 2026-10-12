@@ -15,11 +15,12 @@
 
 ---
 
-Many teams reach their models through a [LiteLLM](https://github.com/BerriAI/litellm)
-gateway: dozens of models from several providers, aliases like
-`claude-opus-latest`, different prices and context sizes — and every coding
-tool wants that configured differently. **llmenu** reads the model list from
-the gateway and does the wiring for you:
+**llmenu** is for teams that reach their models through a
+[LiteLLM](https://github.com/BerriAI/litellm) gateway: dozens of models from
+several providers, aliases like `claude-opus-latest`, different prices and
+context sizes — and a coding tool that wants all of that configured in its own
+way. llmenu reads the model list from the gateway, lets you compare the
+models, and does the wiring for you.
 
 <p align="center">
   <img alt="llmenu claude: a menu of the gateway's models with context size, prices and benchmark scores; Tab changes the sort column, typing searches, Enter starts Claude Code with the chosen model" src="docs/demo.gif" width="900">
@@ -28,23 +29,34 @@ the gateway and does the wiring for you:
 </p>
 
 Pick a model, press Enter, and Claude Code starts against your gateway with
-that model — no environment variables to export, no config files to edit.
+that model.
 
-## Features
+## Why llmenu
 
-- **Fuzzy menu** of all chat models on the gateway with context size, input
-  and output prices and benchmark scores from
-  [Artificial Analysis](https://artificialanalysis.ai) (Intelligence Index,
-  Terminal-Bench, Coding Index); aliases and provider duplicates are folded
-  together.
-- **Launches** Claude Code and Codex CLI against the gateway with the chosen
-  model. Your `~/.claude` and `~/.codex` configs stay untouched.
-- **Syncs** the gateway's models, limits and prices into pi and opencode, so
-  their own model pickers show everything. Comments and other providers in
-  those files are preserved, and a backup is kept.
-- **Works with any LiteLLM gateway.** Suggestions for Claude Code's
-  opus/sonnet/haiku slots are derived from the gateway's model list; nothing
-  is hard-coded.
+- **Choose, don't guess.** Which of the gateway's models is the best for
+  coding — and what does it cost? The menu shows context size, input and
+  output prices and benchmark scores side by side, sortable by quality or
+  price.
+- **Zero configuration.** Without llmenu you export a gateway URL, a key and
+  one model variable per slot, in a different format for each tool. With it:
+  `llmenu claude`. Your `~/.claude` and `~/.codex` stay untouched.
+- **One gateway, four tools.** Claude Code and Codex CLI are started with the
+  chosen model; pi and opencode get the gateway's models, limits and prices
+  written into their configs. When the gateway changes, `llmenu sync` brings
+  every tool up to date.
+
+> **Requires** a LiteLLM gateway (URL and API key). llmenu does not talk to
+> model providers directly.
+
+## Details
+
+- **Benchmarks** from [Artificial Analysis](https://artificialanalysis.ai)
+  (Intelligence Index, Terminal-Bench, Coding Index); aliases and provider
+  duplicates are folded together.
+- **Safe config edits:** in pi and opencode only llmenu's own provider entry
+  changes; comments and other providers are preserved, and a backup is kept.
+- **Nothing hard-coded:** suggestions for Claude Code's opus/sonnet/haiku slots
+  are derived from the gateway's model list.
 - **Keys stay in the OS keyring** (macOS Keychain, Windows Credential Manager,
   Secret Service), never in config files or process arguments.
 - **Scriptable:** `llmenu list --json`, `strix --model "$(llmenu)"`; without a
@@ -53,6 +65,7 @@ that model — no environment variables to export, no config files to edit.
 
 ## Contents
 
+- [Why llmenu](#why-llmenu)
 - [Installation](#installation)
 - [Quick start](#quick-start)
 - [Using llmenu with your tools](#using-llmenu-with-your-tools)
@@ -60,6 +73,7 @@ that model — no environment variables to export, no config files to edit.
 - [Configuration](#configuration)
 - [Command reference](#command-reference)
 - [How it works](#how-it-works)
+- [Updating and uninstalling](#updating-and-uninstalling)
 
 ## Installation
 
@@ -112,73 +126,6 @@ PowerShell
 ```powershell
 Add-Content $PROFILE 'llmenu completion powershell | Out-String | Invoke-Expression'
 ```
-
-### Updating
-
-To the [latest release](https://github.com/schowave/llmenu/releases/latest);
-`llmenu --version` shows the installed one. Settings and keys are kept.
-
-Homebrew (`brew update` fetches the new cask from the tap first)
-
-```sh
-brew update && brew upgrade --cask llmenu
-```
-
-Scoop (`scoop update` refreshes the bucket first)
-
-```powershell
-scoop update; scoop update llmenu
-```
-
-Go
-
-```sh
-go install github.com/schowave/llmenu/cmd/llmenu@latest
-```
-
-### Uninstalling
-
-A normal uninstall keeps your settings, cache and keys, so a reinstall picks
-up where you left off:
-
-```sh
-brew uninstall --cask llmenu
-```
-
-```powershell
-scoop uninstall llmenu
-```
-
-**To remove everything**, delete the keys first, while llmenu is still
-installed, then uninstall with its data:
-
-```sh
-llmenu secrets delete gateway
-llmenu secrets delete artificialanalysis
-```
-
-Homebrew (`--zap` also removes settings and caches)
-
-```sh
-brew uninstall --zap --cask llmenu
-```
-
-Scoop
-
-```powershell
-scoop uninstall llmenu
-Remove-Item -Recurse -ErrorAction SilentlyContinue "$env:APPDATA\llmenu", "$env:LOCALAPPDATA\llmenu"
-```
-
-Go
-
-```sh
-rm -rf "$(go env GOPATH)/bin/llmenu" ~/.config/llmenu ~/.cache/llmenu ~/Library/"Application Support"/llmenu ~/Library/Caches/llmenu
-```
-
-llmenu also wrote a provider entry (named like your gateway, see
-`llmenu config get gateway.name`) into the configs of pi and opencode if you
-used `llmenu sync`; remove it there by hand. `llmenu targets` shows the files.
 
 ## Quick start
 
@@ -309,6 +256,75 @@ across providers (`bedrock/eu.anthropic.claude-sonnet-4-5-20250929-v1:0` and
 `vertex_ai/claude-sonnet-4-5@20250929` are the same model), folds aliases and
 duplicates, and matches benchmark results to the models. The design decisions
 are recorded as Architecture Decision Records in [docs/ADR](docs/ADR).
+
+## Updating and uninstalling
+
+### Updating
+
+To the [latest release](https://github.com/schowave/llmenu/releases/latest);
+`llmenu --version` shows the installed one. Settings and keys are kept.
+
+Homebrew (`brew update` fetches the new cask from the tap first)
+
+```sh
+brew update && brew upgrade --cask llmenu
+```
+
+Scoop (`scoop update` refreshes the bucket first)
+
+```powershell
+scoop update; scoop update llmenu
+```
+
+Go
+
+```sh
+go install github.com/schowave/llmenu/cmd/llmenu@latest
+```
+
+### Uninstalling
+
+A normal uninstall keeps your settings, cache and keys, so a reinstall picks
+up where you left off:
+
+```sh
+brew uninstall --cask llmenu
+```
+
+```powershell
+scoop uninstall llmenu
+```
+
+**To remove everything**, delete the keys first, while llmenu is still
+installed, then uninstall with its data:
+
+```sh
+llmenu secrets delete gateway
+llmenu secrets delete artificialanalysis
+```
+
+Homebrew (`--zap` also removes settings and caches)
+
+```sh
+brew uninstall --zap --cask llmenu
+```
+
+Scoop
+
+```powershell
+scoop uninstall llmenu
+Remove-Item -Recurse -ErrorAction SilentlyContinue "$env:APPDATA\llmenu", "$env:LOCALAPPDATA\llmenu"
+```
+
+Go
+
+```sh
+rm -rf "$(go env GOPATH)/bin/llmenu" ~/.config/llmenu ~/.cache/llmenu ~/Library/"Application Support"/llmenu ~/Library/Caches/llmenu
+```
+
+llmenu also wrote a provider entry (named like your gateway, see
+`llmenu config get gateway.name`) into the configs of pi and opencode if you
+used `llmenu sync`; remove it there by hand. `llmenu targets` shows the files.
 
 ## Contributing
 
