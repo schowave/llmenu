@@ -436,7 +436,7 @@ func padRight(s string, w int) string {
 // styles are created from a renderer bound to the menu's output, so colors
 // match that terminal even when stdout is a pipe (`$(llmenu)`).
 type styles struct {
-	normal, selected, dim, header, prompt, cursorBlock, marker, good, match, preview lipgloss.Style
+	normal, selected, dim, header, prompt, cursorBlock, marker, good, preview lipgloss.Style
 }
 
 func newStyles(r *lipgloss.Renderer) styles {
@@ -449,7 +449,6 @@ func newStyles(r *lipgloss.Renderer) styles {
 		cursorBlock: r.NewStyle().Reverse(true),
 		marker:      r.NewStyle().Bold(true).Foreground(lipgloss.Color("12")),
 		good:        r.NewStyle().Foreground(lipgloss.Color("10")),
-		match:       r.NewStyle().Underline(true).Bold(true),
 		preview:     r.NewStyle().PaddingLeft(2).BorderStyle(lipgloss.NormalBorder()).BorderLeft(true).BorderForeground(lipgloss.Color("8")),
 	}
 }
