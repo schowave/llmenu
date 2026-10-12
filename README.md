@@ -100,6 +100,8 @@ go install github.com/schowave/llmenu/cmd/llmenu@latest
 ```
 
 Or download an archive from the [releases page](https://github.com/schowave/llmenu/releases).
+Archives come with signed build provenance; check one with
+`gh attestation verify <archive> --repo schowave/llmenu`.
 
 ### Shell completion
 

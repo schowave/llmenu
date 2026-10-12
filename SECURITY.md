@@ -33,3 +33,7 @@ scope.
 - **`LLMENU_KEYRING_FILE` stores keys in plain text.** It exists for tests and
   the development sandbox; the file is created with mode 0600. Do not use it
   for real keys.
+- **Release archives have signed provenance.** `gh attestation verify
+  <archive> --repo schowave/llmenu` proves that an archive was built by this
+  repository's release workflow. The macOS binaries are not notarized; the
+  Homebrew cask removes the quarantine attribute so they start.
