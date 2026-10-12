@@ -104,6 +104,7 @@ No equivalent mutants. The setup dialogs are covered end to end by the
 
 | Mutant | Type | Reason |
 | --- | --- | --- |
+| bench.go (`autoBenchInterval`, `autoBenchTimeout`) | ARITHMETIC_BASE | Blind spot: constants have no coverage block; `TestAutoRefreshBench` fails when the interval is changed by hand. |
 | config.go:42:15 | CONDITIONALS_NEGATION | Blind spot (`case` expression); `config.txtar` (broken keyring file) fails when applied. |
 | config.go:44:15 | CONDITIONALS_NEGATION | Blind spot (`case` expression); `config.txtar` fails when applied. |
 | root.go:27:11 | CONDITIONALS_NEGATION | Blind spot (`case` expression); `TestExecuteExitCodes` fails when applied. |

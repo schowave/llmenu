@@ -166,14 +166,22 @@ are removed and the first remaining part is taken. So
 Only the gateway URL and the gateway key are required. If one of them is
 missing:
 
-- **with a terminal:** "Gateway is not set up yet. Set it up now? [Y/n]".
-  Then only the `gateway` section runs, and the original command continues.
+- **with a terminal:** "llmenu is not set up yet. Set it up now? [Y/n]". On
+  the very first run (no config file yet) the whole setup runs — gateway,
+  tools, Claude Code defaults, benchmark key — otherwise only the missing
+  `gateway` section. Then the original command continues.
 - **without a terminal:** abort with a hint to run `llmenu setup`.
 - **accessible mode** (`LLMENU_ACCESSIBLE=1`): all prompts are plain
   line-based questions on stderr with numbered options, read from stdin,
   also without a terminal. Meant for screen readers; the tests use it to
   drive the setup. Only this explicit opt-in reads stdin without a terminal,
   so scripts still never hang.
+
+Benchmarks: entering the Artificial Analysis key in the setup fetches them
+right away. With a key, benchmarks that are missing or older than 14 days are
+refreshed automatically before the menu or `llmenu list` opens — at most one
+attempt a day, with a 3-second timeout; a failure is silent and the old
+values stay. Without benchmarks, the menu's footer suggests `llmenu bench`.
 
 If the gateway offers no model for a Claude Code slot, the setup offers
 "not set" first, so Enter does not silently store some other model.

@@ -57,6 +57,7 @@ func fetchModels(ctx context.Context, all bool, sortBy string) ([]catalog.Model,
 	if err != nil {
 		return nil, err
 	}
+	autoRefreshBench(ctx, env)
 	models := env.Models
 	if !all {
 		models = catalog.Dedupe(models)

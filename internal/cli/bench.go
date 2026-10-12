@@ -2,6 +2,7 @@ package cli
 
 import (
 	"cmp"
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -12,6 +13,8 @@ import (
 
 	"github.com/schowave/llmenu/internal/bench"
 	"github.com/schowave/llmenu/internal/secrets"
+	"github.com/schowave/llmenu/internal/state"
+	"github.com/schowave/llmenu/internal/targets"
 )
 
 // aaKeyURL explains how to get the free Artificial Analysis key.
@@ -54,16 +57,8 @@ map it by hand: llmenu config set bench.map.<model> <slug>`,
 			if err != nil {
 				return err
 			}
-			entries, err := bench.Fetch(cmd.Context(), nil, cmp.Or(os.Getenv("LLMENU_AA_URL"), bench.URL), key)
+			st, err := fetchBench(cmd.Context(), env, key)
 			if err != nil {
-				return err
-			}
-
-			st := &bench.Store{
-				FetchedAt: time.Now().UTC(),
-				Models:    bench.Match(entries, env.Models, env.Config.Bench.Map),
-			}
-			if err := st.Save(); err != nil {
 				return err
 			}
 
@@ -104,4 +99,54 @@ map it by hand: llmenu config set bench.map.<model> <slug>`,
 			return nil
 		},
 	}
+}
+
+// fetchBench fetches the benchmarks, matches them to the gateway's models,
+// saves them and attaches them to env.Models.
+func fetchBench(ctx context.Context, env targets.Env, key string) (*bench.Store, error) {
+	entries, err := bench.Fetch(ctx, nil, cmp.Or(os.Getenv("LLMENU_AA_URL"), bench.URL), key)
+	if err != nil {
+		return nil, err
+	}
+	st := &bench.Store{
+		FetchedAt: now().UTC(),
+		Models:    bench.Match(entries, env.Models, env.Config.Bench.Map),
+	}
+	if err := st.Save(); err != nil {
+		return nil, err
+	}
+	st.Apply(env.Models)
+	return st, nil
+}
+
+// Automatic refresh: with a key, benchmarks that are missing or older than
+// bench.StaleAfter are fetched before the menu or list opens. At most one
+// attempt per autoBenchInterval, with a short timeout; failures are silent
+// and the old values (if any) stay.
+const (
+	autoBenchInterval = 24 * time.Hour
+	autoBenchTimeout  = 3 * time.Second
+)
+
+var now = time.Now // replaceable in tests
+
+func autoRefreshBench(ctx context.Context, env targets.Env) {
+	st, err := bench.Load()
+	if err != nil || (st != nil && now().Sub(st.FetchedAt) < bench.StaleAfter) {
+		return
+	}
+	s := state.Load()
+	if now().Sub(s.BenchAttempt) < autoBenchInterval {
+		return
+	}
+	// Only now read the key: most starts never touch the keyring for this.
+	key, _, err := secrets.Get(secrets.ArtificialAnalysis)
+	if err != nil || key == "" {
+		return
+	}
+	s.BenchAttempt = now()
+	_ = s.Save()
+	ctx, cancel := context.WithTimeout(ctx, autoBenchTimeout)
+	defer cancel()
+	_, _ = fetchBench(ctx, env, key)
 }

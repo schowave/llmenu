@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/schowave/llmenu/internal/guard"
 )
@@ -14,6 +15,9 @@ import (
 // State is stored as JSON in the user's cache directory.
 type State struct {
 	LastModel map[string]string `json:"last_model"` // target -> model name; "" stands for `llmenu` without a target
+	// BenchAttempt is the last automatic benchmark refresh, successful or not,
+	// so a failing refresh is not retried on every start.
+	BenchAttempt time.Time `json:"bench_attempt,omitzero"`
 }
 
 // Path returns the storage location, e.g. ~/Library/Caches/llmenu/state.json.

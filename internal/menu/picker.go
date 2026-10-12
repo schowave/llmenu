@@ -317,9 +317,12 @@ func (p *picker) row(i int, selected bool, nw int) string {
 		marker = p.st.marker.Render("▶ ")
 		base = p.st.selected
 	}
-	name := p.highlight(truncate(m.Name, nw), p.matches[i], base)
+	label := truncate(m.Name, nw)
+	name := p.highlight(label, p.matches[i], base)
+	// The padding gets the row style too, so the selection bar has no gap.
+	pad := base.Render(strings.Repeat(" ", max(nw-runewidth.StringWidth(label), 0)))
 	nums := base.Render(fmt.Sprintf("%8s%9.2f%9.2f", table.Tokens(m.ContextTokens), m.InputPrice, m.OutputPrice))
-	return marker + padRight(name, nw) + nums +
+	return marker + name + pad + nums +
 		p.score(m, "intel", base) + p.score(m, "tb4", base) + p.score(m, "code", base)
 }
 
@@ -331,7 +334,9 @@ func (p *picker) score(m catalog.Model, key string, base lipgloss.Style) string 
 	}
 	s := fmt.Sprintf("%7.1f", *v)
 	if p.maxScore[key] > 0 && *v >= 0.9*p.maxScore[key] {
-		return base.Inherit(p.st.good).Render(s)
+		// Foreground set explicitly: Inherit would keep the selected row's own
+		// text color and lose the green.
+		return base.Foreground(p.st.good.GetForeground()).Render(s)
 	}
 	return base.Render(s)
 }
@@ -344,7 +349,7 @@ func (p *picker) highlight(name string, matched []int, base lipgloss.Style) stri
 	var b strings.Builder
 	for i, r := range []rune(name) {
 		if slices.Contains(matched, i) {
-			b.WriteString(base.Inherit(p.st.match).Render(string(r)))
+			b.WriteString(base.Underline(true).Bold(true).Render(string(r)))
 		} else {
 			b.WriteString(base.Render(string(r)))
 		}
@@ -394,10 +399,16 @@ func (p *picker) footer() string {
 	if p.hasBench() {
 		sortHint = " · tab sort (" + sortLabels[p.sortKey] + ")"
 	}
-	// Drop the least important hints first when the terminal is narrow.
+	tip := ""
+	if !p.hasBench() {
+		tip = " · no quality scores yet: run llmenu bench"
+	}
+	// Drop the least important hints first when the terminal is narrow; the
+	// benchmark tip stays as long as possible.
 	for _, keys := range []string{
-		"↑↓ move · enter select · esc cancel · type to search" + sortHint,
-		"↑↓ move · enter select · esc cancel" + sortHint,
+		"↑↓ move · enter select · esc cancel · type to search" + sortHint + tip,
+		"↑↓ move · enter select · esc cancel" + sortHint + tip,
+		"↑↓ enter esc" + strings.Replace(sortHint, " · tab sort", " · tab", 1) + tip,
 		"↑↓ enter esc" + strings.Replace(sortHint, " · tab sort", " · tab", 1),
 	} {
 		if f := p.st.dim.Render(keys); lipgloss.Width(f) <= p.width {

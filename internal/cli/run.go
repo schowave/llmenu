@@ -102,6 +102,7 @@ func launch(ctx context.Context, l targets.Launcher, args []string) error {
 
 	var model *catalog.Model
 	if _, own := l.(targets.OwnSelection); !own && !l.HasModelArg(args) {
+		autoRefreshBench(ctx, env)
 		var def string
 		if d, ok := l.(targets.Defaulter); ok {
 			def = d.DefaultModel(env)
@@ -164,7 +165,7 @@ func chooseModel(all []catalog.Model, c choice) (*catalog.Model, error) {
 
 	st := state.Load()
 	i, err := pickModel(shown, menu.Options{
-		Note:      benchNote(),
+		Note:      menuNote(),
 		Preselect: catalog.Resolve(all, shown, cmp.Or(c.defaultName, st.LastModel[c.key])),
 		Hint:      func(m catalog.Model) string { return hints[m.Name] },
 		Metric:    c.config.Bench.MetricOrDefault(),

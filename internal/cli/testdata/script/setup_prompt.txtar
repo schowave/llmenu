@@ -14,7 +14,7 @@ stderr 'gateway not set up yet: run llmenu setup'
 env LLMENU_ACCESSIBLE=1
 stdin no.txt
 ! exec llmenu list
-stderr 'Gateway not set up yet\. Set it up now\? \[Y/n\]'
+stderr 'llmenu is not set up yet\. Set it up now\? \[Y/n\]'
 stderr 'gateway not set up yet: run llmenu setup'
 ! exists config.toml
 
@@ -23,13 +23,17 @@ stdin no.txt
 ! exec llmenu setup claude
 stderr 'gateway not set up yet: run llmenu setup'
 
-# Yes runs the gateway section, then the command continues.
-expandenv yes.txt
-stdin yes.txt
+# First run (no config yet): Yes runs the whole setup — gateway, tools,
+# Claude Code defaults, benchmarks — then the command continues.
+expandenv first-run.txt
+stdin first-run.txt
 exec llmenu list
 stderr 'Gateway reachable, 8 chat models\.'
+stderr 'Coding tools you use'
+stderr 'Claude Code: model for the "opus" slot'
+stderr 'Artificial Analysis key'
 stdout '^aws/claude-opus-5-5 '
-stdout '^azure/gpt-6-sol '
+grep '^tools = \[.claude.\]$' config.toml
 
 # Set up now: no more question.
 stdin no.txt
@@ -37,10 +41,34 @@ exec llmenu list
 ! stderr 'Set it up now'
 stdout '^aws/claude-opus-5-5 '
 
+# A config without a gateway (e.g. after deleting the key) only asks for
+# the gateway, not the whole setup again.
+exec llmenu secrets delete gateway
+expandenv gateway-only.txt
+stdin gateway-only.txt
+exec llmenu list
+stderr 'Gateway reachable'
+! stderr 'Coding tools you use'
+stdout '^aws/claude-opus-5-5 '
+
 -- no.txt --
 n
 -- yes.txt --
 y
+-- first-run.txt --
+y
 $GW
+sk-test
+
+0
+
+
+
+
+
+
+-- gateway-only.txt --
+y
+
 sk-test
 

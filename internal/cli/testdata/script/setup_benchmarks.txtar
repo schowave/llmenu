@@ -2,27 +2,45 @@
 env LLMENU_ACCESSIBLE=1
 env LLMENU_KEYRING_FILE=$WORK/keyring.json
 
-# Empty skips: no key is stored.
+# Empty skips: no key is stored, nothing is fetched.
 stdin enter.txt
 exec llmenu setup benchmarks
 stderr 'Free key: https://artificialanalysis\.ai/api-reference#authentication\. Leave empty to skip\.'
 ! exec llmenu secrets get artificialanalysis
+! exists $LLMENU_CACHE_DIR/bench.json
 
+# A key the server rejects is stored; setup still succeeds and points to bench.
+stdin wrong-key.txt
+exec llmenu setup benchmarks
+stderr 'Benchmarks not fetched: .*HTTP 401.* try llmenu bench later'
+! exists $LLMENU_CACHE_DIR/bench.json
+
+# A valid key: the benchmarks are fetched right away, so the first menu after
+# setup already shows scores.
 stdin key.txt
 exec llmenu setup benchmarks
+stderr '^Benchmarks fetched: 6 of 8 models matched\.$'
+exists $LLMENU_CACHE_DIR/bench.json
 exec llmenu secrets get artificialanalysis
 stdout '^aa-test$'
 
-# Empty keeps the stored key.
+# Empty keeps the stored key; benchmarks exist, so nothing is fetched again.
 stdin enter.txt
 exec llmenu setup benchmarks
 stderr 'Leave empty to keep the existing key \(keyring file\)\.'
+! stderr 'Benchmarks fetched'
 exec llmenu secrets get artificialanalysis
 stdout '^aa-test$'
-exec llmenu bench
-stdout 'of 8 models matched'
+
+# A kept key without benchmarks fetches them.
+rm $LLMENU_CACHE_DIR/bench.json
+stdin enter.txt
+exec llmenu setup benchmarks
+stderr '^Benchmarks fetched: 6 of 8 models matched\.$'
 
 -- enter.txt --
 
 -- key.txt --
 aa-test
+-- wrong-key.txt --
+aa-wrong

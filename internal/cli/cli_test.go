@@ -83,7 +83,8 @@ func TestChooseModelInteractive(t *testing.T) {
 	if p.options.Hint(p.shown[2]) != "not Claude" || p.options.Hint(p.shown[0]) != "" {
 		t.Error("hints not passed to the menu")
 	}
-	if !strings.Contains(p.options.Note, "Benchmarks: none") {
+	// Without benchmarks the preview has no note; the menu footer suggests llmenu bench.
+	if p.options.Note != "" {
 		t.Errorf("note %q", p.options.Note)
 	}
 	if st := state.Load(); st.LastModel["claude"] != "azure/gpt-6-sol" {

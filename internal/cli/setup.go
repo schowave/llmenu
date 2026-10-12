@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -12,6 +13,7 @@ import (
 	"github.com/charmbracelet/huh"
 	"github.com/spf13/cobra"
 
+	"github.com/schowave/llmenu/internal/bench"
 	"github.com/schowave/llmenu/internal/catalog"
 	"github.com/schowave/llmenu/internal/config"
 	"github.com/schowave/llmenu/internal/gateway"
@@ -111,7 +113,7 @@ func runSetup(ctx context.Context, args []string) error {
 		}
 	}
 	if want("benchmarks", true) {
-		if err := setupBenchmarks(); err != nil {
+		if err := setupBenchmarks(ctx, gatewayModels); err != nil {
 			return err
 		}
 	}
@@ -330,12 +332,12 @@ func slotOptions(models []catalog.Model, slot, current string) []huh.Option[stri
 	return opts
 }
 
-func setupBenchmarks() error {
-	_, source, err := secrets.Get(secrets.ArtificialAnalysis)
+func setupBenchmarks(ctx context.Context, gatewayModels func() ([]catalog.Model, error)) error {
+	existing, source, err := secrets.Get(secrets.ArtificialAnalysis)
 	if err != nil {
 		return err
 	}
-	help := "Optional, for `llmenu bench`. Free key: " + aaKeyURL + ". Leave empty to skip."
+	help := "Optional: quality scores in the menu and llmenu list. Free key: " + aaKeyURL + ". Leave empty to skip."
 	if source != "" {
 		help = "Leave empty to keep the existing key (" + source + ")."
 	}
@@ -344,8 +346,33 @@ func setupBenchmarks() error {
 		EchoMode(secretEcho()).Value(&key)); err != nil {
 		return err
 	}
-	if key == "" {
+	if key != "" {
+		if err := secrets.Set(secrets.ArtificialAnalysis, key); err != nil {
+			return err
+		}
+	} else if st, _ := bench.Load(); existing == "" || st != nil {
+		return nil // skipped, or a kept key with benchmarks already there
+	}
+	// Fetch right away, so the first menu after setup already shows scores.
+	key = cmp.Or(key, existing)
+	models, err := gatewayModels()
+	if err != nil {
+		return err
+	}
+	cfg, err := config.Load()
+	if err != nil {
+		return err
+	}
+	env, err := gatewayFrom(cfg)
+	if err != nil {
+		return err
+	}
+	env.Models = models
+	st, err := fetchBench(ctx, env, key)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "Benchmarks not fetched:", err, "— try llmenu bench later.")
 		return nil
 	}
-	return secrets.Set(secrets.ArtificialAnalysis, key)
+	fmt.Fprintf(os.Stderr, "Benchmarks fetched: %d of %d models matched.\n", len(st.Models), len(models))
+	return nil
 }

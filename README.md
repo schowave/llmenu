@@ -202,8 +202,9 @@ used `llmenu sync`; remove it there by hand. `llmenu targets` shows the files.
    llmenu claude
    ```
 
-3. **Optional:** fetch benchmark scores so the menu can sort by quality
-   (free key, the command explains how to get one):
+3. **Optional:** benchmark scores, so the menu can sort by quality. The setup
+   asks for the free key and fetches them; afterwards llmenu refreshes them
+   automatically every two weeks. Manually:
 
    ```sh
    llmenu bench

@@ -1,0 +1,21 @@
+# With a key, the benchmarks are fetched automatically before list (and the
+# menu) when there are none yet, without running llmenu bench.
+exec llmenu list
+! stdout INTEL
+stdout 'Benchmarks: none, see llmenu bench'
+
+env LLMENU_AA_API_KEY=aa-test
+exec llmenu list
+stdout '^MODEL .* INTEL'
+exists $LLMENU_CACHE_DIR/bench.json
+
+# A failing refresh is silent and not retried right away.
+rm $LLMENU_CACHE_DIR/bench.json
+rm $LLMENU_CACHE_DIR/state.json
+env LLMENU_AA_API_KEY=wrong
+exec llmenu list
+! stderr .
+! stdout INTEL
+env LLMENU_AA_API_KEY=aa-test
+exec llmenu list
+! stdout INTEL

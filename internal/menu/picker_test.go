@@ -7,6 +7,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
+	"github.com/muesli/termenv"
 
 	"github.com/schowave/llmenu/internal/catalog"
 )
@@ -250,6 +251,48 @@ func TestPickerFooterFits(t *testing.T) {
 }
 
 func ansiWidth(s string) int { return lipgloss.Width(s) }
+
+func TestPickerBenchTip(t *testing.T) {
+	// Without benchmarks the footer suggests llmenu bench, as long as it fits.
+	plainModels := []catalog.Model{{Name: "a/x", OutputPrice: 2}, {Name: "b/y", OutputPrice: 1}}
+	p := newPicker(plainModels, Options{}, newStyles(lipgloss.NewRenderer(nil)))
+	p.Update(tea.WindowSizeMsg{Width: 120, Height: 10})
+	lines := plain(p)
+	if footer := lines[len(lines)-1]; !strings.Contains(footer, "no quality scores yet: run llmenu bench") {
+		t.Errorf("footer without tip: %q", footer)
+	}
+	p.Update(tea.WindowSizeMsg{Width: 20, Height: 10})
+	if lines := plain(p); lipgloss.Width(lines[len(lines)-1]) > 20 {
+		t.Errorf("narrow footer too wide: %q", lines[len(lines)-1])
+	}
+	// With benchmarks there is no tip.
+	q := newTestPicker(Options{})
+	if lines := plain(q); strings.Contains(lines[len(lines)-1], "llmenu bench") {
+		t.Errorf("tip despite benchmarks: %q", lines[len(lines)-1])
+	}
+}
+
+func TestPickerSelectedRowStyle(t *testing.T) {
+	// With colors: the selected row keeps the green top values, and its
+	// background runs through the padding after the name.
+	r := lipgloss.NewRenderer(nil)
+	r.SetColorProfile(termenv.ANSI256)
+	r.SetHasDarkBackground(true)
+	st := newStyles(r)
+	p := newPicker(pickerModels, Options{}, st)
+	p.Update(tea.WindowSizeMsg{Width: 160, Height: 20})
+	row := p.row(p.shown[0], true, p.nameWidth()) // aws/claude-opus-5-5: best INTEL and TB4
+
+	green := st.good.GetForeground()
+	want := st.selected.Foreground(green).Render("   57.6")
+	if !strings.Contains(row, want) {
+		t.Errorf("selected row loses the green:\n%q\nwant part %q", row, want)
+	}
+	pad := st.selected.Render(strings.Repeat(" ", p.nameWidth()-len("aws/claude-opus-5-5")))
+	if !strings.Contains(row, pad) {
+		t.Errorf("padding not styled like the row:\n%q", row)
+	}
+}
 
 func TestTruncateAndPad(t *testing.T) {
 	if got := truncate("abcdefgh", 5); got != "abcd…" {

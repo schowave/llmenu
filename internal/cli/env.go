@@ -40,7 +40,17 @@ func loadEnv(ctx context.Context) (targets.Env, error) {
 		if start, err := confirmSetup(); err != nil || !start {
 			return env, errNotConfigured
 		}
-		if err := setupGateway(ctx, cfg); err != nil {
+		// First run (no config file yet): the whole setup, so tools, default
+		// models and the benchmark key are asked too. Otherwise only the
+		// missing gateway part.
+		if firstRun() {
+			if err := runSetup(ctx, nil); err != nil {
+				return env, err
+			}
+			if cfg, err = config.Load(); err != nil {
+				return env, err
+			}
+		} else if err := setupGateway(ctx, cfg); err != nil {
 			return env, err
 		}
 		if env, err = gatewayFrom(cfg); err != nil {
@@ -70,6 +80,15 @@ func sortModels(models []catalog.Model, cfg *config.Config) {
 	catalog.SortByPrice(models)
 }
 
+// menuNote is the benchmark source for the preview; without benchmarks the
+// menu's footer suggests llmenu bench instead.
+func menuNote() string {
+	if st, _ := bench.Load(); st != nil {
+		return st.Note(time.Now())
+	}
+	return ""
+}
+
 // benchNote describes the source and age of the benchmarks.
 func benchNote() string {
 	st, _ := bench.Load()
@@ -90,6 +109,16 @@ func gatewayFrom(cfg *config.Config) (targets.Env, error) {
 	return env, nil
 }
 
+// firstRun reports that there is no config file yet.
+func firstRun() bool {
+	p, err := config.Path()
+	if err != nil {
+		return false
+	}
+	_, err = os.Stat(p)
+	return os.IsNotExist(err)
+}
+
 // Replaceable in tests.
 var (
 	isTerminal = func(f *os.File) bool { return term.IsTerminal(int(f.Fd())) }
@@ -97,7 +126,7 @@ var (
 	confirmSetup = func() (bool, error) {
 		start := true
 		err := runPrompt(huh.NewConfirm().
-			Title("Gateway not set up yet. Set it up now?").
+			Title("llmenu is not set up yet. Set it up now?").
 			Affirmative("Yes").Negative("No").
 			Value(&start))
 		return start, err
