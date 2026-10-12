@@ -1,0 +1,171 @@
+# Projects: one gateway key per project, the main key without a project.
+# Keys from the keyring file, not from LLMENU_API_KEY, which would win.
+env LLMENU_KEYRING_FILE=$WORK/keyring.json
+env LLMENU_API_KEY=
+stdin main.txt
+exec llmenu secrets set gateway
+
+# Without projects everything is as before: the main key, no project shown.
+exec llmenu project current
+! stdout .
+exec llmenu claude -p hi
+stdout '^ANTHROPIC_AUTH_TOKEN=sk-test$'
+stdout '^LLMENU_PROJECT=none$'
+! stderr 'project'
+exec llmenu project list
+stdout '^\(main key\) +set \(keyring file\) +\*$'
+
+# add checks the key with the gateway before storing it.
+stdin wrong.txt
+! exec llmenu project add acme
+stderr 'gateway check failed: .*401'
+! exists config.toml
+! exec llmenu project add Bad/Name
+stderr 'invalid project name'
+! exec llmenu project add none
+stderr 'reserved for the main key'
+stdin acme.txt
+exec llmenu project add acme
+stderr 'Gateway accepts the key, 8 chat models'
+grep '^projects = \[.acme.\]$' config.toml
+! grep '^project = ' config.toml
+
+# Adding does not switch; use does, and every command follows.
+exec llmenu claude -p hi
+stdout '^ANTHROPIC_AUTH_TOKEN=sk-test$'
+exec llmenu project use acme
+stderr '^Using project acme\.$'
+exec llmenu project current
+stdout '^acme$'
+exec llmenu claude -p hi
+stdout '^ANTHROPIC_AUTH_TOKEN=sk-acme$'
+stdout '^LLMENU_PROJECT=acme$'
+stderr '^llmenu: project acme · aws/claude-opus-5-5$'
+exec llmenu codex -m x
+stdout '^LLMENU_API_KEY=sk-acme$'
+exec llmenu opencode
+stdout '^LLMENU_API_KEY=sk-acme$'
+# pi asks for the key with secrets get gateway: it follows the project.
+exec llmenu secrets get gateway
+stdout '^sk-acme$'
+exec llmenu secrets get gateway --project none
+stdout '^sk-test$'
+exec llmenu secrets get gateway:acme
+stdout '^sk-acme$'
+exec llmenu project list
+stdout '^\(main key\) +set \(keyring file\) +-$'
+stdout '^acme +set \(keyring file\) +\*$'
+exec llmenu config list
+stdout '^gateway.project +acme +file$'
+stdout '^secrets.gateway:acme +set +keyring file$'
+
+# LLMENU_PROJECT overrides the choice for one command; none is the main key.
+env LLMENU_PROJECT=none
+exec llmenu claude -p hi
+stdout '^ANTHROPIC_AUTH_TOKEN=sk-test$'
+exec llmenu project current
+! stdout .
+env LLMENU_PROJECT=nope
+! exec llmenu claude -p hi
+stderr 'unknown project "nope" \(LLMENU_PROJECT\): llmenu project add nope'
+env LLMENU_PROJECT=
+
+# LLMENU_API_KEY still wins, e.g. in CI.
+env LLMENU_API_KEY=sk-test
+exec llmenu claude -p hi
+stdout '^ANTHROPIC_AUTH_TOKEN=sk-test$'
+env LLMENU_API_KEY=
+
+# A project whose key is gone fails instead of billing the main key.
+exec llmenu secrets delete gateway:acme
+! exec llmenu claude -p hi
+stderr 'no key for project acme: llmenu project add acme'
+! exec llmenu project use acme
+stderr 'no key for project acme'
+stdin acme.txt
+exec llmenu project add acme
+
+# Back to the main key, both spellings.
+exec llmenu project use --none
+stderr 'Using the main key \(no project\)\.'
+! grep '^project = ' config.toml
+exec llmenu project use acme
+exec llmenu project use -
+exec llmenu claude -p hi
+stdout '^ANTHROPIC_AUTH_TOKEN=sk-test$'
+! exec llmenu project use nope
+stderr 'unknown project "nope"'
+! exec llmenu config set gateway.project nope
+stderr 'unknown project "nope"'
+
+# The picker lists the main key first; accessible mode answers by number.
+env LLMENU_ACCESSIBLE=1
+stdin pick-acme.txt
+exec llmenu project
+stderr 'Main key \(no project\)  ✓ active'
+stderr 'acme'
+stderr '\+ add project…'
+stderr 'Using project acme\.'
+stdin pick-main.txt
+exec llmenu project
+stderr 'Using the main key'
+# A new project from the picker is added and used.
+stdin pick-add.txt
+exec llmenu project
+stderr 'Gateway accepts the key'
+stderr 'Using project beta\.'
+grep '^projects = \[.acme., .beta.\]$' config.toml
+env LLMENU_ACCESSIBLE=
+# Without a terminal llmenu project only prints the active one.
+exec llmenu project
+stdout '^beta$'
+
+# remove deletes key and entry; the active one falls back to the main key.
+exec llmenu project remove beta
+stderr 'Removed project beta\.'
+stderr 'Using the main key'
+! exec llmenu secrets get gateway:beta
+! exec llmenu project remove none
+stderr 'main key is not a project'
+exec llmenu secrets get gateway
+stdout '^sk-test$'
+
+# claude.statusline puts llmenu's status line into the session only.
+exec llmenu config set claude.statusline true
+exec llmenu claude -p hi
+stdout '^claude args: --settings \{"statusLine":\{"type":"command","command":"llmenu statusline"\}\} --model '
+exec llmenu claude --settings my.json -p hi
+! stdout 'llmenu statusline'
+stdin session.json
+env LLMENU_PROJECT=acme
+exec llmenu statusline
+stdout '^project acme · Opus 5.5$'
+env LLMENU_PROJECT=none
+stdin session.json
+exec llmenu statusline
+stdout '^Opus 5.5$'
+
+# Completion of project names, from the config.
+exec llmenu __complete project use ''
+stdout '^acme$'
+exec llmenu __complete config set gateway.project ''
+stdout '^acme$'
+exec llmenu __complete secrets get ''
+stdout '^gateway:acme$'
+
+-- main.txt --
+sk-test
+-- wrong.txt --
+sk-wrong
+-- acme.txt --
+sk-acme
+-- pick-acme.txt --
+2
+-- pick-main.txt --
+1
+-- pick-add.txt --
+3
+beta
+sk-acme
+-- session.json --
+{"model": {"id": "claude-opus-5-5", "display_name": "Opus 5.5"}}

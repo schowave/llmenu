@@ -3,7 +3,6 @@ package targets
 import (
 	"context"
 	"maps"
-	"os"
 	"os/exec"
 	"slices"
 	"strings"
@@ -73,6 +72,11 @@ func (c claude) Command(ctx context.Context, m *catalog.Model, args []string, en
 	if m != nil {
 		args = append([]string{"--model", withContext(m.Name, env.Models)}, args...)
 	}
+	// Session settings only: ~/.claude stays untouched (ADR-0002). Own
+	// --settings win, Claude Code takes only one.
+	if env.Config.Claude.StatusLine && !hasFlag(args, "--settings") {
+		args = append([]string{"--settings", StatusLineSettings}, args...)
+	}
 	cmd := exec.CommandContext(ctx, "claude", args...)
 
 	vars := maps.Clone(env.Config.Claude.EnvOrDefault())
@@ -92,9 +96,13 @@ func (c claude) Command(ctx context.Context, m *catalog.Model, args []string, en
 	vars["ANTHROPIC_BASE_URL"] = env.BaseURL
 	vars["ANTHROPIC_AUTH_TOKEN"] = env.APIKey
 
-	cmd.Env = os.Environ()
+	cmd.Env = env.childEnv()
 	for _, k := range slices.Sorted(maps.Keys(vars)) {
 		cmd.Env = append(cmd.Env, k+"="+vars[k])
 	}
 	return cmd, nil
 }
+
+// StatusLineSettings sets llmenu's status line for one Claude Code session
+// (claude.statusline).
+const StatusLineSettings = `{"statusLine":{"type":"command","command":"llmenu statusline"}}`

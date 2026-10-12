@@ -74,8 +74,20 @@ func secretNames() []string {
 	for n := range secrets.Names {
 		out = append(out, n)
 	}
+	for _, p := range projectNames() {
+		out = append(out, secrets.ProjectKey(p))
+	}
 	slices.Sort(out)
 	return out
+}
+
+// projectNames come from the config, so Tab never touches the keyring.
+func projectNames() []string {
+	cfg, err := config.Load()
+	if err != nil {
+		return nil
+	}
+	return cfg.Gateway.Projects
 }
 
 // configKeys are all fixed keys plus the prefixes for maps.
@@ -123,7 +135,9 @@ func completeConfigSet(cmd *cobra.Command, args []string, toComplete string) ([]
 		values = state.LoadModels()
 	case "bench.metric":
 		values = config.Metrics
-	case "claude.auto_compact":
+	case "gateway.project":
+		values = projectNames()
+	case "claude.auto_compact", "claude.statusline":
 		values = []string{"true", "false"}
 	case "tools":
 		values = append(targetNames(func(targets.Target) bool { return true }), "none")

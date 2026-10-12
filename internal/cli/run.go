@@ -112,6 +112,7 @@ func launch(ctx context.Context, l targets.Launcher, args []string) error {
 			key:         l.Name(),
 			defaultName: def,
 			supports:    l.Supports,
+			project:     env.Project,
 			interactive: isTerminal(os.Stdin) && isTerminal(os.Stdout),
 		})
 		if err != nil {
@@ -122,6 +123,14 @@ func launch(ctx context.Context, l targets.Launcher, args []string) error {
 	cmd, err := l.Command(ctx, model, args, env)
 	if err != nil {
 		return err
+	}
+	// Which project pays stays visible after the menu is gone.
+	if env.Project != "" {
+		line := "llmenu: project " + env.Project
+		if model != nil {
+			line += " · " + model.Name
+		}
+		fmt.Fprintln(os.Stderr, line)
 	}
 	return runChild(cmd)
 }
@@ -135,6 +144,7 @@ type choice struct {
 	key         string // key for the last chosen model, usually the target name
 	defaultName string // the target's default; empty if it has none
 	supports    func(catalog.Model) (bool, string)
+	project     string // active project, shown in the menu; empty: the main key
 	interactive bool
 }
 
@@ -169,6 +179,7 @@ func chooseModel(all []catalog.Model, c choice) (*catalog.Model, error) {
 		Preselect: catalog.Resolve(all, shown, cmp.Or(c.defaultName, st.LastModel[c.key])),
 		Hint:      func(m catalog.Model) string { return hints[m.Name] },
 		Metric:    c.config.Bench.MetricOrDefault(),
+		Project:   c.project,
 	})
 	if errors.Is(err, menu.ErrAborted) {
 		return nil, exitCodeError{130}

@@ -46,7 +46,7 @@ func fakeTool(name string) func() {
 		for _, kv := range os.Environ() {
 			k, _, _ := strings.Cut(kv, "=")
 			if strings.HasPrefix(k, "ANTHROPIC_") || strings.HasPrefix(k, "CLAUDE_CODE_DISABLE_") ||
-				k == "DISABLE_AUTO_COMPACTION" || k == "LLMENU_API_KEY" || k == "FOO" {
+				k == "DISABLE_AUTO_COMPACTION" || k == "LLMENU_API_KEY" || k == "LLMENU_PROJECT" || k == "FOO" {
 				env = append(env, kv)
 			}
 		}
@@ -80,7 +80,8 @@ func TestScripts(t *testing.T) {
 		},
 		Setup: func(env *testscript.Env) error {
 			gw := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				if r.Header.Get("Authorization") != "Bearer sk-test" {
+				// sk-acme is a project's key (project.txtar).
+				if auth := r.Header.Get("Authorization"); auth != "Bearer sk-test" && auth != "Bearer sk-acme" {
 					http.Error(w, `{"error":"invalid key"}`, http.StatusUnauthorized)
 					return
 				}

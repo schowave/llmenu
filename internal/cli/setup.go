@@ -39,6 +39,9 @@ The claude and codex sections are only asked for the tools you use.
 Run it again any time: Enter keeps the current value. To change a single
 value without the dialog, use llmenu config set.
 
+The gateway key set up here is the main key. For one key per project (e.g.
+per customer), see llmenu project.
+
 LLMENU_ACCESSIBLE=1 asks line by line instead of drawing forms, e.g. for
 screen readers; the answers can then also come from stdin.`,
 		Example: `  llmenu setup

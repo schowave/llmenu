@@ -260,7 +260,12 @@ func (p *picker) View() string {
 
 	count := fmt.Sprintf("%d/%d", len(p.shown), len(p.models))
 	search := p.st.prompt.Render("Search: ") + p.query + p.st.cursorBlock.Render(" ")
-	b.WriteString(padRight(search, tableWidth(nw)-runewidth.StringWidth(count)) + p.st.dim.Render(count) + "\n")
+	// The project whose key pays, next to the count; nothing for the main key.
+	right := p.st.dim.Render(count)
+	if p.opt.Project != "" {
+		right = p.st.prompt.Render("project "+p.opt.Project) + p.st.dim.Render(" · "+count)
+	}
+	b.WriteString(padRight(search, tableWidth(nw)-lipgloss.Width(right)) + right + "\n")
 	b.WriteString(p.header(nw) + "\n")
 
 	rows := p.rows()

@@ -9,7 +9,9 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"slices"
+	"strings"
 
 	"github.com/zalando/go-keyring"
 
@@ -36,14 +38,55 @@ func service() string {
 	return "llmenu"
 }
 
+// projectPrefix marks a project's gateway key: gateway:<project>.
+const projectPrefix = Gateway + ":"
+
+// NoProject is the reserved name for "no project, the main key", e.g. in
+// LLMENU_PROJECT=none.
+const NoProject = "none"
+
+var reProject = regexp.MustCompile(`^[a-z0-9][a-z0-9._-]*$`)
+
+// ProjectKey is the entry for a project's gateway key; "" is the main key.
+func ProjectKey(project string) string {
+	if project == "" {
+		return Gateway
+	}
+	return projectPrefix + project
+}
+
+// CheckProject validates a project name: lower case letters, digits, ".",
+// "_" and "-", not starting with a punctuation mark, and not "none".
+func CheckProject(name string) error {
+	if name == NoProject {
+		return fmt.Errorf("%q is reserved for the main key", NoProject)
+	}
+	if !reProject.MatchString(name) {
+		return fmt.Errorf("invalid project name %q: use a-z, 0-9, '.', '_' and '-'", name)
+	}
+	return nil
+}
+
+// envVar is the variable that overrides an entry; project keys share the
+// gateway's, so LLMENU_API_KEY always wins, e.g. in CI.
+func envVar(name string) string {
+	if strings.HasPrefix(name, projectPrefix) {
+		return Names[Gateway]
+	}
+	return Names[name]
+}
+
 func check(name string) error {
+	if p, ok := strings.CutPrefix(name, projectPrefix); ok {
+		return CheckProject(p)
+	}
 	if _, ok := Names[name]; !ok {
 		var known []string
 		for n := range Names {
 			known = append(known, n)
 		}
 		slices.Sort(known)
-		return fmt.Errorf("unknown key %q, known: %v", name, known)
+		return fmt.Errorf("unknown key %q, known: %v and gateway:<project>", name, known)
 	}
 	return nil
 }
@@ -55,7 +98,7 @@ func Get(name string) (value, source string, err error) {
 	if err := check(name); err != nil {
 		return "", "", err
 	}
-	if v := os.Getenv(Names[name]); v != "" {
+	if v := os.Getenv(envVar(name)); v != "" {
 		return v, "environment", nil
 	}
 	st := backend()

@@ -95,7 +95,7 @@ func (opencode) Supports(catalog.Model) (bool, string) { return true, "" }
 
 func (opencode) Command(ctx context.Context, _ *catalog.Model, args []string, env Env) (*exec.Cmd, error) {
 	cmd := exec.CommandContext(ctx, "opencode", args...)
-	cmd.Env = append(os.Environ(), KeyEnv+"="+env.APIKey)
+	cmd.Env = env.childEnv(KeyEnv + "=" + env.APIKey)
 	return cmd, nil
 }
 

@@ -103,3 +103,43 @@ func TestServiceIsolation(t *testing.T) {
 		t.Errorf("key leaked into the default service: %q", v)
 	}
 }
+
+func TestProjectKeys(t *testing.T) {
+	keyring.MockInit()
+	t.Setenv("LLMENU_API_KEY", "")
+
+	if ProjectKey("") != Gateway || ProjectKey("acme") != "gateway:acme" {
+		t.Errorf("ProjectKey: %q %q", ProjectKey(""), ProjectKey("acme"))
+	}
+	for _, ok := range []string{"acme", "a", "kunde-1", "x.y_z"} {
+		if err := CheckProject(ok); err != nil {
+			t.Errorf("%q rejected: %v", ok, err)
+		}
+	}
+	for _, bad := range []string{"", "none", "Acme", "-x", ".x", "a/b", "a b", "+add"} {
+		if err := CheckProject(bad); err == nil {
+			t.Errorf("%q accepted", bad)
+		}
+	}
+
+	if err := Set(ProjectKey("acme"), "sk-acme"); err != nil {
+		t.Fatal(err)
+	}
+	if err := Set(Gateway, "sk-main"); err != nil {
+		t.Fatal(err)
+	}
+	if v, _, _ := Get(ProjectKey("acme")); v != "sk-acme" {
+		t.Errorf("project key: %q", v)
+	}
+	if v, _, _ := Get(Gateway); v != "sk-main" {
+		t.Errorf("main key changed: %q", v)
+	}
+	// LLMENU_API_KEY wins for project keys too, e.g. in CI.
+	t.Setenv("LLMENU_API_KEY", "sk-env")
+	if v, src, _ := Get(ProjectKey("acme")); v != "sk-env" || src != "environment" {
+		t.Errorf("environment does not take precedence: %q %q", v, src)
+	}
+	if err := Set("gateway:Bad", "x"); err == nil {
+		t.Error("invalid project name accepted")
+	}
+}

@@ -6,6 +6,7 @@ package targets
 import (
 	"context"
 	"errors"
+	"os"
 	"os/exec"
 	"sort"
 
@@ -50,8 +51,24 @@ type Syncer interface {
 type Env struct {
 	BaseURL string
 	APIKey  string
+	Project string // project whose key APIKey is; empty: the main key
 	Config  *config.Config
 	Models  []catalog.Model // all of the gateway's chat models, aliases included
+}
+
+// ProjectEnv names the active project. llmenu reads it, and passes it to the
+// tools it starts, so a status line inside the tool shows the session's
+// project even after a switch elsewhere.
+const ProjectEnv = "LLMENU_PROJECT"
+
+// childEnv is the tool's environment: llmenu's own plus the session's
+// project, "none" for the main key, so a later switch does not leak in.
+func (e Env) childEnv(vars ...string) []string {
+	project := e.Project
+	if project == "" {
+		project = "none"
+	}
+	return append(append(os.Environ(), ProjectEnv+"="+project), vars...)
 }
 
 // ProviderName is gateway.name, or else derived from the URL actually in use,

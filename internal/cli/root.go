@@ -95,7 +95,7 @@ Without a command, llmenu only opens the menu and prints the chosen name.`,
 				return err
 			}
 			autoRefreshBench(cmd.Context(), env)
-			m, err := chooseModel(env.Models, choice{config: env.Config, interactive: true})
+			m, err := chooseModel(env.Models, choice{config: env.Config, project: env.Project, interactive: true})
 			if err != nil {
 				return err
 			}
@@ -125,6 +125,8 @@ Report a problem:      https://github.com/schowave/llmenu/issues
 		newBenchCmd(),
 		newListCmd(),
 		newSecretsCmd(),
+		newProjectCmd(),
+		newStatusLineCmd(),
 		newSetupCmd(),
 		newConfigCmd(),
 		newTargetsCmd(),
@@ -161,6 +163,8 @@ var commandGroups = map[string]string{
 	"sync":       groupSync,
 	"config":     groupSettings,
 	"secrets":    groupSettings,
+	"project":    groupSettings,
+	"statusline": groupOther,
 	"targets":    groupSettings,
 	"help":       groupOther,
 	"completion": groupOther,
@@ -174,7 +178,9 @@ func newEnvironmentTopic() *cobra.Command {
 		Long: `Environment variables take precedence over config.toml and the keyring.
 
   LLMENU_BASE_URL       gateway URL, e.g. https://llm.example.com/
-  LLMENU_API_KEY        gateway key
+  LLMENU_API_KEY        gateway key (wins over the project's key)
+  LLMENU_PROJECT        project whose key to use, none for the main key
+                        (default: llmenu project use)
   LLMENU_AA_API_KEY     Artificial Analysis key for llmenu bench
   LLMENU_CONFIG         path of config.toml (default: llmenu config path)
   LLMENU_CACHE_DIR      directory for benchmarks and the last selection

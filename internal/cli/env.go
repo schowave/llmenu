@@ -95,15 +95,25 @@ func benchNote() string {
 	return st.Note(time.Now())
 }
 
-// gatewayFrom reads URL and key; environment variables take precedence.
+// gatewayFrom reads URL and key; environment variables take precedence. With
+// an active project its key is used; a missing one is an error, never a
+// silent fallback to the main key, which would bill the wrong project.
 func gatewayFrom(cfg *config.Config) (targets.Env, error) {
 	env := targets.Env{BaseURL: os.Getenv("LLMENU_BASE_URL"), Config: cfg}
 	if env.BaseURL == "" {
 		env.BaseURL = cfg.Gateway.URL
 	}
-	key, _, err := secrets.Get(secrets.Gateway)
+	project, err := activeProject(cfg)
+	if err != nil {
+		return env, err
+	}
+	env.Project = project
+	key, _, err := secrets.Get(secrets.ProjectKey(project))
 	if err != nil {
 		return env, fmt.Errorf("gateway key: %w", err)
+	}
+	if key == "" && project != "" {
+		return env, fmt.Errorf("no key for project %s: llmenu project add %s", project, project)
 	}
 	env.APIKey = key
 	return env, nil

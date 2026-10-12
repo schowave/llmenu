@@ -25,6 +25,7 @@ type Options struct {
 	Preselect int                        // index of the model the cursor starts on; -1 for the first
 	Hint      func(catalog.Model) string // per-model note, shown in the preview
 	Metric    string                     // benchmark the models are sorted by (bench.metric)
+	Project   string                     // active project, shown above the table; empty: the main key
 }
 
 // Pick lets the user choose a model and returns its index. The menu runs in

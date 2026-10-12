@@ -40,7 +40,11 @@ every key with its current value and where it comes from.`,
 				for _, e := range cfg.List() {
 					fmt.Fprintf(w, "%s\t%s\t%s\n", e.Key, orDash(e.Value), orDash(e.Source))
 				}
-				for _, name := range []string{secrets.Gateway, secrets.ArtificialAnalysis} {
+				names := []string{secrets.Gateway, secrets.ArtificialAnalysis}
+				for _, p := range cfg.Gateway.Projects {
+					names = append(names, secrets.ProjectKey(p))
+				}
+				for _, name := range names {
 					_, src, err := secrets.Get(name)
 					val := "missing"
 					switch {
@@ -131,7 +135,8 @@ func newSecretsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "secrets",
 		Short: "Store and remove API keys in the OS keyring",
-		Long: `Known keys: gateway (the LiteLLM gateway) and artificialanalysis (benchmarks).
+		Long: `Known keys: gateway (the LiteLLM gateway's main key), artificialanalysis
+(benchmarks) and gateway:<project> (a project's key, see llmenu project).
 Keys are read hidden from the terminal or from stdin, never from arguments,
 so they do not end up in the shell history.`,
 		Example: `  llmenu secrets set gateway
@@ -151,23 +156,7 @@ so they do not end up in the shell history.`,
 				return secrets.Set(args[0], value)
 			},
 		},
-		&cobra.Command{
-			Use:               "get <name>",
-			ValidArgsFunction: completeFirst(secretNames),
-			Short:             "Print a key (pi uses: !llmenu secrets get gateway)",
-			Args:              cobra.ExactArgs(1),
-			RunE: func(cmd *cobra.Command, args []string) error {
-				v, _, err := secrets.Get(args[0])
-				if err != nil {
-					return err
-				}
-				if v == "" {
-					return fmt.Errorf("key %s not set: llmenu secrets set %s", args[0], args[0])
-				}
-				fmt.Fprintln(cmd.OutOrStdout(), v)
-				return nil
-			},
-		},
+		newSecretsGetCmd(),
 		&cobra.Command{
 			Use:               "delete <name>",
 			ValidArgsFunction: completeFirst(secretNames),
@@ -176,6 +165,60 @@ so they do not end up in the shell history.`,
 			RunE:              func(cmd *cobra.Command, args []string) error { return secrets.Delete(args[0]) },
 		},
 	)
+	return cmd
+}
+
+// newSecretsGetCmd prints a key. For gateway it is the key in use: the
+// active project's, so pi follows llmenu project use without a new sync.
+func newSecretsGetCmd() *cobra.Command {
+	var project string
+	cmd := &cobra.Command{
+		Use:               "get <name>",
+		ValidArgsFunction: completeFirst(secretNames),
+		Short:             "Print a key (pi uses: !llmenu secrets get gateway)",
+		Long: `Prints a key. For gateway it is the key in use: the active project's
+(llmenu project), otherwise the main key. --project picks one explicitly,
+--project none the main key.`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			name := args[0]
+			if name == secrets.Gateway {
+				cfg, err := config.Load()
+				if err != nil {
+					return err
+				}
+				p, err := activeProject(cfg)
+				if cmd.Flags().Changed("project") {
+					p, err = project, nil
+					if p == secrets.NoProject {
+						p = ""
+					}
+				}
+				if err != nil {
+					return err
+				}
+				name = secrets.ProjectKey(p)
+			} else if cmd.Flags().Changed("project") {
+				return errors.New("--project only applies to the gateway key")
+			}
+			v, _, err := secrets.Get(name)
+			if err != nil {
+				return err
+			}
+			if v == "" {
+				if p, ok := strings.CutPrefix(name, secrets.Gateway+":"); ok {
+					return fmt.Errorf("no key for project %s: llmenu project add %s", p, p)
+				}
+				return fmt.Errorf("key %s not set: llmenu secrets set %s", name, name)
+			}
+			fmt.Fprintln(cmd.OutOrStdout(), v)
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&project, "project", "", "the project's gateway key; none for the main key")
+	_ = cmd.RegisterFlagCompletionFunc("project", func(*cobra.Command, []string, string) ([]cobra.Completion, cobra.ShellCompDirective) {
+		return append(projectNames(), secrets.NoProject), cobra.ShellCompDirectiveNoFileComp
+	})
 	return cmd
 }
 

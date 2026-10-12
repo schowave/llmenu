@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"net/url"
-	"os"
 	"os/exec"
 	"regexp"
 	"slices"
@@ -67,6 +66,6 @@ func (codex) Command(ctx context.Context, m *catalog.Model, args []string, env E
 	}
 
 	cmd := exec.CommandContext(ctx, "codex", append(pre, args...)...)
-	cmd.Env = append(os.Environ(), KeyEnv+"="+env.APIKey)
+	cmd.Env = env.childEnv(KeyEnv + "=" + env.APIKey)
 	return cmd, nil
 }

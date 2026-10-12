@@ -57,6 +57,8 @@ that model.
   changes; comments and other providers are preserved, and a backup is kept.
 - **Nothing hard-coded:** suggestions for Claude Code's opus/sonnet/haiku slots
   are derived from the gateway's model list.
+- **Projects:** one gateway key per customer or cost center, switched with
+  `llmenu project`; the active one is always shown.
 - **Keys stay in the OS keyring** (macOS Keychain, Windows Credential Manager,
   Secret Service), never in config files or process arguments.
 - **Scriptable:** `llmenu list --json`, `strix --model "$(llmenu)"`; without a
@@ -69,6 +71,7 @@ that model.
 - [Installation](#installation)
 - [Quick start](#quick-start)
 - [Using llmenu with your tools](#using-llmenu-with-your-tools)
+- [Projects: one key per customer](#projects-one-key-per-customer)
 - [Models and benchmarks](#models-and-benchmarks)
 - [Configuration](#configuration)
 - [Command reference](#command-reference)
@@ -203,6 +206,58 @@ Only llmenu's own provider entry is changed; comments and your other
 providers stay, and the previous file is kept as `*.bak`. Then pick models in
 the tool as usual. Run `llmenu sync` again when the gateway's models change.
 
+## Projects: one key per customer
+
+If your gateway hands out one key per project, e.g. so each customer's usage
+is billed separately, store them side by side and switch with one command.
+URL and models stay the same; only the key changes.
+
+```sh
+llmenu project add acme        # asks for the key hidden, checks it with the gateway
+llmenu project                 # pick: main key, acme, …, or add a project
+llmenu project use acme        # or switch directly
+llmenu project use --none      # back to the main key
+LLMENU_PROJECT=acme llmenu claude   # just for this command (or shell, e.g. via direnv)
+```
+
+Without a project the main key applies (`llmenu secrets set gateway`), as if
+projects did not exist. The switch holds for every later command and for pi,
+which asks `llmenu secrets get gateway` for the key; there is nothing to
+sync again. Sessions that are already running keep their key.
+
+So you always know who pays, the active project is shown in the menu and when
+a tool starts (`llmenu: project acme · aws/claude-opus-5-5`). For your own
+status line or shell prompt, `llmenu project current` prints it without
+touching the keyring or the network, and prints nothing for the main key.
+Tools started by llmenu get the session's project in `LLMENU_PROJECT`.
+
+<details>
+<summary>Status line and prompt examples</summary>
+
+Let llmenu set Claude Code's status line (project and model) for sessions it
+starts; it replaces your own status line for those sessions only:
+
+```sh
+llmenu config set claude.statusline true
+```
+
+Or add the project to your own status line script:
+
+```sh
+project=$(llmenu project current) && [ -n "$project" ] && printf 'project %s · ' "$project"
+```
+
+starship (`~/.config/starship.toml`):
+
+```toml
+[custom.llmenu]
+command = "llmenu project current"
+when = "llmenu project current | grep -q ."
+format = "[$output]($style) "
+```
+
+</details>
+
 ## Models and benchmarks
 
 ```sh
@@ -231,7 +286,8 @@ Environment variables override both, e.g. in CI — see `llmenu help environment
 
 | Variable | Purpose |
 |---|---|
-| `LLMENU_BASE_URL`, `LLMENU_API_KEY` | gateway URL and key |
+| `LLMENU_BASE_URL`, `LLMENU_API_KEY` | gateway URL and key (the key wins over a project's) |
+| `LLMENU_PROJECT` | project whose key to use, `none` for the main key |
 | `LLMENU_AA_API_KEY` | Artificial Analysis key |
 | `LLMENU_CONFIG`, `LLMENU_CACHE_DIR` | alternative config file and cache directory |
 | `LLMENU_ACCESSIBLE=1` | line-based setup prompts, e.g. for screen readers |
@@ -245,6 +301,7 @@ Environment variables override both, e.g. in CI — see `llmenu help environment
 | `llmenu` | pick a model and print its name |
 | `llmenu sync [tool…]` | write the gateway's models into opencode and pi |
 | `llmenu list`, `llmenu bench` | show models; fetch benchmark scores |
+| `llmenu project` | switch the gateway key between projects (`add`, `use`, `list`, `remove`, `current`) |
 | `llmenu config`, `llmenu secrets` | change settings; store keys |
 | `llmenu targets` | supported tools and their status |
 | `llmenu help [command]` | help; `llmenu help environment` for environment variables |
@@ -301,6 +358,8 @@ installed, then uninstall with its data:
 ```sh
 llmenu secrets delete gateway
 llmenu secrets delete artificialanalysis
+llmenu project list            # then for each project:
+llmenu project remove <project>
 ```
 
 Homebrew (`--zap` also removes settings and caches)

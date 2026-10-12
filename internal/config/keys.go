@@ -29,6 +29,18 @@ var Keys = []Key{
 	str("gateway.name", "provider name in other tools' configurations",
 		func(c *Config) *string { return &c.Gateway.Name },
 		func(c *Config) string { return NameFromURL(c.Gateway.URL) }),
+	{
+		Name: "gateway.project",
+		Help: "active project, whose gateway key is used (empty: the main key); see llmenu project",
+		get:  func(c *Config) (string, bool) { return c.Gateway.Project, c.Gateway.Project != "" },
+		put: func(c *Config, v string) error {
+			if v != "" && !c.Gateway.HasProject(v) {
+				return fmt.Errorf("unknown project %q: llmenu project add %s", v, v)
+			}
+			c.Gateway.Project = v
+			return nil
+		},
+	},
 	str("claude.default", "default model: slot name (opus|sonnet|haiku) or model name",
 		func(c *Config) *string { return &c.Claude.Default },
 		func(*Config) string { return "opus" }),
@@ -58,6 +70,26 @@ var Keys = []Key{
 				return fmt.Errorf("expected true or false, not %q", v)
 			}
 			c.Claude.AutoCompact = &b
+			return nil
+		},
+	},
+	{
+		Name: "claude.statusline",
+		Help: "show llmenu's status line (project and model) in Claude Code, replacing your own for the session (true|false)",
+		get: func(c *Config) (string, bool) {
+			return strconv.FormatBool(c.Claude.StatusLine), c.Claude.StatusLine
+		},
+		def: func(*Config) string { return "false" },
+		put: func(c *Config, v string) error {
+			if v == "" {
+				c.Claude.StatusLine = false
+				return nil
+			}
+			b, err := strconv.ParseBool(v)
+			if err != nil {
+				return fmt.Errorf("expected true or false, not %q", v)
+			}
+			c.Claude.StatusLine = b
 			return nil
 		},
 	},

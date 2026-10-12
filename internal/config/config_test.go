@@ -166,3 +166,33 @@ func TestToolsNoneSurvivesSave(t *testing.T) {
 		t.Error("nil list after unset expected")
 	}
 }
+
+func TestProjects(t *testing.T) {
+	var c Config
+	if err := c.Set("gateway.project", "acme"); err == nil {
+		t.Error("unknown project accepted")
+	}
+	c.Gateway.AddProject("zeta")
+	c.Gateway.AddProject("acme")
+	c.Gateway.AddProject("acme")
+	if got := c.Gateway.Projects; len(got) != 2 || got[0] != "acme" || got[1] != "zeta" {
+		t.Errorf("Projects: %v", got)
+	}
+	if err := c.Set("gateway.project", "acme"); err != nil {
+		t.Fatal(err)
+	}
+	if e, _ := c.Get("gateway.project"); e.Value != "acme" || e.Source != "file" {
+		t.Errorf("Get: %+v", e)
+	}
+	c.Gateway.RemoveProject("zeta")
+	if c.Gateway.Project != "acme" {
+		t.Error("removing another project changed the active one")
+	}
+	c.Gateway.RemoveProject("acme")
+	if c.Gateway.Project != "" || c.Gateway.Projects != nil {
+		t.Errorf("after removing the active project: %+v", c.Gateway)
+	}
+	if e, _ := c.Get("gateway.project"); e.Value != "" || e.Source != "" {
+		t.Errorf("unset: %+v", e)
+	}
+}

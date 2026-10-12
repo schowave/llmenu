@@ -38,6 +38,33 @@ type Codex struct {
 type Gateway struct {
 	URL  string `toml:"url,omitempty"`
 	Name string `toml:"name,omitempty"` // provider name in other tools' configurations
+	// Project is the active project, whose key replaces the main key; empty:
+	// the main key. Projects are all projects with a key in the keyring,
+	// listed here because the keyring cannot be enumerated.
+	Project  string   `toml:"project,omitempty"`
+	Projects []string `toml:"projects,omitempty"`
+}
+
+// HasProject reports whether the project was added.
+func (g Gateway) HasProject(name string) bool { return slices.Contains(g.Projects, name) }
+
+// AddProject records a project, keeping the list sorted.
+func (g *Gateway) AddProject(name string) {
+	if !g.HasProject(name) {
+		g.Projects = append(g.Projects, name)
+		slices.Sort(g.Projects)
+	}
+}
+
+// RemoveProject forgets a project; if it was active, the main key applies.
+func (g *Gateway) RemoveProject(name string) {
+	g.Projects = slices.DeleteFunc(g.Projects, func(p string) bool { return p == name })
+	if len(g.Projects) == 0 {
+		g.Projects = nil
+	}
+	if g.Project == name {
+		g.Project = ""
+	}
 }
 
 // Slots are Claude Code's model slots.
@@ -49,7 +76,8 @@ type Claude struct {
 	Sonnet      string            `toml:"sonnet,omitempty"`
 	Haiku       string            `toml:"haiku,omitempty"`
 	AutoCompact *bool             `toml:"auto_compact,omitempty"`
-	Env         map[string]string `toml:"env,omitempty"` // nil: DefaultClaudeEnv
+	StatusLine  bool              `toml:"statusline,omitempty"` // llmenu's status line (project and model) for the session
+	Env         map[string]string `toml:"env,omitempty"`        // nil: DefaultClaudeEnv
 }
 
 // ToolList returns the chosen tools.
