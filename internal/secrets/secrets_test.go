@@ -143,3 +143,20 @@ func TestProjectKeys(t *testing.T) {
 		t.Error("invalid project name accepted")
 	}
 }
+
+func TestFileStoreTightensExistingMode(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("no Unix modes")
+	}
+	file := t.TempDir() + "/keys.json"
+	if err := os.WriteFile(file, []byte("{}"), 0o644); err != nil { //nolint:gosec // the point of the test
+		t.Fatal(err)
+	}
+	t.Setenv("LLMENU_KEYRING_FILE", file)
+	if err := Set(Gateway, "sk-file"); err != nil {
+		t.Fatal(err)
+	}
+	if fi, err := os.Stat(file); err != nil || fi.Mode().Perm() != 0o600 {
+		t.Errorf("file mode: %v %v", fi, err)
+	}
+}

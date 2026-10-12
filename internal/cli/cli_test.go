@@ -333,6 +333,8 @@ func TestSlotOptions(t *testing.T) {
 func TestValidateURL(t *testing.T) {
 	for in, ok := range map[string]bool{
 		"https://llm.example.com/": true, "http://localhost:4000": true,
+		"http://127.0.0.1:4000/": true, "http://[::1]:4000": true,
+		"http://llm.example.com/": false, "http://10.0.0.5:4000": false, "http://localhost.evil.com": false,
 		"ftp://x": false, "llm.example.com": false, "https://": false, "": false,
 	} {
 		if err := validateURL(in); (err == nil) != ok {

@@ -193,7 +193,23 @@ func (f fileStore) save(m map[string]string) error {
 	if err := os.MkdirAll(filepath.Dir(string(f)), 0o700); err != nil {
 		return err
 	}
-	return os.WriteFile(string(f), b, 0o600)
+	// Via a new file: WriteFile would keep the mode of an existing, possibly
+	// world-readable one.
+	tmp, err := os.CreateTemp(filepath.Dir(string(f)), ".keyring-*")
+	if err != nil {
+		return err
+	}
+	_, err = tmp.Write(b)
+	if cerr := tmp.Close(); err == nil {
+		err = cerr
+	}
+	if err == nil {
+		err = os.Rename(tmp.Name(), string(f)) // CreateTemp files are 0600
+	}
+	if err != nil {
+		os.Remove(tmp.Name())
+	}
+	return err
 }
 
 func (f fileStore) Get(service, name string) (string, error) {

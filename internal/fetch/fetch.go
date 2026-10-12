@@ -11,6 +11,9 @@ import (
 	"time"
 )
 
+// maxBody caps a response; model lists and benchmarks are far smaller.
+const maxBody = 16 << 20
+
 // Get requests u with the headers; a nil hc means a default client with a 30 s timeout.
 func Get(ctx context.Context, hc *http.Client, u string, header map[string]string) ([]byte, error) {
 	if hc == nil {
@@ -28,9 +31,12 @@ func Get(ctx context.Context, hc *http.Client, u string, header map[string]strin
 		return nil, fmt.Errorf("request failed: %w", err)
 	}
 	defer res.Body.Close()
-	body, err := io.ReadAll(res.Body)
+	body, err := io.ReadAll(io.LimitReader(res.Body, maxBody+1))
 	if err != nil {
 		return nil, fmt.Errorf("request to %s aborted: %w", u, err)
+	}
+	if len(body) > maxBody {
+		return nil, fmt.Errorf("response from %s is larger than %d MB", u, maxBody>>20)
 	}
 	if res.StatusCode/100 != 2 {
 		return nil, fmt.Errorf("HTTP %d from %s: %s", res.StatusCode, u, snippet(body, 300))

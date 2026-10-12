@@ -108,6 +108,11 @@ func gatewayFrom(cfg *config.Config) (targets.Env, error) {
 		return env, err
 	}
 	env.Project = project
+	// Config and LLMENU_BASE_URL are not checked like setup does.
+	if err := validateURL(env.BaseURL); env.BaseURL != "" && err != nil && !warnedURL {
+		warnedURL = true
+		fmt.Fprintf(os.Stderr, "llmenu: warning: gateway URL %s: %v\n", env.BaseURL, err)
+	}
 	key, _, err := secrets.Get(secrets.ProjectKey(project))
 	if err != nil {
 		return env, fmt.Errorf("gateway key: %w", err)
@@ -118,6 +123,9 @@ func gatewayFrom(cfg *config.Config) (targets.Env, error) {
 	env.APIKey = key
 	return env, nil
 }
+
+// warnedURL keeps the warning to one per run.
+var warnedURL bool
 
 // firstRun reports that there is no config file yet.
 func firstRun() bool {

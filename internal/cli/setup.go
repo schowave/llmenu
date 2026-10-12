@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 	"net/url"
 	"os"
 	"slices"
@@ -250,12 +251,26 @@ func applyGatewayName(cfg *config.Config, name string) {
 	}
 }
 
+// validateURL accepts https URLs, and http only for a gateway on this
+// machine: the key travels in the Authorization header of every request.
 func validateURL(s string) error {
 	u, err := url.Parse(s)
 	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
 		return errors.New("http(s) URL expected")
 	}
+	if u.Scheme == "http" && !isLoopback(u.Hostname()) {
+		return errors.New("plain http would send the key unencrypted: use https (http only for localhost)")
+	}
 	return nil
+}
+
+// isLoopback reports whether host is localhost or a loopback address.
+func isLoopback(host string) bool {
+	if host == "localhost" {
+		return true
+	}
+	ip := net.ParseIP(host)
+	return ip != nil && ip.IsLoopback()
 }
 
 // setupClaude prompts for the slots, the default and compaction.

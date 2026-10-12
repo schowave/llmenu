@@ -100,3 +100,13 @@ func TestSnippet(t *testing.T) {
 		}
 	}
 }
+
+func TestGetLimitsBody(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(strings.Repeat("x", maxBody+1)))
+	}))
+	defer srv.Close()
+	if _, err := Get(context.Background(), nil, srv.URL, nil); err == nil || !strings.Contains(err.Error(), "larger than") {
+		t.Errorf("oversized response: %v", err)
+	}
+}
