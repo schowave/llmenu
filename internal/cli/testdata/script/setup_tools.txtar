@@ -69,6 +69,7 @@ exec llmenu setup tools
 4
 0
 -- full.txt --
+1
 $LLMENU_BASE_URL
 
 

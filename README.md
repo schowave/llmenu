@@ -193,8 +193,9 @@ used `llmenu sync`; remove it there by hand. `llmenu targets` shows the files.
    llmenu setup
    ```
 
-   Run it again any time; Enter keeps the current value. If you skip this,
-   the first command offers to do it.
+   Run it again any time: it asks what you want to change (everything, or
+   e.g. only Claude Code's models), and Enter keeps the current value. If you
+   skip this, the first command offers to do it.
 
 2. **Use it** with your tool, e.g. pick a model and start Claude Code:
 

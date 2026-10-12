@@ -27,7 +27,7 @@ func newSetupCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "setup [" + strings.Join(sections, "|") + "]",
 		Short: "Set up gateway, key, your coding tools and their defaults",
-		Long: `Walks through all sections, or only the given one:
+		Long: `Asks what to set up, or runs the given section directly:
   gateway     URL and key of the LiteLLM gateway (checked right away)
   tools       which coding tools you use (Claude Code, Codex CLI, opencode, pi)
   claude      models for Claude Code's opus/sonnet/haiku slots, default, compaction
@@ -49,6 +49,20 @@ screen readers; the answers can then also come from stdin.`,
 			if !canPrompt() {
 				return errors.New("setup needs a terminal (or LLMENU_ACCESSIBLE=1); without a dialog: llmenu config set")
 			}
+			// Without a section, ask what to set up — except on the very first
+			// run, where everything is needed anyway.
+			if len(args) == 0 && !firstRun() {
+				section, err := chooseSection()
+				if errors.Is(err, huh.ErrUserAborted) {
+					return exitCodeError{130}
+				}
+				if err != nil {
+					return err
+				}
+				if section != "" {
+					args = []string{section}
+				}
+			}
 			err := runSetup(cmd.Context(), args)
 			if errors.Is(err, huh.ErrUserAborted) {
 				return exitCodeError{130}
@@ -56,6 +70,27 @@ screen readers; the answers can then also come from stdin.`,
 			return err
 		},
 	}
+}
+
+// sectionLabels describe the setup sections in the "what to set up" list.
+var sectionLabels = map[string]string{
+	"gateway":    "Gateway (URL and key)",
+	"tools":      "Coding tools you use",
+	"claude":     "Claude Code (models for opus/sonnet/haiku, default model)",
+	"codex":      "Codex CLI (default model)",
+	"benchmarks": "Benchmarks (Artificial Analysis key)",
+}
+
+// chooseSection asks which section to set up; "" means everything.
+func chooseSection() (string, error) {
+	opts := []huh.Option[string]{huh.NewOption("Everything", "")}
+	for _, s := range sections {
+		opts = append(opts, huh.NewOption(sectionLabels[s], s))
+	}
+	var section string
+	err := runPrompt(huh.NewSelect[string]().Title("What do you want to set up?").
+		Options(opts...).Value(&section))
+	return section, err
 }
 
 func runSetup(ctx context.Context, args []string) error {

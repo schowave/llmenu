@@ -153,7 +153,7 @@ are removed and the first remaining part is taken. So
 
 | Command | Purpose |
 |---|---|
-| `llmenu setup` | go through all sections; defaults are the current values, otherwise the derived suggestions |
+| `llmenu setup` | ask what to set up (everything or one section); on the very first run everything without asking. Defaults are the current values, otherwise the derived suggestions |
 | `llmenu setup <section>` | only `gateway`, `tools`, `claude`, `codex` or `benchmarks` |
 | `llmenu config list` | all values and where they come from (file, environment, default); keys only shown as "set" |
 | `llmenu config get <key>` | single value, e.g. `claude.default` |

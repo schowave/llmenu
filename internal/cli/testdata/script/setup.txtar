@@ -36,6 +36,16 @@ cmp config.toml before.toml
 exec llmenu secrets get artificialanalysis
 stdout '^aa-test$'
 
+# Without a section, setup asks what to set up; choosing Claude Code runs only
+# that section.
+stdin pick-claude.txt
+exec llmenu setup
+stderr 'What do you want to set up\?'
+stderr '^4\. Claude Code \(models for opus/sonnet/haiku, default model\)$'
+stderr 'Claude Code: model for the "opus" slot'
+! stderr 'Base URL of the LiteLLM proxy'
+! stderr 'Leave empty to keep the existing key'
+
 # Input that ends in the middle stops the setup.
 stdin gateway-only.txt
 ! exec llmenu setup
@@ -55,11 +65,19 @@ team-gw
 n
 aa-test
 -- enter.txt --
+1
 
 
 
 0
 
+
+
+
+
+
+-- pick-claude.txt --
+4
 
 
 
