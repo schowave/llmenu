@@ -94,3 +94,7 @@ run = "rm -rf .sandbox"
 [tasks.ci]
 description = "Everything CI checks, except the snapshot release"
 depends = ["fmt-check", "tidy-check", "vet", "test", "cover", "lint", "vuln", "workflows"]
+
+[tasks.demo]
+description = "Record the README demo (docs/demo.gif) with VHS against the fake gateway; needs `brew install vhs`"
+run = "scripts/demo.sh"

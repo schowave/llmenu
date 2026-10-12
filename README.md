@@ -21,15 +21,9 @@ gateway: dozens of models from several providers, aliases like
 tool wants that configured differently. **llmenu** reads the model list from
 the gateway and does the wiring for you:
 
-```console
-$ llmenu claude
-MODEL                          CONTEXT      $ IN     $ OUT  INTEL    TB4   CODE
-aws/claude-opus-5-5              1000k      4.40     22.00   57.6   59.6   80.0
-azure/gpt-6-sol                   922k      2.00     10.00   47.6   43.9      -
-gcp/claude-sonnet-4-5             200k      3.00     15.00   42.0      -      -
-…
-model> █
-```
+<p align="center">
+  <img alt="llmenu claude: a menu of the gateway's models with context size, prices and benchmark scores; Tab changes the sort column, typing searches, Enter starts Claude Code with the chosen model" src="docs/demo.gif" width="900">
+</p>
 
 Pick a model, press Enter, and Claude Code starts against your gateway with
 that model — no environment variables to export, no config files to edit.

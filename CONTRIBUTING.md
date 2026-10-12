@@ -28,6 +28,7 @@ mise run mutation              # mutation testing of everything (a few minutes)
 mise run compat                # the real pi, opencode and codex read what llmenu generates
 mise run release-check         # validate .goreleaser.yaml and build a snapshot into dist/
 mise run install               # install your build into $(go env GOPATH)/bin
+mise run demo                  # re-record the README demo docs/demo.gif (needs `brew install vhs`)
 ```
 
 ## Trying changes by hand: the sandbox
