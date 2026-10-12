@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"path/filepath"
 	"regexp"
 	"strings"
 	"unicode/utf8"
@@ -13,6 +12,7 @@ import (
 	"github.com/pmezard/go-difflib/difflib"
 	"github.com/tailscale/hujson"
 
+	"github.com/schowave/llmenu/internal/atomicfile"
 	"github.com/schowave/llmenu/internal/guard"
 )
 
@@ -54,29 +54,17 @@ func syncJSON(file string, initial []byte, path []string, update func(old any) a
 		return d, nil
 	}
 
-	if err := os.MkdirAll(filepath.Dir(file), 0o700); err != nil {
-		return d, err
-	}
 	mode := os.FileMode(0o600)
 	if exists {
 		if fi, err := os.Stat(file); err == nil {
 			mode = fi.Mode().Perm()
 		}
-		// file is the target's own config location, not user input.
-		if err := os.WriteFile(file+".bak", orig, mode); err != nil { //nolint:gosec // G703: see above
-			return d, fmt.Errorf("backup: %w", err)
-		}
-		// WriteFile keeps the mode of an existing backup; it must not be
-		// more open than the config itself.
-		if err := os.Chmod(file+".bak", mode); err != nil { //nolint:gosec // G703: see above
+		// The backup must not be more open than the config itself.
+		if err := atomicfile.Write(file+".bak", orig, mode); err != nil {
 			return d, fmt.Errorf("backup: %w", err)
 		}
 	}
-	tmp := file + ".llmenu.tmp"
-	if err := os.WriteFile(tmp, updated, mode); err != nil { //nolint:gosec // G703: tmp is next to the target's config
-		return d, err
-	}
-	return d, os.Rename(tmp, file)
+	return d, atomicfile.Write(file, updated, mode)
 }
 
 // editJSON returns orig with a new value under path. Only text is replaced or

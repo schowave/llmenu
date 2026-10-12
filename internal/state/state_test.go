@@ -61,8 +61,8 @@ func TestSaveLoad(t *testing.T) {
 	if err := s.Save(); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := os.Stat(filepath.Join(dir, "state.json.tmp")); !os.IsNotExist(err) {
-		t.Error("temporary file left behind")
+	if es, _ := os.ReadDir(dir); len(es) != 1 {
+		t.Errorf("temporary file left behind: %v", es)
 	}
 	got := Load()
 	if len(got.LastModel) != 2 || got.LastModel[""] != "aws/claude-opus-5-5" || got.LastModel["codex"] != "azure/gpt-5.6-sol" {

@@ -143,8 +143,8 @@ func TestSaveRewritesOnChange(t *testing.T) {
 	if changed, err := c.Save(); err != nil || !changed {
 		t.Fatalf("hand-edited file not rewritten: changed=%v err=%v", changed, err)
 	}
-	if _, err := os.Stat(p + ".tmp"); !os.IsNotExist(err) {
-		t.Error("temporary file left behind")
+	if es, _ := os.ReadDir(filepath.Dir(p)); len(es) != 1 {
+		t.Errorf("temporary file left behind: %v", es)
 	}
 }
 

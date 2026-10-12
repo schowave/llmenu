@@ -15,6 +15,7 @@ import (
 
 	"github.com/pelletier/go-toml/v2"
 
+	"github.com/schowave/llmenu/internal/atomicfile"
 	"github.com/schowave/llmenu/internal/guard"
 )
 
@@ -263,12 +264,8 @@ func (c *Config) Save() (changed bool, err error) {
 	if old, err := os.ReadFile(p); err == nil && bytes.Equal(old, b) {
 		return false, nil
 	}
-	if err := os.MkdirAll(filepath.Dir(p), 0o700); err != nil {
+	if err := atomicfile.Write(p, b, 0o600); err != nil {
 		return false, err
 	}
-	tmp := p + ".tmp"
-	if err := os.WriteFile(tmp, b, 0o600); err != nil {
-		return false, err
-	}
-	return true, os.Rename(tmp, p)
+	return true, nil
 }

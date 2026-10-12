@@ -16,6 +16,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/schowave/llmenu/internal/atomicfile"
 	"github.com/schowave/llmenu/internal/catalog"
 	"github.com/schowave/llmenu/internal/fetch"
 
@@ -175,18 +176,11 @@ func (s *Store) Save() error {
 	if err != nil {
 		return err
 	}
-	if err := os.MkdirAll(filepath.Dir(p), 0o700); err != nil {
-		return err
-	}
 	b, err := json.MarshalIndent(s, "", "  ")
 	if err != nil {
 		return err
 	}
-	tmp := p + ".tmp"
-	if err := os.WriteFile(tmp, b, 0o600); err != nil {
-		return err
-	}
-	return os.Rename(tmp, p)
+	return atomicfile.Write(p, b, 0o600)
 }
 
 // Apply attaches the values to the models.

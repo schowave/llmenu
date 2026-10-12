@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/schowave/llmenu/internal/atomicfile"
 	"github.com/schowave/llmenu/internal/guard"
 )
 
@@ -64,18 +65,11 @@ func (s State) Save() error {
 	if err != nil {
 		return err
 	}
-	if err := os.MkdirAll(filepath.Dir(p), 0o700); err != nil {
-		return err
-	}
 	b, err := json.MarshalIndent(s, "", "  ")
 	if err != nil {
 		return err
 	}
-	tmp := p + ".tmp"
-	if err := os.WriteFile(tmp, b, 0o600); err != nil {
-		return err
-	}
-	return os.Rename(tmp, p)
+	return atomicfile.Write(p, b, 0o600)
 }
 
 // modelsPath is next to state.json: the gateway's model names, cached for
@@ -101,14 +95,7 @@ func SaveModels(names []string) error {
 	if old, err := os.ReadFile(p); err == nil && bytes.Equal(old, b) {
 		return nil
 	}
-	if err := os.MkdirAll(filepath.Dir(p), 0o700); err != nil {
-		return err
-	}
-	tmp := p + ".tmp"
-	if err := os.WriteFile(tmp, b, 0o600); err != nil {
-		return err
-	}
-	return os.Rename(tmp, p)
+	return atomicfile.Write(p, b, 0o600)
 }
 
 // LoadModels returns the cached model names, or nil.
