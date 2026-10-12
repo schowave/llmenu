@@ -52,31 +52,18 @@ that model.
 
 - **Benchmarks** from [Artificial Analysis](https://artificialanalysis.ai)
   (Intelligence Index, Terminal-Bench, Coding Index); aliases and provider
-  duplicates are folded together.
+  duplicates are folded together. Nothing is hard-coded: the suggestions for
+  Claude Code's opus/sonnet/haiku slots come from the gateway's model list.
 - **Safe config edits:** in pi and opencode only llmenu's own provider entry
-  changes; comments and other providers are preserved, and a backup is kept.
-- **Nothing hard-coded:** suggestions for Claude Code's opus/sonnet/haiku slots
-  are derived from the gateway's model list.
-- **Projects:** one gateway key per customer or cost center, switched with
-  `llmenu project`; the active one is always shown.
+  changes; comments and other providers stay, and a backup is kept.
 - **Keys stay in the OS keyring** (macOS Keychain, Windows Credential Manager,
-  Secret Service), never in config files or process arguments.
+  Secret Service), never in config files or process arguments, and are only
+  sent to the gateway they were stored for. See [SECURITY.md](SECURITY.md).
+- **Projects:** one gateway key per project or cost center, switched with
+  `llmenu project`.
 - **Scriptable:** `llmenu list --json`, `strix --model "$(llmenu)"`; without a
   terminal nothing ever waits for input.
 - **Single binary** for macOS, Linux and Windows on amd64 and arm64.
-
-## Contents
-
-- [Why llmenu](#why-llmenu)
-- [Installation](#installation)
-- [Quick start](#quick-start)
-- [Using llmenu with your tools](#using-llmenu-with-your-tools)
-- [Projects: one key per customer](#projects-one-key-per-customer)
-- [Models and benchmarks](#models-and-benchmarks)
-- [Configuration](#configuration)
-- [Command reference](#command-reference)
-- [How it works](#how-it-works)
-- [Updating and uninstalling](#updating-and-uninstalling)
 
 ## Installation
 
@@ -103,61 +90,36 @@ Or download an archive from the [releases page](https://github.com/schowave/llme
 Archives come with signed build provenance; check one with
 `gh attestation verify <archive> --repo schowave/llmenu`.
 
-### Shell completion
+<details>
+<summary>Shell completion</summary>
 
 Tab completes commands, settings, key names and model names. Homebrew sets it
 up automatically; with Scoop or `go install`, set it up once for your shell:
 
-zsh
-
 ```sh
-llmenu completion zsh > "${fpath[1]}/_llmenu"
+llmenu completion zsh > "${fpath[1]}/_llmenu"                                       # zsh
+llmenu completion bash > ~/.local/share/bash-completion/completions/llmenu          # bash
+llmenu completion fish > ~/.config/fish/completions/llmenu.fish                     # fish
 ```
-
-bash
-
-```sh
-llmenu completion bash > ~/.local/share/bash-completion/completions/llmenu
-```
-
-fish
-
-```sh
-llmenu completion fish > ~/.config/fish/completions/llmenu.fish
-```
-
-PowerShell
 
 ```powershell
-Add-Content $PROFILE 'llmenu completion powershell | Out-String | Invoke-Expression'
+Add-Content $PROFILE 'llmenu completion powershell | Out-String | Invoke-Expression'   # PowerShell
 ```
+
+</details>
 
 ## Quick start
 
-1. **Set up** — llmenu asks for your gateway URL and key (and checks them
-   right away), which coding tools you use, and their default models:
+```sh
+llmenu setup     # gateway URL and key (checked right away), your tools, default models
+llmenu claude    # pick a model and start Claude Code
+llmenu bench     # optional: benchmark scores, so the menu can sort by quality
+```
 
-   ```sh
-   llmenu setup
-   ```
-
-   Run it again any time: it asks what you want to change (everything, or
-   e.g. only Claude Code's models), and Enter keeps the current value. If you
-   skip this, the first command offers to do it.
-
-2. **Use it** with your tool, e.g. pick a model and start Claude Code:
-
-   ```sh
-   llmenu claude
-   ```
-
-3. **Optional:** benchmark scores, so the menu can sort by quality. The setup
-   asks for the free key and fetches them; afterwards llmenu refreshes them
-   automatically every two weeks. Manually:
-
-   ```sh
-   llmenu bench
-   ```
+`setup` can be run again any time: it asks what to change (everything, or
+e.g. only Claude Code's models), and Enter keeps the current value. If you
+skip it, the first command offers it. The benchmark key is free; the setup
+asks for it, and afterwards llmenu refreshes the scores every two weeks.
 
 ## Using llmenu with your tools
 
@@ -173,46 +135,33 @@ llmenu integrates each tool the way that tool works best: some are
 | [pi](https://www.npmjs.com/package/@earendil-works/pi-coding-agent) | writes the models into its config | `llmenu sync`, then `pi` |
 | anything else | prints the chosen model name | `tool --model "$(llmenu)"` |
 
-### Claude Code
-
 ```sh
 llmenu claude                      # menu with the cursor on your default, then Claude Code starts
 llmenu claude --model sonnet -c    # no menu; every argument goes to claude unchanged
-llmenu claude -p "explain this" > answer.md   # no terminal (scripts, redirects): default model, no menu
-```
-
-The gateway, key and the models for Claude Code's opus/sonnet/haiku slots are
-passed in the environment; your `~/.claude` stays untouched. Defaults:
-`llmenu setup claude`.
-
-### Codex CLI
-
-```sh
-llmenu codex
+llmenu claude -p "explain this" > answer.md   # no terminal: default model, no menu
 llmenu codex exec "fix the failing test"
 ```
 
-The gateway is passed as provider via `-c` overrides; `~/.codex/config.toml`
-stays untouched. Default model: `llmenu setup codex`.
-
-### opencode and pi
+Gateway, key and models are passed in the environment (Claude Code) or via
+`-c` overrides (Codex CLI); `~/.claude` and `~/.codex` stay untouched.
+Defaults: `llmenu setup claude`, `llmenu setup codex`.
 
 ```sh
-llmenu sync --dry-run    # show what would change
+llmenu sync --dry-run    # opencode and pi: show what would change
 llmenu sync              # write the gateway's models, limits and prices
 llmenu opencode          # start opencode with the gateway key
-pi                       # pi gets the key itself: !llmenu secrets get gateway
+pi                       # pi asks for the key itself: !llmenu secrets get gateway
 ```
 
 Only llmenu's own provider entry is changed; comments and your other
-providers stay, and the previous file is kept as `*.bak`. Then pick models in
-the tool as usual. Run `llmenu sync` again when the gateway's models change.
+providers stay, and the previous file is kept as `*.bak`. Run `llmenu sync`
+again when the gateway's models change.
 
-## Projects: one key per customer
+## Projects: one key per project
 
-If your gateway hands out one key per project, e.g. so each customer's usage
-is billed separately, store them side by side and switch with one command.
-URL and models stay the same; only the key changes.
+If your gateway hands out a separate key per project, e.g. to bill each
+customer or cost center on its own, store them side by side and switch with
+one command. URL and models stay the same; only the key changes.
 
 ```sh
 llmenu project add acme        # asks for the key hidden, checks it with the gateway
@@ -222,16 +171,11 @@ llmenu project use --none      # back to the main key
 LLMENU_PROJECT=acme llmenu claude   # just for this command (or shell, e.g. via direnv)
 ```
 
-Without a project the main key applies (`llmenu secrets set gateway`), as if
-projects did not exist. The switch holds for every later command and for pi,
-which asks `llmenu secrets get gateway` for the key; there is nothing to
-sync again. Sessions that are already running keep their key.
-
-So you always know who pays, the active project is shown in the menu and when
-a tool starts (`llmenu: project acme · aws/claude-opus-5-5`). For your own
-status line or shell prompt, `llmenu project current` prints it without
-touching the keyring or the network, and prints nothing for the main key.
-Tools started by llmenu get the session's project in `LLMENU_PROJECT`.
+The switch holds for every later command and for pi; there is nothing to sync
+again. Running sessions keep their key. The active project is shown in the
+menu and when a tool starts (`llmenu: project acme · aws/claude-opus-5-5`).
+`llmenu project current` prints it for your own prompt without touching the
+keyring or the network.
 
 <details>
 <summary>Status line and prompt examples</summary>
@@ -270,9 +214,8 @@ llmenu bench                       # refresh benchmark scores
 ```
 
 In the menu, type to search, **Tab** switches the sort column (INTEL, TB4,
-CODE, price) and Enter picks. The best model is on top; the preview on the
-right shows details, explains the columns and notes when a model does not
-suit the tool (e.g. a non-Claude model in `llmenu claude`).
+CODE, price) and Enter picks. The preview shows details and notes when a model
+does not suit the tool (e.g. a non-Claude model in `llmenu claude`).
 
 ## Configuration
 
@@ -294,68 +237,34 @@ Environment variables override both, e.g. in CI — see `llmenu help environment
 | `LLMENU_CONFIG`, `LLMENU_CACHE_DIR` | alternative config file and cache directory |
 | `LLMENU_ACCESSIBLE=1` | line-based setup prompts, e.g. for screen readers |
 
-## Command reference
-
-| Command | Purpose |
-|---|---|
-| `llmenu setup [section]` | set up gateway, tools and defaults (`gateway`, `tools`, `claude`, `codex`, `benchmarks`) |
-| `llmenu claude`, `llmenu codex`, `llmenu opencode` | pick a model and start the tool |
-| `llmenu` | pick a model and print its name |
-| `llmenu sync [tool…]` | write the gateway's models into opencode and pi |
-| `llmenu list`, `llmenu bench` | show models; fetch benchmark scores |
-| `llmenu project` | switch the gateway key between projects (`add`, `use`, `list`, `remove`, `current`) |
-| `llmenu config`, `llmenu secrets` | change settings; store keys |
-| `llmenu targets` | supported tools and their status |
-| `llmenu help [command]` | help; `llmenu help environment` for environment variables |
+`llmenu help` lists all commands, `llmenu help <command>` explains one.
 
 ## How it works
 
-llmenu calls the gateway's `/model/info` endpoint, normalizes model names
-across providers (`bedrock/eu.anthropic.claude-sonnet-4-5-20250929-v1:0` and
+llmenu calls the gateway's `/model/info`, normalizes model names across
+providers (`bedrock/eu.anthropic.claude-sonnet-4-5-20250929-v1:0` and
 `vertex_ai/claude-sonnet-4-5@20250929` are the same model), folds aliases and
-duplicates, and matches benchmark results to the models. The design decisions
-are recorded as Architecture Decision Records in [docs/ADR](docs/ADR).
+duplicates and matches benchmark results. The design decisions are recorded in
+[docs/ADR](docs/ADR).
 
 ## Updating and uninstalling
 
-### Updating
-
-To the [latest release](https://github.com/schowave/llmenu/releases/latest);
-`llmenu --version` shows the installed one. Settings and keys are kept.
-
-Homebrew (`brew update` fetches the new cask from the tap first)
+Updating keeps settings and keys; `llmenu --version` shows the installed
+version.
 
 ```sh
-brew update && brew upgrade --cask llmenu
+brew update && brew upgrade --cask llmenu        # Homebrew
+scoop update; scoop update llmenu                # Scoop
+go install github.com/schowave/llmenu/cmd/llmenu@latest   # Go
 ```
 
-Scoop (`scoop update` refreshes the bucket first)
+A normal uninstall (`brew uninstall --cask llmenu`, `scoop uninstall llmenu`)
+keeps settings, cache and keys, so a reinstall picks up where you left off.
 
-```powershell
-scoop update; scoop update llmenu
-```
+<details>
+<summary>Remove everything</summary>
 
-Go
-
-```sh
-go install github.com/schowave/llmenu/cmd/llmenu@latest
-```
-
-### Uninstalling
-
-A normal uninstall keeps your settings, cache and keys, so a reinstall picks
-up where you left off:
-
-```sh
-brew uninstall --cask llmenu
-```
-
-```powershell
-scoop uninstall llmenu
-```
-
-**To remove everything**, delete the keys first, while llmenu is still
-installed, then uninstall with its data:
+Delete the keys first, while llmenu is still installed:
 
 ```sh
 llmenu secrets delete gateway
@@ -364,28 +273,26 @@ llmenu project list            # then for each project:
 llmenu project remove <project>
 ```
 
-Homebrew (`--zap` also removes settings and caches)
+Then uninstall with the data:
 
 ```sh
-brew uninstall --zap --cask llmenu
+brew uninstall --zap --cask llmenu             # Homebrew: also settings and caches
 ```
-
-Scoop
 
 ```powershell
 scoop uninstall llmenu
 Remove-Item -Recurse -ErrorAction SilentlyContinue "$env:APPDATA\llmenu", "$env:LOCALAPPDATA\llmenu"
 ```
 
-Go
-
 ```sh
-rm -rf "$(go env GOPATH)/bin/llmenu" ~/.config/llmenu ~/.cache/llmenu ~/Library/"Application Support"/llmenu ~/Library/Caches/llmenu
+rm -rf "$(go env GOPATH)/bin/llmenu" ~/.config/llmenu ~/.cache/llmenu ~/Library/"Application Support"/llmenu ~/Library/Caches/llmenu   # Go
 ```
 
-llmenu also wrote a provider entry (named like your gateway, see
-`llmenu config get gateway.name`) into the configs of pi and opencode if you
-used `llmenu sync`; remove it there by hand. `llmenu targets` shows the files.
+If you used `llmenu sync`, llmenu also wrote a provider entry (named like your
+gateway, see `llmenu config get gateway.name`) into the configs of pi and
+opencode; remove it there by hand. `llmenu targets` shows the files.
+
+</details>
 
 ## Contributing
 
