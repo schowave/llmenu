@@ -58,6 +58,10 @@ func setupTools(cfg *config.Config) error {
 		selected = []string{} // deliberately none, not "unset"
 	}
 	cfg.SetTools(selected)
+	// A default tool no longer in use is asked for again.
+	if cfg.Launch != "" && cfg.Launch != config.NoLaunch && !slices.Contains(selected, cfg.Launch) {
+		cfg.Launch = ""
+	}
 	return save(cfg)
 }
 

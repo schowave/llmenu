@@ -22,6 +22,7 @@ grep '^opus = .aws/claude-opus-5-5.$' config.toml
 grep '^haiku = .azure/gpt-6-sol.$' config.toml
 grep '^auto_compact = false$' config.toml
 grep '^tools = \[.claude., .opencode., .pi.\]$' config.toml
+grep '^launch = .claude.$' config.toml
 exec llmenu secrets get gateway
 stdout '^sk-test$'
 exec llmenu secrets get artificialanalysis
@@ -41,7 +42,7 @@ stdout '^aa-test$'
 stdin pick-claude.txt
 exec llmenu setup
 stderr 'What do you want to set up\?'
-stderr '^4\. Claude Code \(models for opus/sonnet/haiku, default model\)$'
+stderr '^5\. Claude Code \(models for opus/sonnet/haiku, default model\)$'
 stderr 'Claude Code: model for the "opus" slot'
 ! stderr 'Base URL of the LiteLLM proxy'
 ! stderr 'Leave empty to keep the existing key'
@@ -58,6 +59,7 @@ team-gw
 3
 4
 0
+
 2
 
 9
@@ -78,8 +80,9 @@ aa-test
 
 
 
+
 -- pick-claude.txt --
-4
+5
 
 
 

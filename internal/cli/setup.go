@@ -22,7 +22,7 @@ import (
 	"github.com/schowave/llmenu/internal/targets"
 )
 
-var sections = []string{"gateway", "tools", "claude", "codex", "benchmarks"}
+var sections = []string{"gateway", "tools", "default", "claude", "codex", "benchmarks"}
 
 func newSetupCmd() *cobra.Command {
 	return &cobra.Command{
@@ -31,11 +31,12 @@ func newSetupCmd() *cobra.Command {
 		Long: `Asks what to set up, or runs the given section directly:
   gateway     URL and key of the LiteLLM gateway (checked right away)
   tools       which coding tools you use (Claude Code, Codex CLI, opencode, pi)
+  default     which tool llmenu without a command starts
   claude      models for Claude Code's opus/sonnet/haiku slots, default, compaction
   codex       default model for Codex CLI
   benchmarks  free Artificial Analysis key for llmenu bench
 
-The claude and codex sections are only asked for the tools you use.
+The default, claude and codex sections are only asked for the tools you use.
 
 Run it again any time: Enter keeps the current value. To change a single
 value without the dialog, use llmenu config set.
@@ -80,6 +81,7 @@ screen readers; the answers can then also come from stdin.`,
 var sectionLabels = map[string]string{
 	"gateway":    "Gateway (URL and key)",
 	"tools":      "Coding tools you use",
+	"default":    "What llmenu without a command starts",
 	"claude":     "Claude Code (models for opus/sonnet/haiku, default model)",
 	"codex":      "Codex CLI (default model)",
 	"benchmarks": "Benchmarks (Artificial Analysis key)",
@@ -130,6 +132,11 @@ func runSetup(ctx context.Context, args []string) error {
 	}
 	if want("tools", true) {
 		if err := setupTools(cfg); err != nil {
+			return err
+		}
+	}
+	if want("default", len(launchChoices(cfg)) > 0) {
+		if err := pickDefault(cfg, "Change it later with llmenu default."); err != nil {
 			return err
 		}
 	}

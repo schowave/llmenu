@@ -17,6 +17,13 @@ type Key struct {
 	put  func(*Config, string) error            // "" deletes the entry
 }
 
+// NoLaunch as launch: llmenu without a command only prints the model name.
+const NoLaunch = "none"
+
+// ValidLaunch checks a tool for launch; set by the cli, which knows the
+// tools.
+var ValidLaunch func(name string) error
+
 const (
 	envPrefix      = "claude.env."
 	benchMapPrefix = "bench.map."
@@ -105,6 +112,20 @@ var Keys = []Key{
 				return fmt.Errorf("expected %v, not %q", Metrics, v)
 			}
 			c.Bench.Metric = v
+			return nil
+		},
+	},
+	{
+		Name: "launch",
+		Help: "tool llmenu without a command starts, or none to only print the model name; see llmenu default",
+		get:  func(c *Config) (string, bool) { return c.Launch, c.Launch != "" },
+		put: func(c *Config, v string) error {
+			if v != "" && v != NoLaunch && ValidLaunch != nil {
+				if err := ValidLaunch(v); err != nil {
+					return err
+				}
+			}
+			c.Launch = v
 			return nil
 		},
 	},

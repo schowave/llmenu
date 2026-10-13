@@ -1,0 +1,51 @@
+# llmenu default: the tool llmenu without a command starts.
+
+# Never chosen: without a terminal it prints none.
+exec llmenu default
+stdout '^none$'
+
+# Directly, both spellings for none.
+exec llmenu default codex
+stderr 'llmenu without a command now starts codex\.'
+stderr 'Note: codex is not among your tools'
+grep '^launch = .codex.$' config.toml
+exec llmenu default
+stdout '^codex$'
+exec llmenu default --none
+stderr 'only prints the model name'
+grep '^launch = .none.$' config.toml
+exec llmenu default -
+! exec llmenu default pi
+stderr 'pi cannot be started, only synced'
+! exec llmenu default nope
+stderr 'unknown tool "nope"'
+! exec llmenu default claude --none
+stderr 'not both'
+! exec llmenu config set launch pi
+stderr 'pi cannot be started'
+exec llmenu config set launch claude
+exec llmenu config get launch
+stdout '^claude$'
+
+# The list offers the tools in use that llmenu can start, and none.
+exec llmenu config set tools claude,pi
+env LLMENU_ACCESSIBLE=1
+stdin pick-none.txt
+exec llmenu default
+stderr 'What should `llmenu` without a command do\?'
+stderr '^1\. Start Claude Code  ✓ current$'
+stderr '^2\. Only pick a model and print its name$'
+! stderr 'Start pi'
+grep '^launch = .none.$' config.toml
+env LLMENU_ACCESSIBLE=
+
+# Completion offers the tools llmenu can start.
+exec llmenu __complete default ''
+stdout '^claude$'
+stdout '^codex$'
+! stdout '^pi$'
+exec llmenu __complete config set launch ''
+stdout '^none$'
+
+-- pick-none.txt --
+2

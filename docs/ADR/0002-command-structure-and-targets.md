@@ -74,7 +74,7 @@ compiled in for now.
 
 | Command | Purpose | Replaces |
 |---|---|---|
-| `llmenu` | Open the menu, print the selected model name to stdout. This way any tool without its own target can be integrated: `strix --model "$(llmenu)"` | `_gateway-pick` |
+| `llmenu` | Open the menu, then start the default tool (`launch`, chosen in setup, once on first use, or with `llmenu default`) like `llmenu <tool>` without arguments; with `launch = "none"` or when stdout is not a terminal, print the selected model name. This way any tool without its own target can be integrated: `strix --model "$(llmenu)"` | `_gateway-pick` |
 | `llmenu run <target> [args…]` | Launch the tool with gateway and model (only targets with launch) | `claude-api`, `claude-pick` |
 | `llmenu claude [args…]`, `llmenu codex [args…]` | Shorthands for `run`, one per launch target | |
 | `llmenu sync [target…] [--dry-run]` | Write the model list into the targets' configuration; without arguments, the tools in use (setting `tools`, ADR-0003) that keep a model list. `--dry-run` shows the diff | Configuration part of `pi-pick` |

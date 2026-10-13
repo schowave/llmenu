@@ -9,6 +9,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/charmbracelet/huh"
 	"github.com/spf13/cobra"
 
 	"github.com/schowave/llmenu/internal/config"
@@ -73,7 +74,9 @@ Supported tools:
   opencode      models written into its config         llmenu sync, llmenu opencode
   pi            models written into its config         llmenu sync
 
-Without a command, llmenu only opens the menu and prints the chosen name.`,
+Without a command, llmenu opens the menu and starts your default tool with
+the chosen model (llmenu default), or only prints the name, e.g. when the
+output is captured.`,
 		Example: `  # First run: gateway, key and defaults (Enter keeps values on later runs)
   llmenu setup
 
@@ -90,9 +93,35 @@ Without a command, llmenu only opens the menu and prints the chosen name.`,
 			if !isTerminal(os.Stdin) {
 				return errors.New("no terminal for the menu; for scripts: llmenu list --json")
 			}
+			// The default tool only applies on a terminal: "$(llmenu)" keeps
+			// printing the name.
+			toTerminal := isTerminal(os.Stdout)
+			if toTerminal {
+				cfg, err := config.Load()
+				if err != nil {
+					return err
+				}
+				err = askDefaultOnce(cfg)
+				if errors.Is(err, huh.ErrUserAborted) {
+					return exitCodeError{130}
+				}
+				if err != nil {
+					return err
+				}
+				if l, err := defaultLauncher(cfg); err != nil || l != nil {
+					if err != nil {
+						return err
+					}
+					return launch(cmd.Context(), l, nil)
+				}
+			}
 			env, err := loadEnv(cmd.Context())
 			if err != nil {
 				return err
+			}
+			// The first run's setup may just have chosen a default tool.
+			if l, err := defaultLauncher(env.Config); toTerminal && err == nil && l != nil {
+				return launch(cmd.Context(), l, nil)
 			}
 			spend := startBudget(cmd.Context(), env)
 			autoRefreshBench(cmd.Context(), env)
@@ -127,6 +156,7 @@ Report a problem:      https://github.com/schowave/llmenu/issues
 		newListCmd(),
 		newSecretsCmd(),
 		newProjectCmd(),
+		newDefaultCmd(),
 		newStatusLineCmd(),
 		newSetupCmd(),
 		newConfigCmd(),
@@ -165,6 +195,7 @@ var commandGroups = map[string]string{
 	"config":     groupSettings,
 	"secrets":    groupSettings,
 	"project":    groupSettings,
+	"default":    groupSettings,
 	"statusline": groupOther,
 	"targets":    groupSettings,
 	"help":       groupOther,

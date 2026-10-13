@@ -35,11 +35,16 @@ expandenv full.txt
 stdin full.txt
 exec llmenu setup
 ! stderr 'model for the "opus" slot'
+# It asks for the default tool among the tools in use.
+stderr 'What should `llmenu` without a command do\?'
+grep '^launch = .opencode.$' config.toml
 
-# Deselecting all is stored as a deliberate "none" ...
+# Deselecting all is stored as a deliberate "none" ... and forgets the
+# default tool.
 stdin toggle-off.txt
 exec llmenu setup tools
 grep '^tools = \[\]$' config.toml
+! grep '^launch' config.toml
 ! exec llmenu sync
 stderr 'none of your tools keeps a model list'
 
@@ -74,4 +79,5 @@ $LLMENU_BASE_URL
 
 
 0
+
 

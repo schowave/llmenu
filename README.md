@@ -117,8 +117,15 @@ Add-Content $PROFILE 'llmenu completion powershell | Out-String | Invoke-Express
 ```sh
 llmenu setup     # gateway URL and key (checked right away), your tools, default models
 llmenu claude    # pick a model and start Claude Code
+llmenu           # the same with your default tool, see below
 llmenu bench     # optional: benchmark scores, so the menu can sort by quality
 ```
+
+`llmenu` without a command opens the menu and then starts your default tool,
+so you need not type `llmenu claude` every time. The setup asks for the
+default (or `llmenu` asks once); change it with `llmenu default`, e.g.
+`llmenu default codex`, or `llmenu default --none` to only print the model
+name. Captured as in `"$(llmenu)"`, it always prints only the name.
 
 `setup` can be run again any time: it asks what to change (everything, or
 e.g. only Claude Code's models), and Enter keeps the current value. If you

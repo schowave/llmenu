@@ -25,11 +25,14 @@ type Config struct {
 	// Tools are the coding tools in use (claude, codex, opencode, pi). nil:
 	// never chosen, the installed tools apply; an empty list is a deliberate
 	// "none" and is written as `tools = []`.
-	Tools   *[]string `toml:"tools,omitempty"`
-	Gateway Gateway   `toml:"gateway,omitempty"`
-	Claude  Claude    `toml:"claude,omitempty"`
-	Bench   Bench     `toml:"bench,omitempty"`
-	Codex   Codex     `toml:"codex,omitempty"`
+	Tools *[]string `toml:"tools,omitempty"`
+	// Launch is the tool `llmenu` without a command starts after the menu;
+	// "none": only print the chosen name; empty: never chosen.
+	Launch  string  `toml:"launch,omitempty"`
+	Gateway Gateway `toml:"gateway,omitempty"`
+	Claude  Claude  `toml:"claude,omitempty"`
+	Bench   Bench   `toml:"bench,omitempty"`
+	Codex   Codex   `toml:"codex,omitempty"`
 }
 
 type Codex struct {

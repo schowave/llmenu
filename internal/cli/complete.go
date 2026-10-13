@@ -150,6 +150,8 @@ func completeConfigSet(cmd *cobra.Command, args []string, toComplete string) ([]
 		values = []string{"true", "false"}
 	case "tools":
 		values = append(targetNames(func(targets.Target) bool { return true }), "none")
+	case "launch":
+		values = append(targetNames(isLauncher), config.NoLaunch)
 	}
 	return matching(values, toComplete, nil), cobra.ShellCompDirectiveNoFileComp
 }

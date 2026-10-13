@@ -34,6 +34,8 @@ stderr 'Claude Code: model for the "opus" slot'
 stderr 'Artificial Analysis key'
 stdout '^aws/claude-opus-5-5 '
 grep '^tools = \[.claude.\]$' config.toml
+stderr 'What should `llmenu` without a command do\?'
+grep '^launch = .claude.$' config.toml
 
 # Set up now: no more question.
 stdin no.txt
@@ -61,6 +63,7 @@ $GW
 sk-test
 
 0
+
 
 
 
