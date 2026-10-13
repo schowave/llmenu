@@ -77,7 +77,7 @@ type Claude struct {
 	Sonnet      string            `toml:"sonnet,omitempty"`
 	Haiku       string            `toml:"haiku,omitempty"`
 	AutoCompact *bool             `toml:"auto_compact,omitempty"`
-	StatusLine  bool              `toml:"statusline,omitempty"` // llmenu's status line (project and model) for the session
+	StatusLine  bool              `toml:"statusline,omitempty"` // adds project and spend to the session's status line
 	Env         map[string]string `toml:"env,omitempty"`        // nil: DefaultClaudeEnv
 }
 

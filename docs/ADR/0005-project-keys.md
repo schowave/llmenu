@@ -57,7 +57,17 @@ Option 2.
   session's project rather than one switched to later.
   `llmenu project current` serves status lines and prompts without keyring
   or network. Opt-in `claude.statusline` passes llmenu's status line to
-  Claude Code via `--settings`, for the session only.
+  Claude Code via `--settings`, for the session only. It runs the user's
+  own status line (project, then user settings) with the same session JSON
+  and appends the project and the key's spend from LiteLLM's `/key/info`,
+  cached for a minute. The key comes from the session's environment, so the
+  status line never reads the keyring.
+- **Spend:** the menu and `llmenu project list` show the budget that binds
+  each key, plus the key's share (`total_spend`, the figure LiteLLM's UI
+  shows per key). A team key spends from its team's max_budget, a personal
+  key from its user's (both read from `/user/info`, which any key may call;
+  `/team/info` is often admin-only); the key's own budget wins if it has less
+  left. Keys are only sent to the gateway they are bound to.
 
 ## Consequences
 

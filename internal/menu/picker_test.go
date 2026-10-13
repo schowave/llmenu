@@ -308,3 +308,21 @@ func TestTruncateAndPad(t *testing.T) {
 		t.Errorf("pad long = %q", got)
 	}
 }
+
+func TestPickerProjectAndSpend(t *testing.T) {
+	tests := []struct {
+		opt  Options
+		want string
+	}{
+		{Options{}, "4/4"},
+		{Options{Spend: "$1.00 / $5.00"}, "$1.00 / $5.00 · 4/4"},
+		{Options{Project: "acme", Spend: "$1.00 spent"}, "project acme · $1.00 spent · 4/4"},
+		{Options{Project: "acme"}, "project acme · 4/4"},
+	}
+	for _, tt := range tests {
+		line := plain(newTestPicker(tt.opt))[0]
+		if !strings.HasSuffix(strings.TrimRight(line, " "), tt.want) {
+			t.Errorf("search line %q, want it to end in %q", line, tt.want)
+		}
+	}
+}

@@ -75,7 +75,7 @@ var Keys = []Key{
 	},
 	{
 		Name: "claude.statusline",
-		Help: "show llmenu's status line (project and model) in Claude Code, replacing your own for the session (true|false)",
+		Help: "add project and spend to Claude Code's status line in sessions llmenu starts; your own status line stays (true|false)",
 		get: func(c *Config) (string, bool) {
 			return strconv.FormatBool(c.Claude.StatusLine), c.Claude.StatusLine
 		},

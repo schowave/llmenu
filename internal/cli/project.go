@@ -2,7 +2,6 @@ package cli
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -119,9 +118,11 @@ keyring nor the network, so it is fast enough for a shell prompt or status line.
 					return err
 				}
 				active := currentProject(cfg)
+				all := append([]string{""}, cfg.Gateway.Projects...)
+				spends := projectSpends(cmd.Context(), cfg, all)
 				w := tabwriter.NewWriter(cmd.OutOrStdout(), 0, 0, 2, ' ', 0)
-				fmt.Fprintln(w, "PROJECT\tKEY\tACTIVE")
-				for _, p := range append([]string{""}, cfg.Gateway.Projects...) {
+				fmt.Fprintln(w, "PROJECT\tKEY\tACTIVE\tSPEND")
+				for i, p := range all {
 					name := p
 					if p == "" {
 						name = "(main key)"
@@ -130,7 +131,7 @@ keyring nor the network, so it is fast enough for a shell prompt or status line.
 					if p == active {
 						mark = "*"
 					}
-					fmt.Fprintf(w, "%s\t%s\t%s\n", name, keyStatus(p), orDash(mark))
+					fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", name, keyStatus(p), orDash(mark), orDash(spends[i]))
 				}
 				return w.Flush()
 			},
@@ -370,38 +371,5 @@ func required(msg string) func(string) error {
 			return errors.New(msg)
 		}
 		return nil
-	}
-}
-
-// newStatusLineCmd prints the status line for Claude Code (claude.statusline):
-// the session's project and the model. Claude Code passes session data as
-// JSON on stdin.
-func newStatusLineCmd() *cobra.Command {
-	return &cobra.Command{
-		Use:    "statusline",
-		Short:  "Status line for Claude Code: project and model",
-		Hidden: true,
-		Args:   cobra.NoArgs,
-		RunE: func(cmd *cobra.Command, _ []string) error {
-			var session struct {
-				Model struct {
-					DisplayName string `json:"display_name"`
-				} `json:"model"`
-			}
-			_ = json.NewDecoder(cmd.InOrStdin()).Decode(&session) // a status line never fails
-			cfg, err := config.Load()
-			if err != nil {
-				cfg = &config.Config{}
-			}
-			var parts []string
-			if p := currentProject(cfg); p != "" {
-				parts = append(parts, "project "+p)
-			}
-			if m := session.Model.DisplayName; m != "" {
-				parts = append(parts, m)
-			}
-			fmt.Fprintln(cmd.OutOrStdout(), strings.Join(parts, " · "))
-			return nil
-		},
 	}
 }

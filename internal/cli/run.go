@@ -102,6 +102,11 @@ func launch(ctx context.Context, l targets.Launcher, args []string) error {
 
 	var model *catalog.Model
 	if _, own := l.(targets.OwnSelection); !own && !l.HasModelArg(args) {
+		interactive := isTerminal(os.Stdin) && isTerminal(os.Stdout)
+		var spend func() string
+		if interactive {
+			spend = startBudget(ctx, env)
+		}
 		autoRefreshBench(ctx, env)
 		var def string
 		if d, ok := l.(targets.Defaulter); ok {
@@ -113,7 +118,8 @@ func launch(ctx context.Context, l targets.Launcher, args []string) error {
 			defaultName: def,
 			supports:    l.Supports,
 			project:     env.Project,
-			interactive: isTerminal(os.Stdin) && isTerminal(os.Stdout),
+			spend:       spend,
+			interactive: interactive,
 		})
 		if err != nil {
 			return err
@@ -144,7 +150,8 @@ type choice struct {
 	key         string // key for the last chosen model, usually the target name
 	defaultName string // the target's default; empty if it has none
 	supports    func(catalog.Model) (bool, string)
-	project     string // active project, shown in the menu; empty: the main key
+	project     string        // active project, shown in the menu; empty: the main key
+	spend       func() string // the key's spend for the menu, see startBudget; nil: none
 	interactive bool
 }
 
@@ -180,6 +187,7 @@ func chooseModel(all []catalog.Model, c choice) (*catalog.Model, error) {
 		Hint:      func(m catalog.Model) string { return hints[m.Name] },
 		Metric:    c.config.Bench.MetricOrDefault(),
 		Project:   c.project,
+		Spend:     spend(c.spend),
 	})
 	if errors.Is(err, menu.ErrAborted) {
 		return nil, exitCodeError{130}

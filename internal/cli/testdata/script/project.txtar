@@ -13,7 +13,7 @@ stdout '^ANTHROPIC_AUTH_TOKEN=sk-test$'
 stdout '^LLMENU_PROJECT=none$'
 ! stderr 'project'
 exec llmenu project list
-stdout '^\(main key\) +set \(keyring file\) +\*$'
+stdout '^\(main key\) +set \(keyring file\) +\* +\$12\.50 / \$50\.00$'
 
 # add checks the key with the gateway before storing it.
 stdin wrong.txt
@@ -53,8 +53,8 @@ stdout '^sk-test$'
 exec llmenu secrets get gateway:acme
 stdout '^sk-acme$'
 exec llmenu project list
-stdout '^\(main key\) +set \(keyring file\) +-$'
-stdout '^acme +set \(keyring file\) +\*$'
+stdout '^\(main key\) +set \(keyring file\) +- +\$12\.50 / \$50\.00$'
+stdout '^acme +set \(keyring file\) +\* +\$3\.20 spent$'
 exec llmenu config list
 stdout '^gateway.project +acme +file$'
 stdout '^secrets.gateway:acme +set +keyring file$'
@@ -144,6 +144,22 @@ env LLMENU_PROJECT=none
 stdin session.json
 exec llmenu statusline
 stdout '^Opus 5.5$'
+
+# Inside a session llmenu started, the session's key tells the spend; the
+# cache holds no key.
+env LLMENU_PROJECT=acme
+env ANTHROPIC_BASE_URL=$LLMENU_BASE_URL
+env ANTHROPIC_AUTH_TOKEN=sk-acme
+stdin session.json
+exec llmenu statusline
+stdout '^project acme · Opus 5.5 · \$3\.20 spent$'
+exists cache/spend.json
+! grep sk-acme cache/spend.json
+env LLMENU_PROJECT=none
+env ANTHROPIC_AUTH_TOKEN=sk-test
+stdin session.json
+exec llmenu statusline
+stdout '^main key · Opus 5.5 · \$12\.50 / \$50\.00$'
 
 # Completion of project names, from the config.
 exec llmenu __complete project use ''

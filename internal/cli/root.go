@@ -94,8 +94,9 @@ Without a command, llmenu only opens the menu and prints the chosen name.`,
 			if err != nil {
 				return err
 			}
+			spend := startBudget(cmd.Context(), env)
 			autoRefreshBench(cmd.Context(), env)
-			m, err := chooseModel(env.Models, choice{config: env.Config, project: env.Project, interactive: true})
+			m, err := chooseModel(env.Models, choice{config: env.Config, project: env.Project, spend: spend, interactive: true})
 			if err != nil {
 				return err
 			}

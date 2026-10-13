@@ -49,6 +49,22 @@ func main() {
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write(info)
 	})
+	// As on a typical gateway: the key has no budget, its user a monthly one.
+	reset := time.Now().UTC().AddDate(0, 0, 18).Format("2006-01-02T15:04:05")
+	budgets := map[string]string{
+		"/key/info":  `{"info":{"spend":312.5,"max_budget":null,"user_id":"dev"}}`,
+		"/user/info": `{"user_id":"dev","user_info":{"spend":12.34,"max_budget":50,"budget_duration":"30d","budget_reset_at":"` + reset + `"}}`,
+	}
+	for path, body := range budgets {
+		mux.HandleFunc(path, func(w http.ResponseWriter, r *http.Request) {
+			if r.Header.Get("Authorization") != "Bearer "+*key {
+				http.Error(w, `{"error":{"message":"invalid key"}}`, http.StatusUnauthorized)
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(body))
+		})
+	}
 	mux.HandleFunc("/aa", func(w http.ResponseWriter, r *http.Request) {
 		if r.Header.Get("x-api-key") != *aaKey {
 			http.Error(w, `{"error":"invalid key, the sandbox expects `+*aaKey+`"}`, http.StatusUnauthorized)
@@ -58,7 +74,7 @@ func main() {
 		_, _ = w.Write(aa)
 	})
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		http.Error(w, `{"error":{"message":"sandbox gateway: only /model/info is implemented, no chat"}}`, http.StatusNotImplemented)
+		http.Error(w, `{"error":{"message":"sandbox gateway: only /model/info, /key/info and /user/info are implemented, no chat"}}`, http.StatusNotImplemented)
 	})
 
 	srv := &http.Server{Addr: *addr, Handler: mux, ReadHeaderTimeout: 5 * time.Second}

@@ -10,6 +10,7 @@ stderr '^1\. aws/claude-opus-latest -> claude-opus-5-5  \(follows new versions\)
 stderr '^1\. \(not set: Claude Code uses its built-in name'
 stderr '^9\. azure/gpt-6-sol  ! not a Claude model$'
 stderr 'Off: context grows up to the limit'
+stderr 'show project and spend in the status line'
 ! stderr 'Warning'
 cmp config.toml want-enter.toml
 
@@ -25,7 +26,7 @@ exec llmenu setup claude
 stderr '^Warning: azure/gpt-6-sol is not a Claude model; slot haiku runs e.g. subagents on it\.$'
 cmp config.toml want-other.toml
 exec llmenu claude
-stdout '^claude args: --model gcp/claude-sonnet-4-5$'
+stdout '^claude args: --settings \S+llmenu statusline\S+ --model gcp/claude-sonnet-4-5$'
 stdout '^ANTHROPIC_DEFAULT_OPUS_MODEL=aws/claude-opus-5-5\[1m\]$'
 stdout '^ANTHROPIC_DEFAULT_HAIKU_MODEL=azure/gpt-6-sol\[1m\]$'
 stdout '^DISABLE_AUTO_COMPACTION=1$'
@@ -42,8 +43,10 @@ stdin defaults.txt
 exec llmenu setup claude
 ! grep 'default =' config.toml
 ! grep 'auto_compact' config.toml
+! grep 'statusline' config.toml
 
 -- enter.txt --
+
 
 
 
@@ -55,12 +58,14 @@ exec llmenu setup claude
 9
 2
 n
+y
 -- defaults.txt --
 
 
 
 1
 y
+n
 -- want-enter.toml --
 # Written by llmenu. Change with `llmenu setup` or `llmenu config set`;
 # comments in this file are lost on the next write.
@@ -74,3 +79,4 @@ default = 'sonnet'
 opus = 'aws/claude-opus-5-5'
 haiku = 'azure/gpt-6-sol'
 auto_compact = false
+statusline = true

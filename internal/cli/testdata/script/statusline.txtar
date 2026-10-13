@@ -1,0 +1,53 @@
+# llmenu's status line adds to the user's own: that one runs with the session
+# on stdin and shows the model itself, llmenu appends project and spend.
+[windows] skip 'the status line commands below need sh'
+env LLMENU_PROJECT=acme
+env ANTHROPIC_BASE_URL=$LLMENU_BASE_URL
+env ANTHROPIC_AUTH_TOKEN=sk-acme
+mkdir home/.claude
+cp user-settings.json home/.claude/settings.json
+stdin session.json
+exec llmenu statusline
+cmp stdout want-own.txt
+grep '"display_name": "Opus 5.5"' own-stdin.json
+
+# The project's settings come first; llmenu's own status line there means
+# none, so llmenu names the model.
+mkdir proj/.claude
+cp project-settings.json proj/.claude/settings.json
+expandenv session-proj.json
+stdin session-proj.json
+exec llmenu statusline
+stdout '^project acme · Opus 5.5 · \$3\.20 spent$'
+
+# Called again from the user's own status line, it adds nothing: the outer
+# call does, and nothing loops.
+env LLMENU_STATUSLINE=1
+stdin session.json
+exec llmenu statusline
+! stdout .
+env LLMENU_STATUSLINE=
+
+# Outside a session llmenu started, no key is sent anywhere.
+env LLMENU_PROJECT=
+rm cache
+stdin session.json
+exec llmenu statusline
+cmp stdout want-own-only.txt
+! exists cache/spend.json
+
+-- session.json --
+{"model": {"id": "claude-opus-5-5", "display_name": "Opus 5.5"}}
+-- session-proj.json --
+{"model": {"display_name": "Opus 5.5"}, "workspace": {"current_dir": "$WORK/proj", "project_dir": "$WORK/proj"}}
+-- user-settings.json --
+{"statusLine": {"type": "command", "command": "IFS= read -r l; printf %s \"$l\" > own-stdin.json; printf 'mine\\nline 2\\n'"}}
+-- project-settings.json --
+{"statusLine": {"type": "command", "command": "llmenu statusline"}}
+-- want-own.txt --
+mine
+line 2
+project acme · $3.20 spent
+-- want-own-only.txt --
+mine
+line 2

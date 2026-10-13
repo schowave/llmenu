@@ -85,11 +85,18 @@ func TestScripts(t *testing.T) {
 					http.Error(w, `{"error":"invalid key"}`, http.StatusUnauthorized)
 					return
 				}
-				if r.URL.Path != "/model/info" {
+				switch r.URL.Path {
+				case "/model/info":
+					_, _ = w.Write(modelInfo)
+				case "/key/info": // the main key has a budget, acme only spends
+					if r.Header.Get("Authorization") == "Bearer sk-acme" {
+						_, _ = w.Write([]byte(`{"info":{"spend":3.2,"max_budget":null}}`))
+						return
+					}
+					_, _ = w.Write([]byte(`{"info":{"spend":12.5,"max_budget":50}}`))
+				default:
 					http.NotFound(w, r)
-					return
 				}
-				_, _ = w.Write(modelInfo)
 			}))
 			aa := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				if r.Header.Get("x-api-key") != "aa-test" {

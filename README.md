@@ -177,15 +177,32 @@ menu and when a tool starts (`llmenu: project acme · aws/claude-opus-5-5`).
 `llmenu project current` prints it for your own prompt without touching the
 keyring or the network.
 
+**Spend:** the menu and `llmenu project list` show the budget that binds each
+key and the key's share: a project's team key spends from the team's budget
+(`team budget $0.00 / $100.00 · this key $0.00 · resets in 19d`), a personal
+key from yours (`user budget $18.00 / $50.00 · this key $12.45`); a key's own
+budget counts if it is tighter. The numbers come from LiteLLM's `/key/info`
+and `/user/info`, which every key may ask about itself; they are LiteLLM's
+estimate from its prices, not the provider's invoice.
+
 <details>
 <summary>Status line and prompt examples</summary>
 
-Let llmenu set Claude Code's status line (project and model) for sessions it
-starts; it replaces your own status line for those sessions only:
+Add the project and its spend to Claude Code's status line in sessions llmenu
+starts (`llmenu setup claude` asks for it). Your own status line keeps
+running; llmenu appends one line:
 
 ```sh
 llmenu config set claude.statusline true
 ```
+
+```text
+[Opus 5.5] 📁 my-repo | 🌿 main            ← your status line
+project acme · team budget $40.00 / $100.00 · this key $12.45 · resets in 19d
+```
+
+The gateway is asked at most once a minute; without your own status line,
+llmenu's line also names the model.
 
 Or add the project to your own status line script:
 
