@@ -173,7 +173,7 @@ func save(cfg *config.Config) error {
 	}
 	if changed {
 		p, _ := config.Path()
-		fmt.Fprintln(os.Stderr, "Saved:", p)
+		fmt.Fprintln(os.Stderr, "Saved:", tildePath(p))
 	}
 	return nil
 }

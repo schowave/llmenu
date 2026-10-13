@@ -23,7 +23,7 @@ way. llmenu reads the model list from the gateway, lets you compare the
 models, and does the wiring for you.
 
 <p align="center">
-  <img alt="llmenu claude: a menu of the gateway's models with context size, prices and benchmark scores; Tab changes the sort column, typing searches, Enter starts Claude Code with the chosen model" src="docs/demo.gif" width="900">
+  <img alt="llmenu default claude makes Claude Code the default tool, llmenu project use acme --here binds the project acme to the folder; then llmenu alone opens a menu of the gateway's models with context size, prices and benchmark scores, the project and its budget; Tab changes the sort column, typing searches, Enter starts Claude Code with the chosen model" src="docs/demo.gif" width="900">
   <br>
   <sub>Recorded against a fake gateway with sample prices and scores (<code>mise run demo</code>).</sub>
 </p>

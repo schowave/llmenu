@@ -9,7 +9,7 @@ set -euo pipefail
 command -v vhs >/dev/null || { echo "vhs not found: brew install vhs" >&2; exit 1; }
 root=$(git rev-parse --show-toplevel)
 port=${LLMENU_DEMO_PORT:-4112}
-tmp=$(mktemp -d)
+tmp=$(cd "$(mktemp -d)" && pwd -P) # resolved, as llmenu resolves HOME
 trap 'kill "${gw:-}" 2>/dev/null; rm -rf "$tmp"' EXIT
 
 go build -o "$tmp/llmenu" "$root/cmd/llmenu"
@@ -19,13 +19,17 @@ go build -o "$tmp/claude" "$root/tools/faketool"
 gw=$!
 sleep 1
 
+# The tape works in ~/acme of a demo HOME, so paths print short.
+mkdir -p "$tmp/home/acme"
+export LLMENU_DEMO_HOME=$tmp/home
 export PATH=$tmp:$PATH
-export LLMENU_CONFIG=$tmp/config.toml LLMENU_CACHE_DIR=$tmp/cache
+export LLMENU_CONFIG=$tmp/home/.config/llmenu/config.toml LLMENU_CACHE_DIR=$tmp/cache
 export LLMENU_KEYRING_FILE=$tmp/keyring.json LLMENU_KEYRING_SERVICE=llmenu-demo
 export LLMENU_API_KEY=sk-dev LLMENU_AA_API_KEY=aa-dev LLMENU_AA_URL=http://127.0.0.1:$port/aa
 llmenu config set gateway.url "http://127.0.0.1:$port/" >/dev/null
 llmenu config set gateway.name demo >/dev/null
 llmenu config set tools claude >/dev/null
+printf 'sk-dev\n' | llmenu project add acme >/dev/null
 llmenu bench
 
 cd "$root"

@@ -5,17 +5,25 @@ Output docs/demo.gif
 Set Shell bash
 Set FontSize 14
 Set Width 1440
-Set Height 520
+Set Height 620
 Set Padding 20
 Set Theme "Catppuccin Mocha"
 Set TypingSpeed 60ms
 
 Hide
-Type "export PS1='$ '; clear"
+Type "export HOME=$LLMENU_DEMO_HOME PS1='\w $ '; cd $HOME/acme; clear"
 Enter
 Show
 
-Type "llmenu claude"
+Type "llmenu default claude"
+Sleep 400ms
+Enter
+Sleep 1.5s
+Type "llmenu project use acme --here"
+Sleep 400ms
+Enter
+Sleep 2s
+Type "llmenu"
 Sleep 400ms
 Enter
 Sleep 2s
