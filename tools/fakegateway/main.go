@@ -52,7 +52,7 @@ func main() {
 	// As on a typical gateway: the key has no budget, its user a monthly one.
 	reset := time.Now().UTC().AddDate(0, 0, 18).Format("2006-01-02T15:04:05")
 	budgets := map[string]string{
-		"/key/info":  `{"info":{"spend":312.5,"max_budget":null,"user_id":"dev"}}`,
+		"/key/info":  `{"info":{"spend":312.5,"total_spend":8.21,"max_budget":null,"user_id":"dev"}}`,
 		"/user/info": `{"user_id":"dev","user_info":{"spend":12.34,"max_budget":50,"budget_duration":"30d","budget_reset_at":"` + reset + `"}}`,
 	}
 	for path, body := range budgets {

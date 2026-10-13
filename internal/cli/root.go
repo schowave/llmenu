@@ -184,7 +184,7 @@ func newEnvironmentTopic() *cobra.Command {
                         (default: llmenu project use)
   LLMENU_AA_API_KEY     Artificial Analysis key for llmenu bench
   LLMENU_CONFIG         path of config.toml (default: llmenu config path)
-  LLMENU_CACHE_DIR      directory for benchmarks and the last selection
+  LLMENU_CACHE_DIR      directory for benchmarks, budgets and the last selection
   LLMENU_ACCESSIBLE=1   line-based setup prompts, e.g. for screen readers
 
 For tests and the development sandbox (see CONTRIBUTING.md):

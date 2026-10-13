@@ -40,13 +40,17 @@ that model.
 - **Zero configuration.** Without llmenu you export a gateway URL, a key and
   one model variable per slot, in a different format for each tool. With it:
   `llmenu claude`. Your `~/.claude` and `~/.codex` stay untouched.
+- **See what you spend.** The menu and Claude Code's status line show the
+  budget of the key you are using — yours or the project's — and how much of
+  it is gone.
 - **One gateway, four tools.** Claude Code and Codex CLI are started with the
   chosen model; pi and opencode get the gateway's models, limits and prices
   written into their configs. When the gateway changes, `llmenu sync` brings
   every tool up to date.
 
 > **Requires** a LiteLLM gateway (URL and API key). llmenu does not talk to
-> model providers directly.
+> model providers directly. The budget display also needs the gateway to let
+> keys read `/key/info`; without it, everything else works as before.
 
 ## Details
 
@@ -177,34 +181,10 @@ menu and when a tool starts (`llmenu: project acme · aws/claude-opus-5-5`).
 `llmenu project current` prints it for your own prompt without touching the
 keyring or the network.
 
-**Spend:** the menu and `llmenu project list` show the budget that binds each
-key and the key's share: a project's team key spends from the team's budget
-(`team budget $0.00 / $100.00 · this key $0.00 · resets in 19d`), a personal
-key from yours (`user budget $18.00 / $50.00 · this key $12.45`); a key's own
-budget counts if it is tighter. The numbers come from LiteLLM's `/key/info`
-and `/user/info`, which every key may ask about itself; they are LiteLLM's
-estimate from its prices, not the provider's invoice.
-
 <details>
-<summary>Status line and prompt examples</summary>
+<summary>The project in your shell prompt</summary>
 
-Add the project and its spend to Claude Code's status line in sessions llmenu
-starts (`llmenu setup claude` asks for it). Your own status line keeps
-running; llmenu appends one line:
-
-```sh
-llmenu config set claude.statusline true
-```
-
-```text
-[Opus 5.5] 📁 my-repo | 🌿 main            ← your status line
-project acme · team budget $40.00 / $100.00 · this key $12.45 · resets in 19d
-```
-
-The gateway is asked at most once a minute; without your own status line,
-llmenu's line also names the model.
-
-Or add the project to your own status line script:
+In your own prompt or status line script:
 
 ```sh
 project=$(llmenu project current) && [ -n "$project" ] && printf 'project %s · ' "$project"
@@ -220,6 +200,38 @@ format = "[$output]($style) "
 ```
 
 </details>
+
+## Budget and spend
+
+LiteLLM gateways often give each person and each project a monthly budget.
+llmenu shows the budget that applies to the key in use, and that key's share:
+
+- **in the menu**, next to the project,
+- **in `llmenu project list`**, for the main key and every project,
+- **in Claude Code's status line**, if you turn it on (`llmenu setup claude`
+  asks):
+
+  ```sh
+  llmenu config set claude.statusline true
+  ```
+
+  Your own status line keeps running; llmenu adds one line below it, e.g. in
+  a session with project acme:
+
+  ```text
+  project acme · team budget $40.00 / $100.00 · this key $12.45 · resets in 19d
+  ```
+
+  Without your own status line, llmenu's line also names the model.
+
+A project's key spends from its team's budget, your personal key from your
+user budget; a key's own budget is shown instead if it has less left. Without
+any budget, llmenu shows what the key has spent (`$3.20 spent`).
+
+The numbers come from LiteLLM's `/key/info` and `/user/info`, which every key
+may ask about itself, so no admin rights are needed. They are LiteLLM's
+estimate from its prices, not the provider's invoice. llmenu asks the gateway
+at most once a minute and caches the result without the key.
 
 ## Models and benchmarks
 
@@ -261,8 +273,27 @@ Environment variables override both, e.g. in CI — see `llmenu help environment
 llmenu calls the gateway's `/model/info`, normalizes model names across
 providers (`bedrock/eu.anthropic.claude-sonnet-4-5-20250929-v1:0` and
 `vertex_ai/claude-sonnet-4-5@20250929` are the same model), folds aliases and
-duplicates and matches benchmark results. The design decisions are recorded in
-[docs/ADR](docs/ADR).
+duplicates and matches benchmark results. Budgets come from `/key/info` and
+`/user/info`. The design decisions are recorded in [docs/ADR](docs/ADR).
+
+## Troubleshooting
+
+**"Gateway check failed: HTTP 401"** during setup: the gateway does not
+accept the key. Check that the URL is the gateway itself (not its admin UI)
+and that the key is not expired or blocked.
+
+**"the gateway key was stored for …, but the gateway URL now points to …"**:
+llmenu only sends a key to the gateway it was stored for. If the move is
+intended, confirm it with `llmenu config set gateway.url <new URL>`.
+
+**No budget in the menu or status line**: the gateway does not let keys read
+`/key/info` (or `/user/info` for user and team budgets). Check with
+`curl -H "Authorization: Bearer $KEY" <gateway>/key/info`; llmenu shows
+whatever the gateway does answer.
+
+**No llmenu line in Claude Code's status line**: it is only added to sessions
+started with `llmenu claude`, and only with `claude.statusline` on
+(`llmenu config get claude.statusline`).
 
 ## Updating and uninstalling
 
