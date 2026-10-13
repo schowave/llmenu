@@ -176,7 +176,7 @@ env ANTHROPIC_AUTH_TOKEN=
 mkdir home/acme/sub home/other
 cd home/acme
 exec llmenu project use acme --here
-stderr '^Using project acme in ~/acme\.$'
+stderr '^Using project acme in ~[/\\]acme\.$'
 exec llmenu project current
 stdout '^acme$'
 cd sub
@@ -188,9 +188,9 @@ stdout '^LLMENU_PROJECT=acme$'
 exec llmenu project list
 stdout '^acme +set \(keyring file\) +\* \(folder\) +'
 stdout '^FOLDER +PROJECT$'
-stdout '^~/acme +acme$'
+stdout '^~[/\\]acme +acme$'
 ! exec llmenu project unpin
-stderr 'has no project of its own, it follows ~/acme: llmenu project unpin ~/acme'
+stderr 'has no project of its own, it follows ~[/\\]acme: llmenu project unpin ~[/\\]acme'
 cd $WORK/home/other
 exec llmenu project current
 ! stdout .
@@ -201,38 +201,38 @@ exec llmenu project current
 ! stdout .
 env LLMENU_PROJECT=
 exec llmenu project use --none
-stderr 'Note: ~/acme uses project acme; llmenu project unpin removes that\.'
+stderr 'Note: ~[/\\]acme uses project acme; llmenu project unpin removes that\.'
 exec llmenu project current
 stdout '^acme$'
 # Choosing again replaces the folder's project, here the main key.
 exec llmenu project use --none --here
-stderr '^~/acme: project acme → the main key\.$'
+stderr '^~[/\\]acme: project acme → the main key\.$'
 exec llmenu project current
 ! stdout .
 exec llmenu project list
-stdout '^~/acme +\(main key\)$'
+stdout '^~[/\\]acme +\(main key\)$'
 # The picker binds the folder, and removes its project again.
 env LLMENU_ACCESSIBLE=1
 stdin $WORK/pick-acme-here.txt
 exec llmenu project
 stderr 'Main key \(no project\)  ✓ active \(folder\)'
-stderr 'Only in ~/acme and below'
-stderr '~/acme: the main key → project acme\.'
+stderr 'Only in ~[/\\]acme and below'
+stderr '~[/\\]acme: the main key → project acme\.'
 stdin $WORK/pick-unpin.txt
 exec llmenu project
-stderr 'Remove the project of ~/acme \(use the global choice, the main key\)'
-stderr 'Removed the project of ~/acme; it uses the main key now\.'
+stderr 'Remove the project of ~[/\\]acme \(use the global choice, the main key\)'
+stderr 'Removed the project of ~[/\\]acme; it uses the main key now\.'
 env LLMENU_ACCESSIBLE=
 ! exec llmenu project unpin
-stderr '~/acme has no project of its own$'
+stderr '~[/\\]acme has no project of its own$'
 ! grep 'dirs' $WORK/config.toml
 # unpin takes a folder; completion offers the bound ones.
 exec llmenu project use acme --here
 cd sub
 exec llmenu __complete project unpin ''
-stdout 'home/acme$'
+stdout 'home[/\\]acme$'
 exec llmenu project unpin ..
-stderr 'Removed the project of ~/acme'
+stderr 'Removed the project of ~[/\\]acme'
 # Removing a project removes its folders too.
 exec llmenu project use acme --here
 exec llmenu project remove acme

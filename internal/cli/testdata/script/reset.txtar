@@ -25,8 +25,8 @@ exists config.toml
 
 # --dry-run lists, removes nothing.
 exec llmenu reset --dry-run
-stderr '^  opencode +provider "testgw" in ~/.config/opencode/opencode.json$'
-stderr '^  pi +provider "testgw" in ~/.pi/agent/models.json$'
+stderr '^  opencode +provider "testgw" in ~[/\\].config[/\\]opencode[/\\]opencode.json$'
+stderr '^  pi +provider "testgw" in ~[/\\].pi[/\\]agent[/\\]models.json$'
 stderr '^  keys +gateway, gateway:acme \(keyring file '
 stderr '^  config +'
 stderr '^  cache +'
@@ -63,7 +63,7 @@ stderr 'Nothing to remove'
 cp foreign.json $HOME/.pi/agent/models.json
 exec llmenu config set gateway.name testgw
 exec llmenu reset --yes
-stderr 'pi: provider "testgw" in ~/.pi/agent/models.json was not written by llmenu; it stays\.'
+stderr 'pi: provider "testgw" in ~[/\\].pi[/\\]agent[/\\]models.json was not written by llmenu; it stays\.'
 grep testgw $HOME/.pi/agent/models.json
 ! exists config.toml
 
