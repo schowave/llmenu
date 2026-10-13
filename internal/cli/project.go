@@ -1,11 +1,14 @@
 package cli
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
+	"slices"
 	"strings"
 	"text/tabwriter"
 
@@ -21,8 +24,9 @@ import (
 // Projects: one gateway, one key per cost project (ADR-0005). Without a
 // project the main key applies, exactly as before projects existed.
 
-// activeProject is the project whose key is used: LLMENU_PROJECT, else
-// gateway.project; "" is the main key. An unknown project is an error.
+// activeProject is the project whose key is used: LLMENU_PROJECT, else the
+// folder's project (gateway.dirs), else gateway.project; "" is the main key.
+// An unknown project is an error.
 func activeProject(cfg *config.Config) (string, error) {
 	name := currentProject(cfg)
 	if name != "" && !cfg.Gateway.HasProject(name) {
@@ -34,9 +38,15 @@ func activeProject(cfg *config.Config) (string, error) {
 // currentProject is activeProject without any check, for status lines and
 // prompts that must stay fast and quiet.
 func currentProject(cfg *config.Config) string {
-	switch v := os.Getenv(targets.ProjectEnv); v {
-	case "":
-		return cfg.Gateway.Project
+	v := os.Getenv(targets.ProjectEnv)
+	if v == "" {
+		p, _, ok := folderProject(cfg)
+		if !ok {
+			return cfg.Gateway.Project
+		}
+		v = p
+	}
+	switch v {
 	case secrets.NoProject:
 		return ""
 	default:
@@ -48,7 +58,83 @@ func projectSource(cfg *config.Config) string {
 	if os.Getenv(targets.ProjectEnv) != "" {
 		return targets.ProjectEnv
 	}
+	if _, dir, ok := folderProject(cfg); ok {
+		return "folder " + tildePath(dir)
+	}
 	return "gateway.project"
+}
+
+// folderProject returns the folder binding that applies in the current
+// directory; project "none" is the main key.
+func folderProject(cfg *config.Config) (project, dir string, ok bool) {
+	if len(cfg.Gateway.Dirs) == 0 {
+		return "", "", false
+	}
+	wd := workDir()
+	if wd == "" {
+		return "", "", false
+	}
+	return cfg.Gateway.ProjectFor(wd)
+}
+
+// workDir is the current directory the way bindings store folders.
+func workDir() string {
+	d, err := os.Getwd()
+	if err != nil {
+		return ""
+	}
+	return realPath(d)
+}
+
+// realPath makes a folder absolute and resolves symlinks, so /tmp and
+// /private/tmp are the same folder.
+func realPath(dir string) string {
+	if abs, err := filepath.Abs(dir); err == nil {
+		dir = abs
+	}
+	if r, err := filepath.EvalSymlinks(dir); err == nil {
+		dir = r
+	}
+	return filepath.Clean(dir)
+}
+
+func homeDir() string {
+	home, err := os.UserHomeDir()
+	if err != nil || home == "" {
+		return ""
+	}
+	return realPath(home)
+}
+
+// tildePath shortens a folder in the home directory to ~/….
+func tildePath(dir string) string {
+	home := homeDir()
+	if home == "" {
+		return dir
+	}
+	rel, err := filepath.Rel(home, dir)
+	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return dir
+	}
+	if rel == "." {
+		return "~"
+	}
+	return "~" + string(filepath.Separator) + rel
+}
+
+// bindable reports whether the picker offers to bind dir: not the home
+// directory or a root, where a binding would hardly differ from the global
+// choice.
+func bindable(dir string) bool {
+	return dir != "" && dir != homeDir() && filepath.Dir(dir) != dir
+}
+
+// projectLabel names a project for messages; "" and "none" are the main key.
+func projectLabel(p string) string {
+	if p == "" || p == secrets.NoProject {
+		return "the main key"
+	}
+	return "project " + p
 }
 
 func newProjectCmd() *cobra.Command {
@@ -63,11 +149,17 @@ projects did not exist. llmenu project opens a list of the main key and all
 projects; Enter switches. The choice holds for every later command and for
 tools that ask llmenu for the key (pi). Running sessions keep their key.
 
-LLMENU_PROJECT overrides the choice for one shell or command; none means the
-main key.`,
+Outside the home directory the picker also asks whether the choice applies
+everywhere or only in the current folder and below. A folder's project wins
+over the global choice; choosing again replaces it, unpin removes it.
+
+LLMENU_PROJECT overrides both for one shell or command; none means the main
+key.`,
 		Example: `  llmenu project add acme
   llmenu project use acme
   llmenu project use --none
+  llmenu project use acme --here
+  llmenu project unpin
   LLMENU_PROJECT=acme llmenu claude`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
@@ -81,7 +173,7 @@ main key.`,
 			return err
 		},
 	}
-	var none bool
+	var none, here bool
 	use := &cobra.Command{
 		Use:               "use <project> | --none",
 		ValidArgsFunction: completeFirst(projectNames),
@@ -90,14 +182,15 @@ main key.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			switch {
 			case none && len(args) == 0, len(args) == 1 && (args[0] == "-" || args[0] == secrets.NoProject):
-				return useProject("")
+				return useProject("", here)
 			case len(args) == 1 && !none:
-				return useProject(args[0])
+				return useProject(args[0], here)
 			}
 			return errors.New("name a project, or --none for the main key")
 		},
 	}
 	use.Flags().BoolVar(&none, "none", false, "use the main key (short: llmenu project use -)")
+	use.Flags().BoolVar(&here, "here", false, "only in the current folder and below; replaces its earlier choice")
 
 	cmd.AddCommand(
 		&cobra.Command{
@@ -118,6 +211,10 @@ keyring nor the network, so it is fast enough for a shell prompt or status line.
 					return err
 				}
 				active := currentProject(cfg)
+				activeMark := "*"
+				if _, _, ok := folderProject(cfg); ok && os.Getenv(targets.ProjectEnv) == "" {
+					activeMark = "* (folder)"
+				}
 				all := append([]string{""}, cfg.Gateway.Projects...)
 				spends := projectSpends(cmd.Context(), cfg, all)
 				w := tabwriter.NewWriter(cmd.OutOrStdout(), 0, 0, 2, ' ', 0)
@@ -129,9 +226,25 @@ keyring nor the network, so it is fast enough for a shell prompt or status line.
 					}
 					mark := ""
 					if p == active {
-						mark = "*"
+						mark = activeMark
 					}
 					fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", name, keyStatus(p), orDash(mark), orDash(spends[i]))
+				}
+				if err := w.Flush(); err != nil {
+					return err
+				}
+				if len(cfg.Gateway.Dirs) == 0 {
+					return nil
+				}
+				fmt.Fprintln(cmd.OutOrStdout())
+				w = tabwriter.NewWriter(cmd.OutOrStdout(), 0, 0, 2, ' ', 0)
+				fmt.Fprintln(w, "FOLDER\tPROJECT")
+				for _, d := range boundDirs(cfg) {
+					p := cfg.Gateway.Dirs[d]
+					if p == secrets.NoProject {
+						p = "(main key)"
+					}
+					fmt.Fprintf(w, "%s\t%s\n", tildePath(d), p)
 				}
 				return w.Flush()
 			},
@@ -155,6 +268,22 @@ stored in the keyring. Switch to it with llmenu project use.`,
 			},
 		},
 		use,
+		&cobra.Command{
+			Use:               "unpin [folder]",
+			ValidArgsFunction: completeFirst(boundFolders),
+			Short:             "Remove a folder's project; the global choice applies there again",
+			Long: `Removes the project bound to a folder (default: the current one) with
+llmenu project use --here or the picker. The folder then follows the global
+choice again, or the binding of a folder above it.`,
+			Args: cobra.MaximumNArgs(1),
+			RunE: func(cmd *cobra.Command, args []string) error {
+				dir := workDir()
+				if len(args) == 1 {
+					dir = realPath(args[0])
+				}
+				return unpin(dir)
+			},
+		},
 		&cobra.Command{
 			Use:               "remove <project>",
 			Aliases:           []string{"rm"},
@@ -230,9 +359,10 @@ func addProject(ctx context.Context, name, key string) error {
 	return save(cfg)
 }
 
-// useProject switches to a project, "" to the main key. A project without a
-// key is refused, so no command later fails on it.
-func useProject(name string) error {
+// useProject switches to a project, "" to the main key; with here only in
+// the current folder and below. A project without a key is refused, so no
+// command later fails on it.
+func useProject(name string, here bool) error {
 	cfg, err := config.Load()
 	if err != nil {
 		return err
@@ -247,6 +377,9 @@ func useProject(name string) error {
 			return fmt.Errorf("no key for project %s: llmenu project add %s", name, name)
 		}
 	}
+	if here {
+		return bindHere(cfg, name)
+	}
 	cfg.Gateway.Project = name
 	if _, err := cfg.Save(); err != nil {
 		return err
@@ -256,10 +389,70 @@ func useProject(name string) error {
 	} else {
 		fmt.Fprintf(os.Stderr, "Using project %s.\n", name)
 	}
+	if p, dir, ok := folderProject(cfg); ok && p != cmp.Or(name, secrets.NoProject) {
+		fmt.Fprintf(os.Stderr, "Note: %s uses %s; llmenu project unpin removes that.\n", tildePath(dir), projectLabel(p))
+	}
 	if env := os.Getenv(targets.ProjectEnv); env != "" {
 		fmt.Fprintf(os.Stderr, "Note: %s=%s overrides this in the current shell.\n", targets.ProjectEnv, env)
 	}
 	return nil
+}
+
+// bindHere binds the current folder to a project, "" to the main key.
+func bindHere(cfg *config.Config, name string) error {
+	dir := workDir()
+	if dir == "" {
+		return errors.New("cannot determine the current folder")
+	}
+	value := cmp.Or(name, secrets.NoProject)
+	old, had := cfg.Gateway.Dirs[dir]
+	cfg.Gateway.Bind(dir, value)
+	if _, err := cfg.Save(); err != nil {
+		return err
+	}
+	if had && old != value {
+		fmt.Fprintf(os.Stderr, "%s: %s → %s.\n", tildePath(dir), projectLabel(old), projectLabel(value))
+	} else {
+		fmt.Fprintf(os.Stderr, "Using %s in %s.\n", projectLabel(value), tildePath(dir))
+	}
+	if env := os.Getenv(targets.ProjectEnv); env != "" {
+		fmt.Fprintf(os.Stderr, "Note: %s=%s overrides this in the current shell.\n", targets.ProjectEnv, env)
+	}
+	return nil
+}
+
+// unpin removes a folder's own binding.
+func unpin(dir string) error {
+	cfg, err := config.Load()
+	if err != nil {
+		return err
+	}
+	if !cfg.Gateway.Unbind(dir) {
+		if _, parent, ok := cfg.Gateway.ProjectFor(dir); ok {
+			return fmt.Errorf("%s has no project of its own, it follows %s: llmenu project unpin %s",
+				tildePath(dir), tildePath(parent), tildePath(parent))
+		}
+		return fmt.Errorf("%s has no project of its own", tildePath(dir))
+	}
+	if _, err := cfg.Save(); err != nil {
+		return err
+	}
+	now := cfg.Gateway.Project
+	if p, _, ok := cfg.Gateway.ProjectFor(dir); ok {
+		now = p
+	}
+	fmt.Fprintf(os.Stderr, "Removed the project of %s; it uses %s now.\n", tildePath(dir), projectLabel(now))
+	return nil
+}
+
+// boundDirs are the bound folders, sorted.
+func boundDirs(cfg *config.Config) []string {
+	dirs := make([]string, 0, len(cfg.Gateway.Dirs))
+	for d := range cfg.Gateway.Dirs {
+		dirs = append(dirs, d)
+	}
+	slices.Sort(dirs)
+	return dirs
 }
 
 func removeProject(name string) error {
@@ -277,12 +470,14 @@ func removeProject(name string) error {
 		return err
 	}
 	wasActive := cfg.Gateway.Project == name
+	p, _, _ := folderProject(cfg)
+	folderBound := p == name
 	cfg.Gateway.RemoveProject(name)
 	if _, err := cfg.Save(); err != nil {
 		return err
 	}
 	fmt.Fprintf(os.Stderr, "Removed project %s.\n", name)
-	if wasActive {
+	if wasActive || folderBound {
 		fmt.Fprintln(os.Stderr, "Using the main key (no project).")
 	}
 	return nil
@@ -301,9 +496,13 @@ func pickProject(ctx context.Context) error {
 		return err
 	}
 	active := currentProject(cfg)
+	activeMark := "  ✓ active"
+	if _, _, ok := folderProject(cfg); ok && os.Getenv(targets.ProjectEnv) == "" {
+		activeMark += " (folder)"
+	}
 	label := func(text, project string) string {
 		if project == active {
-			text += "  ✓ active"
+			text += activeMark
 		}
 		if v, _, err := secrets.Get(secrets.ProjectKey(project)); err == nil && v == "" {
 			text += "  (key missing)"
@@ -342,7 +541,7 @@ func pickProject(ctx context.Context) error {
 		if err := addProject(ctx, name, key); err != nil {
 			return err
 		}
-		return useProject(name)
+		return applyChoice(name)
 	}
 
 	if v, _, err := secrets.Get(secrets.ProjectKey(choice)); err != nil {
@@ -362,7 +561,48 @@ func pickProject(ctx context.Context) error {
 			return err
 		}
 	}
-	return useProject(choice)
+	return applyChoice(choice)
+}
+
+// Scopes of a choice in the picker.
+const (
+	scopeHere   = "here"
+	scopeGlobal = "global"
+	scopeUnpin  = "unpin"
+)
+
+// applyChoice asks, outside the home directory, whether the chosen project
+// applies only in the current folder or everywhere, and switches.
+func applyChoice(project string) error {
+	cfg, err := config.Load()
+	if err != nil {
+		return err
+	}
+	dir := workDir()
+	if !bindable(dir) {
+		return useProject(project, false)
+	}
+	where := tildePath(dir)
+	scope := scopeGlobal
+	if _, _, ok := cfg.Gateway.ProjectFor(dir); ok {
+		scope = scopeHere
+	}
+	opts := []huh.Option[string]{
+		huh.NewOption("Only in "+where+" and below", scopeHere),
+		huh.NewOption("Everywhere", scopeGlobal),
+	}
+	if _, own := cfg.Gateway.Dirs[dir]; own {
+		opts = append(opts, huh.NewOption("Remove the project of "+where+" (use the global choice, "+
+			strings.TrimPrefix(projectLabel(cfg.Gateway.Project), "project ")+")", scopeUnpin))
+	}
+	if err := runPrompt(huh.NewSelect[string]().Title("Applies to").
+		Options(opts...).Value(&scope)); err != nil {
+		return err
+	}
+	if scope == scopeUnpin {
+		return unpin(dir)
+	}
+	return useProject(project, scope == scopeHere)
 }
 
 func required(msg string) func(string) error {

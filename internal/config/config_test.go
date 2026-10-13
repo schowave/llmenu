@@ -196,3 +196,40 @@ func TestProjects(t *testing.T) {
 		t.Errorf("unset: %+v", e)
 	}
 }
+
+func TestDirs(t *testing.T) {
+	var g Gateway
+	g.AddProject("acme")
+	g.AddProject("beta")
+	root := filepath.Join(string(filepath.Separator), "repos")
+	acme := filepath.Join(root, "acme")
+	g.Bind(acme, "acme")
+	g.Bind(filepath.Join(acme, "oss"), "none")
+	tests := []struct{ dir, project, bound string }{
+		{acme, "acme", acme},
+		{filepath.Join(acme, "src", "x"), "acme", acme},
+		{filepath.Join(acme, "oss", "lib"), "none", filepath.Join(acme, "oss")},
+		{filepath.Join(root, "acme2"), "", ""}, // a prefix is not a parent
+		{root, "", ""},
+	}
+	for _, tt := range tests {
+		p, d, ok := g.ProjectFor(tt.dir)
+		if p != tt.project || d != tt.bound || ok != (tt.bound != "") {
+			t.Errorf("ProjectFor(%s) = %q, %q, %v; want %q, %q", tt.dir, p, d, ok, tt.project, tt.bound)
+		}
+	}
+	g.Bind(acme, "beta")
+	if p, _, _ := g.ProjectFor(acme); p != "beta" {
+		t.Errorf("rebinding: %q", p)
+	}
+	if g.Unbind(filepath.Join(acme, "src")) {
+		t.Error("unbound a folder that had no binding of its own")
+	}
+	g.RemoveProject("beta")
+	if _, _, ok := g.ProjectFor(acme); ok {
+		t.Error("binding survived removing its project")
+	}
+	if !g.Unbind(filepath.Join(acme, "oss")) || g.Dirs != nil {
+		t.Errorf("after the last unbind: %v", g.Dirs)
+	}
+}

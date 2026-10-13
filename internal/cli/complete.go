@@ -90,6 +90,15 @@ func projectNames() []string {
 	return cfg.Gateway.Projects
 }
 
+// boundFolders are the folders with a project of their own.
+func boundFolders() []string {
+	cfg, err := config.Load()
+	if err != nil {
+		return nil
+	}
+	return boundDirs(cfg)
+}
+
 // configKeys are all fixed keys plus the prefixes for maps.
 func configKeys() []string {
 	var out []string

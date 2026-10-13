@@ -35,19 +35,29 @@ them quickly, without changing anything for users with a single key?**
 
 ## Decision
 
-Option 2.
+Option 2, plus folder bindings in config.toml instead of option 3's file in
+the repository: project names and keys are personal and must not be
+committed.
 
 - **Storage:** keyring entry `gateway:<project>` next to `gateway`, which
   stays the main key. config.toml lists the projects (`gateway.projects`;
   the keyring cannot be enumerated, and completion must not touch it) and
   the active one (`gateway.project`, empty: the main key).
+  `gateway.dirs` binds folders to a project (`none`: the main key); a
+  binding applies in the folder and below, the nearest one wins. Folders are
+  stored absolute with symlinks resolved.
 - **Resolution** in one place (`gatewayFrom`): `LLMENU_API_KEY` >
-  `LLMENU_PROJECT` (`none`: the main key) > `gateway.project` > main key.
+  `LLMENU_PROJECT` (`none`: the main key) > folder binding of the current
+  directory > `gateway.project` > main key.
   An unknown project or one without a key is an error naming
   `llmenu project add`.
 - **Commands:** `llmenu project` picks from the main key, all projects and
-  "add project"; `add`, `use`, `use --none`, `list`, `remove`, `current`.
-  `add` checks the key with the gateway before storing it.
+  "add project"; outside the home directory it then asks whether the choice
+  applies everywhere or only in the current folder (which replaces the
+  folder's earlier choice), and offers to remove the folder's own project.
+  `add`, `use`, `use --none`, `use --here`, `unpin`, `list`, `remove`,
+  `current`. `add` checks the key with the gateway before storing it;
+  `remove` also drops the project's folders.
 - **Tools:** the references stay as they are. pi's `!llmenu secrets get
   gateway` returns the active project's key, so a switch needs no sync.
   Launched tools get the key at start; a running session keeps it.
@@ -76,13 +86,14 @@ Option 2.
 - Single-key users see no change; the main key is a regular choice in the
   picker, not a special case.
 - One switch covers llmenu, launched tools and pi.
-- Directory binding comes for free via direnv (`LLMENU_PROJECT` in `.envrc`).
+- Directory binding needs neither direnv nor a file in the repository.
 
 ### Negative
 
 - `secrets get gateway` now depends on the active project, while `secrets
   set/delete gateway` always mean the main key.
-- A global switch affects every shell that does not set `LLMENU_PROJECT`.
+- A global switch affects every shell that does not set `LLMENU_PROJECT`,
+  except in folders with their own project.
 
 ### Neutral / Follow-ups
 
@@ -94,5 +105,5 @@ Option 2.
 ## Confirmation
 
 `internal/cli/testdata/script/project.txtar` covers adding, switching,
-`LLMENU_PROJECT`, the missing-key error, the picker, removal and the status
-line; the existing scripts run unchanged without projects.
+`LLMENU_PROJECT`, the missing-key error, the picker, removal, folder
+bindings and the status line; `config_test.go` covers the folder lookup; the existing scripts run unchanged without projects.

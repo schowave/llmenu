@@ -44,6 +44,44 @@ type Gateway struct {
 	// listed here because the keyring cannot be enumerated.
 	Project  string   `toml:"project,omitempty"`
 	Projects []string `toml:"projects,omitempty"`
+	// Dirs binds folders to a project, which then replaces Project in the
+	// folder and below: absolute path -> project, "none" for the main key.
+	Dirs map[string]string `toml:"dirs,omitempty"`
+}
+
+// ProjectFor returns the binding that applies in dir, the one of the
+// nearest bound folder at or above dir. dir must be absolute and clean.
+func (g Gateway) ProjectFor(dir string) (project, boundDir string, ok bool) {
+	for d := dir; ; {
+		if p, found := g.Dirs[d]; found {
+			return p, d, true
+		}
+		parent := filepath.Dir(d)
+		if parent == d {
+			return "", "", false
+		}
+		d = parent
+	}
+}
+
+// Bind sets the project for a folder, replacing an earlier binding.
+func (g *Gateway) Bind(dir, project string) {
+	if g.Dirs == nil {
+		g.Dirs = map[string]string{}
+	}
+	g.Dirs[dir] = project
+}
+
+// Unbind removes the binding of exactly this folder.
+func (g *Gateway) Unbind(dir string) bool {
+	if _, ok := g.Dirs[dir]; !ok {
+		return false
+	}
+	delete(g.Dirs, dir)
+	if len(g.Dirs) == 0 {
+		g.Dirs = nil
+	}
+	return true
 }
 
 // HasProject reports whether the project was added.
@@ -57,8 +95,14 @@ func (g *Gateway) AddProject(name string) {
 	}
 }
 
-// RemoveProject forgets a project; if it was active, the main key applies.
+// RemoveProject forgets a project and its folders; where it was active, the
+// main key applies.
 func (g *Gateway) RemoveProject(name string) {
+	for d, p := range g.Dirs {
+		if p == name {
+			g.Unbind(d)
+		}
+	}
 	g.Projects = slices.DeleteFunc(g.Projects, func(p string) bool { return p == name })
 	if len(g.Projects) == 0 {
 		g.Projects = nil
