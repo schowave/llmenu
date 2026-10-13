@@ -326,3 +326,20 @@ func TestPickerProjectAndSpend(t *testing.T) {
 		}
 	}
 }
+
+// TestPickerSpendShortens: a budget too long for the space beside the
+// search loses details from the end rather than running into the search.
+func TestPickerSpendShortens(t *testing.T) {
+	tests := []struct {
+		spend, want string
+	}{
+		{"user budget $12.34 / $50.00 · this key $8.21 · resets in 18d", "project acme · user budget $12.34 / $50.00 · 4/4"},
+		{"a very long budget description that fits nowhere at all · x", "project acme · 4/4"},
+	}
+	for _, tt := range tests {
+		line := strings.TrimRight(plain(newTestPicker(Options{Project: "acme", Spend: tt.spend}))[0], " ")
+		if !strings.HasPrefix(line, "Search:  ") || !strings.HasSuffix(line, tt.want) {
+			t.Errorf("search line %q, want the search field free and the end %q", line, tt.want)
+		}
+	}
+}

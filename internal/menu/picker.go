@@ -260,15 +260,7 @@ func (p *picker) View() string {
 
 	count := fmt.Sprintf("%d/%d", len(p.shown), len(p.models))
 	search := p.st.prompt.Render("Search: ") + p.query + p.st.cursorBlock.Render(" ")
-	// The project whose key pays and what it has spent, next to the count;
-	// no project for the main key.
-	right := p.st.dim.Render(count)
-	if p.opt.Spend != "" {
-		right = p.st.dim.Render(p.opt.Spend+" · ") + right
-	}
-	if p.opt.Project != "" {
-		right = p.st.prompt.Render("project "+p.opt.Project) + p.st.dim.Render(" · ") + right
-	}
+	right := p.headerRight(count, tableWidth(nw)-lipgloss.Width(search)-2)
 	b.WriteString(padRight(search, tableWidth(nw)-lipgloss.Width(right)) + right + "\n")
 	b.WriteString(p.header(nw) + "\n")
 
@@ -460,4 +452,29 @@ func newStyles(r *lipgloss.Renderer) styles {
 		good:        r.NewStyle().Foreground(lipgloss.Color("10")),
 		preview:     r.NewStyle().PaddingLeft(2).BorderStyle(lipgloss.NormalBorder()).BorderLeft(true).BorderForeground(lipgloss.Color("8")),
 	}
+}
+
+// headerRight is the project whose key pays and the key's budget, next to
+// the count; no project for the main key. If it does not fit beside the
+// search, the budget loses its details from the end ("resets in", the key's
+// share) and then goes entirely.
+func (p *picker) headerRight(count string, avail int) string {
+	var spend []string
+	if p.opt.Spend != "" {
+		spend = strings.Split(p.opt.Spend, " · ")
+	}
+	var right string
+	for n := len(spend); n >= 0; n-- {
+		right = p.st.dim.Render(count)
+		if n > 0 {
+			right = p.st.dim.Render(strings.Join(spend[:n], " · ")+" · ") + right
+		}
+		if p.opt.Project != "" {
+			right = p.st.prompt.Render("project "+p.opt.Project) + p.st.dim.Render(" · ") + right
+		}
+		if lipgloss.Width(right) <= avail {
+			break
+		}
+	}
+	return right
 }
