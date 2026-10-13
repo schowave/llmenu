@@ -321,41 +321,15 @@ scoop update; scoop update llmenu                # Scoop
 go install github.com/schowave/llmenu/cmd/llmenu@latest   # Go
 ```
 
-A normal uninstall (`brew uninstall --cask llmenu`, `scoop uninstall llmenu`)
-keeps settings, cache and keys, so a reinstall picks up where you left off.
+A normal uninstall (`brew uninstall --cask llmenu`, `scoop uninstall llmenu`,
+or deleting `$(go env GOPATH)/bin/llmenu`) keeps settings, cache and keys, so
+a reinstall picks up where you left off.
 
-<details>
-<summary>Remove everything</summary>
-
-Delete the keys first, while llmenu is still installed:
-
-```sh
-llmenu secrets delete gateway
-llmenu secrets delete artificialanalysis
-llmenu project list            # then for each project:
-llmenu project remove <project>
-```
-
-Then uninstall with the data:
-
-```sh
-brew uninstall --zap --cask llmenu             # Homebrew: also settings and caches
-```
-
-```powershell
-scoop uninstall llmenu
-Remove-Item -Recurse -ErrorAction SilentlyContinue "$env:APPDATA\llmenu", "$env:LOCALAPPDATA\llmenu"
-```
-
-```sh
-rm -rf "$(go env GOPATH)/bin/llmenu" ~/.config/llmenu ~/.cache/llmenu ~/Library/"Application Support"/llmenu ~/Library/Caches/llmenu   # Go
-```
-
-If you used `llmenu sync`, llmenu also wrote a provider entry (named like your
-gateway, see `llmenu config get gateway.name`) into the configs of pi and
-opencode; remove it there by hand. `llmenu targets` shows the files.
-
-</details>
+To start over or remove everything, run `llmenu reset` first, while llmenu is
+still installed. It lists what it removes and asks before doing so: settings,
+all keys in the keyring (projects included), caches, and the provider entry
+`llmenu sync` wrote into pi and opencode. `llmenu reset --dry-run` only shows
+the list. Then `llmenu setup` sets it up anew, or uninstall as above.
 
 ## Contributing
 

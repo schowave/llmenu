@@ -167,6 +167,31 @@ func Delete(name string) error {
 	return nil
 }
 
+// Stored reports whether the key is in the keyring, ignoring the
+// environment.
+func Stored(name string) (bool, error) {
+	if err := check(name); err != nil {
+		return false, err
+	}
+	_, err := backend().Get(service(), name)
+	if errors.Is(err, keyring.ErrNotFound) {
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("keyring: %w", err)
+	}
+	return true, nil
+}
+
+// DeleteOrigin forgets the gateway origin; a missing one is not an error.
+func DeleteOrigin() error {
+	err := backend().Delete(service(), originName)
+	if err != nil && !errors.Is(err, keyring.ErrNotFound) {
+		return fmt.Errorf("keyring: %w", err)
+	}
+	return nil
+}
+
 // store is where keys live: the OS keyring, or for sandboxes and tests a
 // plain file (LLMENU_KEYRING_FILE).
 type store interface {

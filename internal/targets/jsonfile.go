@@ -3,9 +3,11 @@ package targets
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"regexp"
+	"slices"
 	"strings"
 	"unicode/utf8"
 
@@ -41,17 +43,94 @@ func syncJSON(file string, initial []byte, path []string, update func(old any) a
 	if exists && bytes.Equal(orig, updated) {
 		return d, nil
 	}
-	d.Changed = true
-	var before []byte
-	if exists {
-		before = orig
+	if !exists {
+		orig = nil
 	}
+	return d, writeChange(&d, orig, updated, dryRun)
+}
+
+// ErrNotOwned: the entry exists, but llmenu did not write it.
+var ErrNotOwned = errors.New("not written by llmenu")
+
+// removeJSON deletes the member under path from another tool's JSON or JSONC
+// file and leaves everything else intact, with the old version as *.bak. A
+// missing file or entry changes nothing; an entry owned does not accept is
+// left alone with ErrNotOwned.
+func removeJSON(file string, path []string, owned func(v any) bool, dryRun bool) (Diff, error) {
+	d := Diff{Path: file}
+	if _, err := guard.Path(file); err != nil {
+		return d, err
+	}
+	orig, err := os.ReadFile(file)
+	if os.IsNotExist(err) {
+		return d, nil
+	} else if err != nil {
+		return d, err
+	}
+	v, err := hujson.Parse(orig)
+	if err != nil {
+		return d, fmt.Errorf("%s: %w", file, err)
+	}
+	parent := v.Find(pointer(path[:len(path)-1]))
+	if parent == nil {
+		return d, nil
+	}
+	obj, ok := parent.Value.(*hujson.Object)
+	if !ok {
+		return d, nil
+	}
+	if err := checkUnique(&v, path); err != nil {
+		return d, fmt.Errorf("%s: %w", file, err)
+	}
+	key := path[len(path)-1]
+	i := slices.IndexFunc(obj.Members, func(m hujson.ObjectMember) bool {
+		name, ok := m.Name.Value.(hujson.Literal)
+		return ok && name.String() == key
+	})
+	if i < 0 {
+		return d, nil
+	}
+	val, err := decode(obj.Members[i].Value)
+	if err != nil {
+		return d, fmt.Errorf("%s: %w", file, err)
+	}
+	if !owned(val) {
+		return d, ErrNotOwned
+	}
+	// A comment after the previous member sits before the removed member's
+	// name, a comment after the removed one before the next name: keep the
+	// first, drop the second.
+	keep := firstLine(obj.Members[i].Name.BeforeExtra)
+	if i+1 < len(obj.Members) {
+		next := &obj.Members[i+1].Name.BeforeExtra
+		*next = append(keep, (*next)[len(firstLine(*next)):]...)
+	} else {
+		obj.AfterExtra = append(keep, obj.AfterExtra[len(firstLine(obj.AfterExtra)):]...)
+	}
+	obj.Members = slices.Delete(obj.Members, i, i+1)
+	return d, writeChange(&d, orig, v.Pack(), dryRun)
+}
+
+// firstLine is the part of extra up to its first line break.
+func firstLine(extra hujson.Extra) hujson.Extra {
+	if i := bytes.IndexByte(extra, '\n'); i >= 0 {
+		return slices.Clone(extra[:i])
+	}
+	return slices.Clone(extra)
+}
+
+// writeChange records the change in d and, unless dryRun, writes updated
+// atomically, the old version (nil: none) as *.bak.
+func writeChange(d *Diff, orig, updated []byte, dryRun bool) error {
+	file := d.Path
+	exists := orig != nil
+	d.Changed = true
 	d.Patch, _ = difflib.GetUnifiedDiffString(difflib.UnifiedDiff{
-		A: difflib.SplitLines(string(before)), B: difflib.SplitLines(string(updated)),
+		A: difflib.SplitLines(string(orig)), B: difflib.SplitLines(string(updated)),
 		FromFile: file, ToFile: file, Context: 3,
 	})
 	if dryRun {
-		return d, nil
+		return nil
 	}
 
 	mode := os.FileMode(0o600)
@@ -61,10 +140,10 @@ func syncJSON(file string, initial []byte, path []string, update func(old any) a
 		}
 		// The backup must not be more open than the config itself.
 		if err := atomicfile.Write(file+".bak", orig, mode); err != nil {
-			return d, fmt.Errorf("backup: %w", err)
+			return fmt.Errorf("backup: %w", err)
 		}
 	}
-	return d, atomicfile.Write(file, updated, mode)
+	return atomicfile.Write(file, updated, mode)
 }
 
 // editJSON returns orig with a new value under path. Only text is replaced or

@@ -87,6 +87,16 @@ func (o opencode) Sync(_ context.Context, models []catalog.Model, opt SyncOption
 	}, opt.DryRun)
 }
 
+func (o opencode) Unsync(opt SyncOptions) (Diff, error) {
+	file, err := o.ConfigPath()
+	if err != nil {
+		return Diff{}, err
+	}
+	return removeJSON(file, []string{"provider", opt.Provider}, func(v any) bool {
+		return asMap(asMap(v)["options"])["apiKey"] == "{env:"+KeyEnv+"}"
+	}, opt.DryRun)
+}
+
 func (opencode) OwnSelection() {}
 
 func (opencode) HasModelArg(args []string) bool { return hasFlag(args, "-m", "--model") }

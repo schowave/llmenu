@@ -1,0 +1,83 @@
+# llmenu reset removes everything llmenu stored, after asking.
+env LLMENU_KEYRING_FILE=$WORK/keyring.json
+env LLMENU_API_KEY=
+
+# Nothing stored yet.
+exec llmenu reset
+stderr 'Nothing to remove'
+
+# Config, keys, a project, a cache and synced tools.
+exec llmenu config set gateway.name testgw
+stdin key.txt
+exec llmenu secrets set gateway
+stdin key.txt
+exec llmenu project add acme
+mkdir $HOME/.pi/agent
+cp pi-models.json $HOME/.pi/agent/models.json
+exec llmenu sync pi opencode
+exec llmenu list
+exists cache/models.json
+
+# Without a terminal it never removes without --yes.
+! exec llmenu reset
+stderr 'no terminal to confirm: llmenu reset --yes'
+exists config.toml
+
+# --dry-run lists, removes nothing.
+exec llmenu reset --dry-run
+stderr '^  opencode +provider "testgw" in ~/.config/opencode/opencode.json$'
+stderr '^  pi +provider "testgw" in ~/.pi/agent/models.json$'
+stderr '^  keys +gateway, gateway:acme \(keyring file '
+stderr '^  config +'
+stderr '^  cache +'
+exists config.toml
+
+# No keeps everything.
+env LLMENU_ACCESSIBLE=1
+stdin no.txt
+! exec llmenu reset
+stderr 'Remove all of this\?'
+stderr 'Nothing removed\.'
+exists config.toml
+exec llmenu secrets get gateway
+
+# Yes removes it all; the other provider in pi stays.
+stdin yes.txt
+exec llmenu reset
+stderr 'Removed\. llmenu setup sets llmenu up again\.'
+! exists config.toml
+! exists cache/models.json
+! grep testgw $HOME/.pi/agent/models.json
+grep '"other"' $HOME/.pi/agent/models.json
+exists $HOME/.pi/agent/models.json.bak
+! grep testgw $HOME/.config/opencode/opencode.json
+! exec llmenu secrets get gateway
+! grep 'sk-' keyring.json
+env LLMENU_ACCESSIBLE=
+
+# Then there is nothing left.
+exec llmenu reset
+stderr 'Nothing to remove'
+
+# A provider entry llmenu did not write stays, and --yes skips the question.
+cp foreign.json $HOME/.pi/agent/models.json
+exec llmenu config set gateway.name testgw
+exec llmenu reset --yes
+stderr 'pi: provider "testgw" in ~/.pi/agent/models.json was not written by llmenu; it stays\.'
+grep testgw $HOME/.pi/agent/models.json
+! exists config.toml
+
+-- key.txt --
+sk-test
+-- no.txt --
+n
+-- yes.txt --
+y
+-- pi-models.json --
+{
+  "providers": {
+    "other": {"baseUrl": "https://other/", "models": []}
+  }
+}
+-- foreign.json --
+{"providers": {"testgw": {"apiKey": "mine"}}}

@@ -90,6 +90,16 @@ func (p pi) Sync(_ context.Context, models []catalog.Model, opt SyncOptions) (Di
 	}, opt.DryRun)
 }
 
+func (p pi) Unsync(opt SyncOptions) (Diff, error) {
+	file, err := p.ConfigPath()
+	if err != nil {
+		return Diff{}, err
+	}
+	return removeJSON(file, []string{"providers", opt.Provider}, func(v any) bool {
+		return asMap(v)["apiKey"] == "!"+KeyCommand
+	}, opt.DryRun)
+}
+
 // byName returns the models sorted by name so diffs stay stable.
 func byName(models []catalog.Model) []catalog.Model {
 	out := slices.Clone(models)

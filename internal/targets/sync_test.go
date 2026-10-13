@@ -3,6 +3,7 @@ package targets
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -193,5 +194,69 @@ func writeFile(t *testing.T, file, content string) {
 	t.Helper()
 	if err := os.WriteFile(file, []byte(content), 0o600); err != nil {
 		t.Fatal(err)
+	}
+}
+
+// Unsync removes only llmenu's entry, keeps comments and the rest, and
+// leaves a foreign entry of the same name alone.
+func TestUnsync(t *testing.T) {
+	dir := t.TempDir()
+	p := pi{path: filepath.Join(dir, "models.json")}
+	writeFile(t, p.path, `{
+  // mine
+  "providers": {
+    "foreign": {"baseUrl": "https://other/"}, // keep me
+    "example": {
+      "apiKey": "!llmenu secrets get gateway"
+    }, // goes with it
+    "last": {} // last
+  }
+}
+`)
+	d, err := p.Unsync(SyncOptions{Provider: "example", DryRun: true})
+	if err != nil || !d.Changed || !strings.Contains(d.Patch, `-    "example": {`) {
+		t.Fatalf("dry run: %v %+v", err, d)
+	}
+	if _, err := os.Stat(p.path + ".bak"); err == nil {
+		t.Error("dry run wrote a backup")
+	}
+	if _, err := p.Unsync(SyncOptions{Provider: "example"}); err != nil {
+		t.Fatal(err)
+	}
+	want := `{
+  // mine
+  "providers": {
+    "foreign": {"baseUrl": "https://other/"}, // keep me
+    "last": {} // last
+  }
+}
+`
+	if b, _ := os.ReadFile(p.path); string(b) != want {
+		t.Errorf("got\n%s", b)
+	}
+	if _, err := os.Stat(p.path + ".bak"); err != nil {
+		t.Error("no backup")
+	}
+	// Gone already, or never there: nothing changes.
+	if d, err := p.Unsync(SyncOptions{Provider: "example"}); err != nil || d.Changed {
+		t.Errorf("again: %v %+v", err, d)
+	}
+	if d, err := (pi{path: filepath.Join(dir, "missing.json")}).Unsync(SyncOptions{Provider: "example"}); err != nil || d.Changed {
+		t.Errorf("missing file: %v %+v", err, d)
+	}
+	// Not written by llmenu.
+	if _, err := p.Unsync(SyncOptions{Provider: "foreign"}); !errors.Is(err, ErrNotOwned) {
+		t.Errorf("foreign entry: %v", err)
+	}
+
+	o := opencode{path: filepath.Join(dir, "opencode.json")}
+	if _, err := o.Sync(context.Background(), syncModels, syncOpt); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := o.Unsync(syncOpt); err != nil {
+		t.Fatal(err)
+	}
+	if got := get(readJSON(t, o.path), "provider"); len(asMap(got)) != 0 {
+		t.Errorf("opencode: %v", got)
 	}
 }

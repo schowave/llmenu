@@ -44,6 +44,9 @@ type Syncer interface {
 	Target
 	ConfigPath() (string, error)
 	Sync(ctx context.Context, models []catalog.Model, opt SyncOptions) (Diff, error)
+	// Unsync removes the provider entry sync wrote (opt.Provider); an entry
+	// llmenu did not write stays, with ErrNotOwned.
+	Unsync(opt SyncOptions) (Diff, error)
 }
 
 // Env is everything a Launcher needs to start. The key only goes to the
