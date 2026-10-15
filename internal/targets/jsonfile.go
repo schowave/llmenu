@@ -204,10 +204,7 @@ func editJSON(orig []byte, path []string, update func(old any) any) ([]byte, err
 	}
 	text := bytes.TrimRight(buf.Bytes(), "\n")
 
-	out := make([]byte, 0, len(orig)+len(text))
-	out = append(out, orig[:target.StartOffset]...)
-	out = append(out, text...)
-	return append(out, orig[target.EndOffset:]...), nil
+	return slices.Concat(orig[:target.StartOffset], text, orig[target.EndOffset:]), nil
 }
 
 // checkUnique fails if a key along path occurs more than once in its object:
