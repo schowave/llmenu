@@ -6,7 +6,7 @@ stdin enter.txt
 exec llmenu setup codex
 stderr '^1\. \(no default: pick in the menu or pass -m\)$'
 stderr '^2\. aws/claude-opus-5-5  ! no Responses API$'
-stderr '^4\. azure/gpt-6-sol$'
+stderr '^5\. azure/gpt-6-sol$'
 ! grep 'codex' config.toml
 
 stdin pick.txt
@@ -25,4 +25,4 @@ grep '^default = .gone/model.$' config.toml
 -- enter.txt --
 
 -- pick.txt --
-4
+5

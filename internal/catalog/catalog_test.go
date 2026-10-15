@@ -59,11 +59,15 @@ func TestIsAlias(t *testing.T) {
 
 func TestDedupe(t *testing.T) {
 	models := []Model{
+		// the same model at different providers stays selectable
+		{Name: "aws/claude-haiku-5-5", Target: "bedrock/eu.anthropic.claude-haiku-5-5", ContextTokens: 200_000, OutputPrice: 5.5},
+		{Name: "gcp/claude-haiku-5-5", Target: "vertex_ai/claude-haiku-5-5", ContextTokens: 200_000, OutputPrice: 5},
+		// at the same provider the cheaper one wins
 		{Name: "aws/claude-sonnet-4-5", Target: "bedrock/eu.anthropic.claude-sonnet-4-5-20250929-v1:0", ContextTokens: 200_000, OutputPrice: 16.5},
-		{Name: "gcp/claude-sonnet-4-5", Target: "vertex_ai/claude-sonnet-4-5@20250929", ContextTokens: 200_000, OutputPrice: 15},
+		{Name: "aws-us/claude-sonnet-4-5", Target: "bedrock/us.anthropic.claude-sonnet-4-5-20250929-v1:0", ContextTokens: 200_000, OutputPrice: 15},
 		// larger context beats lower price
 		{Name: "aws/claude-sonnet-4-6", Target: "bedrock/eu.anthropic.claude-sonnet-4-6", ContextTokens: 1_000_000, OutputPrice: 16.5},
-		{Name: "gcp/claude-sonnet-4-6", Target: "vertex_ai/claude-sonnet-4-6", ContextTokens: 200_000, OutputPrice: 15},
+		{Name: "aws-us/claude-sonnet-4-6", Target: "bedrock/us.anthropic.claude-sonnet-4-6", ContextTokens: 200_000, OutputPrice: 15},
 		// alias is dropped
 		{Name: "aws/claude-opus-latest", Target: "bedrock/eu.anthropic.claude-opus-5-5", ContextTokens: 1_000_000},
 		{Name: "aws/claude-opus-5-5", Target: "bedrock/eu.anthropic.claude-opus-5-5", ContextTokens: 1_000_000},
@@ -75,7 +79,7 @@ func TestDedupe(t *testing.T) {
 	for _, m := range Dedupe(models) {
 		got = append(got, m.Name)
 	}
-	want := []string{"gcp/claude-sonnet-4-5", "aws/claude-sonnet-4-6", "aws/claude-opus-5-5", "local/Qwen3-Next", "local/Qwen3-Next-non-thinking"}
+	want := []string{"aws/claude-haiku-5-5", "gcp/claude-haiku-5-5", "aws-us/claude-sonnet-4-5", "aws/claude-sonnet-4-6", "aws/claude-opus-5-5", "local/Qwen3-Next", "local/Qwen3-Next-non-thinking"}
 	if !slices.Equal(got, want) {
 		t.Errorf("Dedupe = %v\nwant       %v", got, want)
 	}
@@ -115,16 +119,18 @@ func TestResolve(t *testing.T) {
 		{Name: "aws/claude-opus-latest", Target: "bedrock/eu.anthropic.claude-opus-5-5"},
 		{Name: "aws/claude-opus-5-5", Target: "bedrock/eu.anthropic.claude-opus-5-5"},
 		{Name: "aws/claude-sonnet-4-5", Target: "bedrock/eu.anthropic.claude-sonnet-4-5-20250929-v1:0"},
+		{Name: "aws-us/claude-sonnet-4-5", Target: "bedrock/us.anthropic.claude-sonnet-4-5-20250929-v1:0"},
 		{Name: "gcp/claude-sonnet-4-5", Target: "vertex_ai/claude-sonnet-4-5@20250929"},
 	}
-	shown := []Model{all[1], all[3]}
+	shown := []Model{all[1], all[3], all[4]}
 	tests := []struct {
 		name string
 		want int
 	}{
 		{"aws/claude-opus-5-5", 0},
 		{"aws/claude-opus-latest", 0}, // alias
-		{"aws/claude-sonnet-4-5", 1},  // hidden duplicate
+		{"aws/claude-sonnet-4-5", 1},  // hidden duplicate at the same provider
+		{"gcp/claude-sonnet-4-5", 2},  // other provider, shown itself
 		{"does-not-exist", -1},
 	}
 	for _, tt := range tests {

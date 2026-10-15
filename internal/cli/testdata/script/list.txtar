@@ -23,6 +23,7 @@ stderr 'bench or price'
 -- list.golden --
 MODEL                          CONTEXT      $ IN     $ OUT
 aws/claude-opus-5-5                 1M      4.40     22.00
+aws/claude-sonnet-4-5             200k      3.30     16.50
 gcp/claude-sonnet-4-5             200k      3.00     15.00
 azure/gpt-6-sol                   922k      2.00     10.00
 mistral/mistral-large-4          1.05M      0.68      2.09

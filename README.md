@@ -55,8 +55,9 @@ that model.
 ## Details
 
 - **Benchmarks** from [Artificial Analysis](https://artificialanalysis.ai)
-  (Intelligence Index, Terminal-Bench, Coding Index); aliases and provider
-  duplicates are folded together. Nothing is hard-coded: the suggestions for
+  (Intelligence Index, Terminal-Bench, Coding Index); aliases are folded
+  together, the same model at several providers (e.g. aws/ and gcp/) stays
+  selectable. Nothing is hard-coded: the suggestions for
   Claude Code's opus/sonnet/haiku slots come from the gateway's model list.
 - **Safe config edits:** in pi and opencode only llmenu's own provider entry
   changes; comments and other providers stay, and a backup is kept.

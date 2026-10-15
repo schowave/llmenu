@@ -3,6 +3,7 @@ package catalog
 import (
 	"cmp"
 	"slices"
+	"strings"
 )
 
 // IsAlias reports whether the gateway forwards the name to another model,
@@ -11,28 +12,39 @@ func (m Model) IsAlias() bool {
 	return Key(m.Target, PickerStopwords) != Key(m.Name, PickerStopwords)
 }
 
+// group identifies a model for deduplication: the same model at the same
+// provider (the target's prefix, e.g. bedrock/ or vertex_ai/), with or without
+// thinking.
+type group struct {
+	provider   string
+	key        string
+	noThinking bool
+}
+
+func groupOf(m Model) group {
+	provider, _, _ := strings.Cut(m.Target, "/")
+	return group{provider, Key(m.Target, PickerStopwords), m.NoThinking}
+}
+
 // Dedupe hides aliases and keeps one of each set of duplicates (the same model
-// at several providers, e.g. aws/ and gcp/): the one with the largest context,
-// on a tie the cheapest. Variants without thinking stay separate entries.
-// The input order is preserved.
+// at the same provider, e.g. several regions or deployments): the one with the
+// largest context, on a tie the cheapest. The same model at different
+// providers (e.g. aws/ and gcp/) and variants without thinking stay separate
+// entries. The input order is preserved.
 func Dedupe(models []Model) []Model {
-	type group struct {
-		key        string
-		noThinking bool
-	}
 	best := map[group]int{}
 	for i, m := range models {
 		if m.IsAlias() {
 			continue
 		}
-		g := group{Key(m.Target, PickerStopwords), m.NoThinking}
+		g := groupOf(m)
 		if j, ok := best[g]; !ok || preferred(m, models[j]) {
 			best[g] = i
 		}
 	}
 	var out []Model
 	for i, m := range models {
-		if j, ok := best[group{Key(m.Target, PickerStopwords), m.NoThinking}]; ok && j == i {
+		if j, ok := best[groupOf(m)]; ok && j == i {
 			out = append(out, m)
 		}
 	}
@@ -70,10 +82,8 @@ func Resolve(all, shown []Model, name string) int {
 	if j < 0 {
 		return -1
 	}
-	key, nt := Key(all[j].Target, PickerStopwords), all[j].NoThinking
-	return slices.IndexFunc(shown, func(m Model) bool {
-		return m.NoThinking == nt && Key(m.Target, PickerStopwords) == key
-	})
+	g := groupOf(all[j])
+	return slices.IndexFunc(shown, func(m Model) bool { return groupOf(m) == g })
 }
 
 // Score returns the value of a benchmark (intel, tb4, code), otherwise nil.

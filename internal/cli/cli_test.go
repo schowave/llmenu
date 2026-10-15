@@ -18,8 +18,8 @@ import (
 	"github.com/schowave/llmenu/internal/targets"
 )
 
-// gatewayModels mirrors the shapes of a real gateway: an alias, a provider
-// duplicate, a non-Claude model and a variant without thinking.
+// gatewayModels mirrors the shapes of a real gateway: an alias, the same
+// model at two providers, a non-Claude model and a variant without thinking.
 var gatewayModels = []catalog.Model{
 	{Name: "aws/claude-opus-latest", Target: "bedrock/eu.anthropic.claude-opus-5-5", ContextTokens: 1_000_000, OutputPrice: 22},
 	{Name: "aws/claude-opus-5-5", Target: "bedrock/eu.anthropic.claude-opus-5-5", ContextTokens: 1_000_000, OutputPrice: 22},
@@ -74,15 +74,15 @@ func TestChooseModelInteractive(t *testing.T) {
 		t.Fatalf("chooseModel = %v, %v", got, err)
 	}
 
-	// Aliases and duplicates are hidden, most expensive first.
-	if want := []string{"aws/claude-opus-5-5", "gcp/claude-sonnet-4-5", "azure/gpt-6-sol"}; !slices.Equal(names(p.shown), want) {
+	// Aliases are hidden, the same model at another provider is not; most expensive first.
+	if want := []string{"aws/claude-opus-5-5", "aws/claude-sonnet-4-5", "gcp/claude-sonnet-4-5", "azure/gpt-6-sol"}; !slices.Equal(names(p.shown), want) {
 		t.Errorf("shown %v, want %v", names(p.shown), want)
 	}
 	// The cursor starts on the default, resolved from the alias.
 	if p.options.Preselect != 0 {
 		t.Errorf("preselect %d, want 0 (opus)", p.options.Preselect)
 	}
-	if p.options.Hint(p.shown[2]) != "not Claude" || p.options.Hint(p.shown[0]) != "" {
+	if p.options.Hint(p.shown[3]) != "not Claude" || p.options.Hint(p.shown[0]) != "" {
 		t.Error("hints not passed to the menu")
 	}
 	// Without benchmarks the preview has no note; the menu footer suggests llmenu bench.
