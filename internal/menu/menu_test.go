@@ -28,6 +28,7 @@ func TestDetails(t *testing.T) {
 		OutputPrice:     25,
 		CacheReadPrice:  0.5,
 		CacheWritePrice: 6.25,
+		Tiers:           []catalog.Tier{{AboveTokens: 200_000, InputPrice: 10, OutputPrice: 37.5}},
 		Bench:           &catalog.Bench{Slug: "claude-opus-5-5", Intelligence: f(57.6), TerminalBench: f(59.6)},
 	}
 	got := Details(m, "slot mismatch")
@@ -35,7 +36,7 @@ func TestDetails(t *testing.T) {
 		"aws/claude-opus-5-5\n→ bedrock/eu.anthropic.claude-opus-5-5\n\nNote: slot mismatch\n",
 		"Context  1M · output 128k\n",
 		"Vision yes · reasoning yes\n",
-		"$ per 1M tokens\n  in 5.00 · out 25.00\n  cache read 0.50 · write 6.25\n",
+		"$ per 1M tokens\n  in 5.00 · out 25.00\n  cache read 0.50 · write 6.25\n  prompt > 200k: in 10.00 · out 37.50\n",
 		"Endpoints  /v1/messages, /v1/responses\n",
 		"Benchmarks (claude-opus-5-5)\n",
 		"  Intelligence    57.6\n",
@@ -52,7 +53,7 @@ func TestDetails(t *testing.T) {
 	// Without thinking, reasoning is off; no hint, endpoints or benchmarks.
 	m = catalog.Model{Name: "local/qwen3-next", Reasoning: true, NoThinking: true}
 	got = Details(m, "")
-	for _, unwanted := range []string{"Note:", "Endpoints", "Benchmarks", "→"} {
+	for _, unwanted := range []string{"Note:", "Endpoints", "Benchmarks", "→", "prompt >"} {
 		if strings.Contains(got, unwanted) {
 			t.Errorf("Details shows %q:\n%s", unwanted, got)
 		}

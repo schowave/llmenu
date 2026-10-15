@@ -17,8 +17,18 @@ type Model struct {
 	OutputPrice     float64 `json:"output_price"`
 	CacheReadPrice  float64 `json:"cache_read_price"`
 	CacheWritePrice float64 `json:"cache_write_price"`
+	Tiers           []Tier  `json:"tiers,omitempty"` // higher prices for long prompts, by ascending threshold
 
 	Bench *Bench `json:"bench,omitempty"` // nil until `llmenu bench` has run or if there is no match
+}
+
+// Tier is a price level for long prompts: once a prompt has more than
+// AboveTokens tokens, the whole request costs these prices (dollars per
+// million tokens).
+type Tier struct {
+	AboveTokens int     `json:"above_tokens"`
+	InputPrice  float64 `json:"input_price"`
+	OutputPrice float64 `json:"output_price"`
 }
 
 // Bench holds the matched values from Artificial Analysis. Missing values are nil.

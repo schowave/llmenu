@@ -62,6 +62,18 @@ func TestModels(t *testing.T) {
 	if !sonnet.Vision || !sonnet.Reasoning || sonnet.ContextTokens != 200_000 || sonnet.MaxOutputTokens != 64_000 {
 		t.Errorf("capabilities or limits wrong: %+v", sonnet)
 	}
+	if len(sonnet.Tiers) != 0 {
+		t.Errorf("tiers without tier prices: %+v", sonnet.Tiers)
+	}
+	// Vertex AI on the global endpoint: no uplift (see TestDeploymentPrices);
+	// the _priority level does not apply to ordinary requests.
+	gcp := byName["gcp/claude-sonnet-4-5"]
+	if gcp.InputPrice != 3 || gcp.OutputPrice != 15 || gcp.CacheReadPrice != 0.3 {
+		t.Errorf("uplift applied on the global endpoint: %+v", gcp)
+	}
+	if want := []catalog.Tier{{AboveTokens: 200_000, InputPrice: 6, OutputPrice: 22.5}}; !slices.Equal(gcp.Tiers, want) {
+		t.Errorf("Tiers = %+v, want %+v", gcp.Tiers, want)
+	}
 	if got := byName["mistral/mistral-large-4"].MaxOutputTokens; got != defaultMaxOutputTokens {
 		t.Errorf("missing max_output_tokens = %d, want default %d", got, defaultMaxOutputTokens)
 	}
@@ -119,6 +131,43 @@ func TestDeploymentModel(t *testing.T) {
 			m := d.model()
 			if m.Target != tt.wantTarget || m.ContextTokens != tt.wantCtx {
 				t.Errorf("Target, ContextTokens = %q, %d, want %q, %d", m.Target, m.ContextTokens, tt.wantTarget, tt.wantCtx)
+			}
+		})
+	}
+}
+
+func TestDeploymentPrices(t *testing.T) {
+	const info = `"input_cost_per_token":2e-6,"output_cost_per_token":1e-5,"regional_endpoint_uplift_multiplier":1.1`
+	tests := []struct {
+		name      string
+		json      string
+		wantIn    float64
+		wantTiers []catalog.Tier
+	}{
+		{"regional endpoint", `{"litellm_params":{"vertex_location":"eu"},"model_info":{` + info + `}}`, 2.2, nil},
+		{"global endpoint", `{"litellm_params":{"vertex_location":"Global"},"model_info":{` + info + `}}`, 2, nil},
+		{"no location", `{"model_info":{` + info + `}}`, 2, nil},
+		{"no multiplier", `{"litellm_params":{"vertex_location":"eu"},"model_info":{"input_cost_per_token":2e-6}}`, 2, nil},
+		{
+			"tiers sorted, missing price from base",
+			`{"model_info":{"input_cost_per_token":1e-6,"output_cost_per_token":5e-6,` +
+				`"input_cost_per_token_above_272k_tokens":2e-6,"output_cost_per_token_above_272k_tokens":7.5e-6,` +
+				`"input_cost_per_token_above_128000_tokens":1.5e-6,` +
+				`"output_cost_per_token_above_272k_tokens_flex":1e-6,"input_cost_per_token_above_1m_tokens":9e-6,` +
+				`"cache_read_input_token_cost_above_272k_tokens":2e-7,"output_cost_per_token_above_200k_tokens":null}}`,
+			1,
+			[]catalog.Tier{{AboveTokens: 128_000, InputPrice: 1.5, OutputPrice: 5}, {AboveTokens: 272_000, InputPrice: 2, OutputPrice: 7.5}},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var d deployment
+			if err := json.Unmarshal([]byte(tt.json), &d); err != nil {
+				t.Fatal(err)
+			}
+			m := d.model()
+			if m.InputPrice != tt.wantIn || !slices.Equal(m.Tiers, tt.wantTiers) {
+				t.Errorf("InputPrice, Tiers = %v, %+v; want %v, %+v", m.InputPrice, m.Tiers, tt.wantIn, tt.wantTiers)
 			}
 		})
 	}

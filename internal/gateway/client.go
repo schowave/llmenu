@@ -6,9 +6,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"math"
 	"net/http"
 	"net/url"
+	"regexp"
+	"slices"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/schowave/llmenu/internal/catalog"
@@ -60,8 +65,9 @@ func (c Client) Models(ctx context.Context) ([]catalog.Model, error) {
 type deployment struct {
 	ModelName string `json:"model_name"`
 	Params    struct {
-		Model     string `json:"model"`
-		ExtraBody struct {
+		Model          string `json:"model"`
+		VertexLocation string `json:"vertex_location"`
+		ExtraBody      struct {
 			ChatTemplateKwargs struct {
 				EnableThinking *bool `json:"enable_thinking"`
 			} `json:"chat_template_kwargs"`
@@ -78,7 +84,39 @@ type deployment struct {
 		OutputCost         *float64 `json:"output_cost_per_token"`
 		CacheReadCost      *float64 `json:"cache_read_input_token_cost"`
 		CacheWriteCost     *float64 `json:"cache_creation_input_token_cost"`
+		VertexUplift       *float64 `json:"regional_endpoint_uplift_multiplier"`
 	} `json:"model_info"`
+	// tierCosts are model_info's input_/output_cost_per_token_above_<n>_tokens
+	// entries, keyed by the field name.
+	tierCosts map[string]float64
+}
+
+// reTierCost matches the standard price levels for long prompts, e.g.
+// input_cost_per_token_above_272k_tokens; variants for service tiers such as
+// _priority or _batches do not apply to ordinary requests.
+var reTierCost = regexp.MustCompile(`^(input|output)_cost_per_token_above_([0-9]+)(k?)_tokens$`)
+
+func (d *deployment) UnmarshalJSON(b []byte) error {
+	type plain deployment
+	if err := json.Unmarshal(b, (*plain)(d)); err != nil {
+		return err
+	}
+	var raw struct {
+		Info map[string]json.RawMessage `json:"model_info"`
+	}
+	if err := json.Unmarshal(b, &raw); err != nil {
+		return err
+	}
+	for k, v := range raw.Info {
+		var cost float64
+		if reTierCost.MatchString(k) && json.Unmarshal(v, &cost) == nil && cost > 0 {
+			if d.tierCosts == nil {
+				d.tierCosts = map[string]float64{}
+			}
+			d.tierCosts[k] = cost
+		}
+	}
+	return nil
 }
 
 func (d deployment) model() catalog.Model {
@@ -91,6 +129,13 @@ func (d deployment) model() catalog.Model {
 	if maxOut == 0 {
 		maxOut = defaultMaxOutputTokens
 	}
+	uplift := d.uplift()
+	price := func(v *float64) float64 {
+		if v == nil {
+			return 0
+		}
+		return perMillion(*v * uplift)
+	}
 	return catalog.Model{
 		Name:            d.ModelName,
 		Target:          target,
@@ -100,11 +145,61 @@ func (d deployment) model() catalog.Model {
 		Vision:          d.Info.SupportsVision != nil && *d.Info.SupportsVision,
 		Reasoning:       d.Info.SupportsReasoning != nil && *d.Info.SupportsReasoning,
 		Endpoints:       d.Info.SupportedEndpoints,
-		InputPrice:      perMillion(d.Info.InputCost),
-		OutputPrice:     perMillion(d.Info.OutputCost),
-		CacheReadPrice:  perMillion(d.Info.CacheReadCost),
-		CacheWritePrice: perMillion(d.Info.CacheWriteCost),
+		InputPrice:      price(d.Info.InputCost),
+		OutputPrice:     price(d.Info.OutputCost),
+		CacheReadPrice:  price(d.Info.CacheReadCost),
+		CacheWritePrice: price(d.Info.CacheWriteCost),
+		Tiers:           d.tiers(uplift),
 	}
+}
+
+// uplift is the factor LiteLLM bills on top of model_info's prices: Vertex AI
+// charges more on regional endpoints than on the global one.
+func (d deployment) uplift() float64 {
+	loc := d.Params.VertexLocation
+	if loc == "" || strings.EqualFold(loc, "global") || d.Info.VertexUplift == nil || *d.Info.VertexUplift <= 0 {
+		return 1
+	}
+	return *d.Info.VertexUplift
+}
+
+// tiers are the price levels for long prompts, by ascending threshold. A
+// level without its own input or output price keeps the base price, as
+// LiteLLM bills it.
+func (d deployment) tiers(uplift float64) []catalog.Tier {
+	byAbove := map[int]*catalog.Tier{}
+	for k, cost := range d.tierCosts {
+		m := reTierCost.FindStringSubmatch(k)
+		above, err := strconv.Atoi(m[2])
+		if err != nil {
+			continue
+		}
+		if m[3] == "k" {
+			above *= 1000
+		}
+		t := byAbove[above]
+		if t == nil {
+			t = &catalog.Tier{AboveTokens: above}
+			byAbove[above] = t
+		}
+		if m[1] == "input" {
+			t.InputPrice = perMillion(cost * uplift)
+		} else {
+			t.OutputPrice = perMillion(cost * uplift)
+		}
+	}
+	var tiers []catalog.Tier
+	for _, above := range slices.Sorted(maps.Keys(byAbove)) {
+		t := *byAbove[above]
+		if t.InputPrice == 0 && d.Info.InputCost != nil {
+			t.InputPrice = perMillion(*d.Info.InputCost * uplift)
+		}
+		if t.OutputPrice == 0 && d.Info.OutputCost != nil {
+			t.OutputPrice = perMillion(*d.Info.OutputCost * uplift)
+		}
+		tiers = append(tiers, t)
+	}
+	return tiers
 }
 
 // tokens discards nonsensical values; LiteLLM occasionally puts prices in the token field.
@@ -117,11 +212,8 @@ func tokens(v *float64) int {
 
 // perMillion converts dollars per token to dollars per million tokens,
 // rounded to six decimal places against floating-point noise.
-func perMillion(v *float64) float64 {
-	if v == nil {
-		return 0
-	}
-	return math.Round(*v*1e12) / 1e6
+func perMillion(v float64) float64 {
+	return math.Round(v*1e12) / 1e6
 }
 
 // Budget is what the gateway has booked against the limit that binds a key.
