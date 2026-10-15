@@ -15,7 +15,7 @@
 
 ---
 
-**llmenu** is for teams that reach their models through a
+**llmenu** (pronounced *L-L-menu*) is for teams that reach their models through a
 [LiteLLM](https://github.com/BerriAI/litellm) gateway: dozens of models from
 several providers, aliases like `claude-opus-latest`, different prices and
 context sizes — and a coding tool that wants all of that configured in its own
