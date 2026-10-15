@@ -327,6 +327,29 @@ func TestPickerProjectAndSpend(t *testing.T) {
 	}
 }
 
+// TestPickerSpendLater: the budget arrives after the menu is drawn; an
+// empty answer keeps what is shown.
+func TestPickerSpendLater(t *testing.T) {
+	if cmd := newTestPicker(Options{}).Init(); cmd != nil {
+		t.Error("Init without SpendLater returns a command")
+	}
+	answer := "$2.00 spent"
+	p := newTestPicker(Options{Spend: "$1.00 spent", SpendLater: func() string { return answer }})
+	cmd := p.Init()
+	if line := plain(p)[0]; !strings.Contains(line, "$1.00 spent") {
+		t.Errorf("before the answer: %q", line)
+	}
+	p.Update(cmd())
+	if line := plain(p)[0]; !strings.Contains(line, "$2.00 spent · 4/4") {
+		t.Errorf("after the answer: %q", line)
+	}
+	answer = ""
+	p.Update(p.Init()())
+	if line := plain(p)[0]; !strings.Contains(line, "$2.00 spent · 4/4") {
+		t.Errorf("empty answer replaced the budget: %q", line)
+	}
+}
+
 // TestPickerSpendShortens: a budget too long for the space beside the
 // search loses details from the end rather than running into the search.
 func TestPickerSpendShortens(t *testing.T) {

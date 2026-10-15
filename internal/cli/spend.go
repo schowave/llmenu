@@ -21,9 +21,10 @@ import (
 const (
 	spendFresh = time.Minute
 	spendStale = time.Hour
-	// menuSpendWait bounds how long the menu waits for the budget; it is
-	// asked while the benchmarks refresh, so it rarely waits at all.
-	menuSpendWait = 2 * time.Second
+	// menuSpendWait bounds the budget request for the menu. The menu opens
+	// without waiting and shows the budget when it arrives (/user/info can
+	// take over a second on large teams).
+	menuSpendWait = 10 * time.Second
 	// listSpendWait bounds llmenu project list, which asks for all keys at once.
 	listSpendWait = 5 * time.Second
 )
@@ -68,14 +69,6 @@ func startBudget(ctx context.Context, env targets.Env) func() string {
 		close(ch)
 	}()
 	return func() string { return <-ch }
-}
-
-// spend calls f if there is one.
-func spend(f func() string) string {
-	if f == nil {
-		return ""
-	}
-	return f()
 }
 
 // budget returns the key's budget from the cache or, if that is older than

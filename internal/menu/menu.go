@@ -27,6 +27,9 @@ type Options struct {
 	Metric    string                     // benchmark the models are sorted by (bench.metric)
 	Project   string                     // active project, shown above the table; empty: the main key
 	Spend     string                     // the key's spend and budget, shown next to the project; empty: unknown
+	// SpendLater, if set, delivers Spend while the menu is already open, so
+	// a slow gateway does not delay it. It may block; "" leaves Spend as is.
+	SpendLater func() string
 }
 
 // Pick lets the user choose a model and returns its index. The menu runs in

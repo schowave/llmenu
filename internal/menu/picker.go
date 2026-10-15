@@ -145,9 +145,23 @@ func (p *picker) resort() {
 	p.refilter()
 }
 
-func (p *picker) Init() tea.Cmd { return nil }
+// spendMsg carries the budget from Options.SpendLater.
+type spendMsg string
+
+func (p *picker) Init() tea.Cmd {
+	if f := p.opt.SpendLater; f != nil {
+		return func() tea.Msg { return spendMsg(f()) }
+	}
+	return nil
+}
 
 func (p *picker) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	if s, ok := msg.(spendMsg); ok {
+		if s != "" {
+			p.opt.Spend = string(s)
+		}
+		return p, nil
+	}
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		p.width, p.height = msg.Width, msg.Height
