@@ -122,10 +122,23 @@ compiled in for now.
 
 | Target | Capability | Implementation | Status |
 |---|---|---|---|
-| **Claude Code** | Launch | Environment variables as in `claude-api` today (base URL, token, Opus/Sonnet/Haiku mapping, flags), model via `--model`, suffix `[1m]` from 900k context | implemented |
+| **Claude Code** | Launch | Environment variables as in `claude-api` today (base URL, token, Opus/Sonnet/Haiku mapping, flags), model via `--model`, suffix `[1m]` from 900k context. All gateway models in `/model` via `--settings` with `modelPicker` (`claude.picker`, see below) | implemented |
 | **pi** | Sync | Provider `mygateway` in `~/.pi/agent/models.json` with context, max output, vision, reasoning and prices. Key via `!llmenu secrets get gateway`. pi already supports `!command`; today it contains `!~/credentials/creds …` | implemented |
 | **opencode** | Sync + Launch | Provider (name from `gateway.name`) in the global opencode configuration (`~/.config/opencode/opencode.json[c]`) via `@ai-sdk/openai-compatible`, models with `limit`, `cost`, `attachment`, `reasoning`. For the key, opencode only knows `{env:…}`/`{file:…}`, not a command; so it contains `{env:LLMENU_API_KEY}`, and `llmenu opencode` sets the variable at startup (without its own menu, opencode picks the model itself) | implemented; path on Windows still to be verified |
 | **Codex CLI** | Launch | Provider entirely via `-c` overrides at startup: `model_provider=<id>` and `model_providers.<id>={name, base_url=<gateway>/v1, env_key="LLMENU_API_KEY", wire_api="responses"}`. The model is passed as `-c model="<name>"` plus `model_context_window` and `model_max_output_tokens` instead of `-m`, so it also applies to subcommands such as `codex exec`. `~/.codex/config.toml` stays untouched. Optional `codex.default` in the configuration as the default model (required without a terminal unless `-m` is given) | implemented; spike succeeded, see below |
+
+**Claude Code's `/model`:** llmenu passes the gateway's models (without
+aliases and duplicates, sorted like the menu) as `modelPicker` in the
+session's `--settings`, with `replaceBuiltInOptions`; Claude models get
+`behavesAs` with their Anthropic model. Claude Code only reads the list in
+sessions llmenu starts. Picking with Enter, however, makes Claude Code itself
+save the model ID in `~/.claude/settings.json` (tested with 2.1.301); a plain
+`claude` on the subscription then fails on the first prompt with "There's an
+issue with the selected model … Run /model". The built-in slots do not have
+this problem: Claude Code saves the alias (`opus`) for them. We accept this
+instead of watching and reverting the file: the error is loud, says what to
+do and is fixed with one `/model`; a watcher would write to `~/.claude` and
+still leave gaps (crash, concurrent writes, symlinked settings).
 
 **Codex CLI spike result:** Codex speaks the Responses API
 (`/v1/responses`) and no longer supports Chat Completions. Before building

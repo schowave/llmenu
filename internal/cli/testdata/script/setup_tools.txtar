@@ -28,7 +28,7 @@ stdout '^  opencode '
 ! stdout '^  claude '
 ! stdout '^  codex '
 exec llmenu claude --model x
-stdout '^claude args: --model x$'
+stdout '^claude args: --settings @settings --model x$'
 
 # The claude section is skipped in a full setup when Claude Code is not used.
 expandenv full.txt

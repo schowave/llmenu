@@ -26,7 +26,8 @@ exec llmenu setup claude
 stderr '^Warning: azure/gpt-6-sol is not a Claude model; slot haiku runs e.g. subagents on it\.$'
 cmp config.toml want-other.toml
 exec llmenu claude
-stdout '^claude args: --settings \S+llmenu statusline\S+ --model gcp/claude-sonnet-4-5$'
+stdout '^claude args: --settings @settings --model gcp/claude-sonnet-4-5$'
+stdout '^settings statusLine: llmenu statusline$'
 stdout '^ANTHROPIC_DEFAULT_OPUS_MODEL=aws/claude-opus-5-5\[1m\]$'
 stdout '^ANTHROPIC_DEFAULT_HAIKU_MODEL=azure/gpt-6-sol\[1m\]$'
 stdout '^DISABLE_AUTO_COMPACTION=1$'

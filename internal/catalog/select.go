@@ -101,6 +101,15 @@ func (m Model) Score(metric string) *float64 {
 	}
 }
 
+// Sort sorts by the benchmark metric, or by price if no model has benchmarks.
+func Sort(models []Model, metric string) {
+	if slices.ContainsFunc(models, func(m Model) bool { return m.Bench != nil }) {
+		SortByBench(models, metric)
+		return
+	}
+	SortByPrice(models)
+}
+
 // SortByBench sorts by benchmark, best first; models without a value go last,
 // among themselves most expensive first like SortByPrice.
 func SortByBench(models []Model, metric string) {

@@ -133,9 +133,13 @@ stdout '^sk-test$'
 # claude.statusline puts llmenu's status line into the session only.
 exec llmenu config set claude.statusline true
 exec llmenu claude -p hi
-stdout '^claude args: --settings \{"statusLine":\{"type":"command","command":"llmenu statusline"\}\} --model '
+stdout '^claude args: --settings @settings --model '
+stdout '^settings statusLine: llmenu statusline$'
+# Own --settings win: Claude Code takes only one.
 exec llmenu claude --settings my.json -p hi
+stdout '^claude args: --model \S+ --settings my.json -p hi$'
 ! stdout 'llmenu statusline'
+! stdout 'modelPicker'
 stdin session.json
 env LLMENU_PROJECT=acme
 exec llmenu statusline

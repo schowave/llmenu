@@ -2,6 +2,7 @@ package targets
 
 import (
 	"context"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -74,7 +75,8 @@ func TestClaudeCommand(t *testing.T) {
 		{Name: "aws/claude-sonnet-latest", Target: "bedrock/eu.anthropic.claude-sonnet-4-6", ContextTokens: 1_000_000},
 		{Name: "edge", Target: "edge", ContextTokens: claude1MThreshold},
 	}
-	env := Env{BaseURL: "https://gateway.example/", APIKey: "secret", Config: &config.Config{}, Models: models}
+	off := false // the picker has its own test
+	env := Env{BaseURL: "https://gateway.example/", APIKey: "secret", Config: &config.Config{Claude: config.Claude{Picker: &off}}, Models: models}
 
 	tests := []struct {
 		name  string
@@ -103,6 +105,90 @@ func TestClaudeCommand(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestClaudeSettings(t *testing.T) {
+	tg, _ := Get("claude")
+	l := tg.(Launcher)
+	intel := 70.0
+	models := []catalog.Model{
+		{Name: "gcp/claude-sonnet-4-6", Target: "vertex_ai/claude-sonnet-4-6", ContextTokens: 200_000, InputPrice: 3, OutputPrice: 15,
+			Tiers: []catalog.Tier{{AboveTokens: 200_000, InputPrice: 6, OutputPrice: 22.5}}},
+		{Name: "aws/claude-opus-4-8", Target: "bedrock/eu.anthropic.claude-opus-4-8", ContextTokens: 1_000_000, InputPrice: 5, OutputPrice: 25,
+			Bench: &catalog.Bench{Intelligence: &intel}},
+		{Name: "aws/claude-opus-latest", Target: "bedrock/eu.anthropic.claude-opus-4-8", ContextTokens: 1_000_000, InputPrice: 5, OutputPrice: 25},
+		{Name: "azure/gpt-6-luna", Target: "azure/gpt-6-luna", ContextTokens: 922_000, NoPrice: true},
+		{Name: "local/qwen", Target: "hosted_vllm/qwen", ContextTokens: 128_000},
+	}
+	type option struct{ Model, Label, Description, BehavesAs string }
+	type settings struct {
+		StatusLine  *struct{ Command string }
+		ModelPicker *struct {
+			ReplaceBuiltInOptions bool
+			Options               []option
+		}
+	}
+	parse := func(t *testing.T, cfg config.Claude, args ...string) (*settings, []string) {
+		t.Helper()
+		env := Env{Config: &config.Config{Claude: cfg}, Models: models}
+		cmd, err := l.Command(context.Background(), nil, args, env)
+		if err != nil {
+			t.Fatal(err)
+		}
+		i := slices.Index(cmd.Args, "--settings")
+		if i < 0 {
+			return nil, cmd.Args
+		}
+		var s settings
+		if err := json.Unmarshal([]byte(cmd.Args[i+1]), &s); err != nil {
+			return nil, cmd.Args
+		}
+		return &s, cmd.Args
+	}
+
+	t.Run("picker by default", func(t *testing.T) {
+		s, args := parse(t, config.Claude{})
+		if s == nil || s.ModelPicker == nil {
+			t.Fatalf("no model picker: %q", args)
+		}
+		if s.StatusLine != nil {
+			t.Errorf("status line without claude.statusline")
+		}
+		if !s.ModelPicker.ReplaceBuiltInOptions {
+			t.Errorf("built-in options are kept")
+		}
+		want := []option{ // benchmark first, then most expensive; no alias
+			{"aws/claude-opus-4-8[1m]", "aws/claude-opus-4-8", "1M · $5.00 in / $25.00 out · intelligence 70.0", "claude-opus-4-8"},
+			{"gcp/claude-sonnet-4-6", "gcp/claude-sonnet-4-6", "200k · $3.00 in / $15.00 out, more above 200k", "claude-sonnet-4-6"},
+			{"azure/gpt-6-luna[1m]", "azure/gpt-6-luna", "922k · price unknown", ""},
+			{"local/qwen", "local/qwen", "128k · free", ""},
+		}
+		if !slices.Equal(s.ModelPicker.Options, want) {
+			t.Errorf("options =\n%q\nwant\n%q", s.ModelPicker.Options, want)
+		}
+	})
+	t.Run("with status line", func(t *testing.T) {
+		s, args := parse(t, config.Claude{StatusLine: true})
+		if s == nil || s.StatusLine == nil || s.StatusLine.Command != "llmenu statusline" || s.ModelPicker == nil {
+			t.Errorf("want status line and picker in one --settings: %q", args)
+		}
+	})
+	t.Run("picker off", func(t *testing.T) {
+		off := false
+		if _, args := parse(t, config.Claude{Picker: &off}); slices.Contains(args, "--settings") {
+			t.Errorf("--settings without picker and status line: %q", args)
+		}
+		s, _ := parse(t, config.Claude{Picker: &off, StatusLine: true})
+		if s == nil || s.ModelPicker != nil || s.StatusLine == nil {
+			t.Errorf("want only the status line: %+v", s)
+		}
+	})
+	t.Run("own settings win", func(t *testing.T) {
+		_, args := parse(t, config.Claude{StatusLine: true}, "--settings", "my.json")
+		if want := []string{"claude", "--settings", "my.json"}; !slices.Equal(args, want) {
+			t.Errorf("Args = %q, want %q", args, want)
+		}
+	})
 }
 
 func TestClaudeEnv(t *testing.T) {

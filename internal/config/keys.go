@@ -100,6 +100,29 @@ var Keys = []Key{
 			return nil
 		},
 	},
+	{
+		Name: "claude.picker",
+		Help: "list all gateway models in Claude Code's /model in sessions llmenu starts (true|false)",
+		get: func(c *Config) (string, bool) {
+			if c.Claude.Picker == nil {
+				return "", false
+			}
+			return strconv.FormatBool(*c.Claude.Picker), true
+		},
+		def: func(*Config) string { return "true" },
+		put: func(c *Config, v string) error {
+			if v == "" {
+				c.Claude.Picker = nil
+				return nil
+			}
+			b, err := strconv.ParseBool(v)
+			if err != nil {
+				return fmt.Errorf("expected true or false, not %q", v)
+			}
+			c.Claude.Picker = &b
+			return nil
+		},
+	},
 	str("codex.default", "default model for Codex (required without a terminal if no -m is given)",
 		func(c *Config) *string { return &c.Codex.Default }, nil),
 	{

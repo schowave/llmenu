@@ -125,6 +125,7 @@ type Claude struct {
 	Haiku       string            `toml:"haiku,omitempty"`
 	AutoCompact *bool             `toml:"auto_compact,omitempty"`
 	StatusLine  bool              `toml:"statusline,omitempty"` // adds project and spend to the session's status line
+	Picker      *bool             `toml:"picker,omitempty"`     // all gateway models in /model; nil: on
 	Env         map[string]string `toml:"env,omitempty"`        // nil: DefaultClaudeEnv
 }
 
@@ -207,6 +208,9 @@ func (c Claude) DefaultOrOpus() string {
 
 // AutoCompactEnabled is true if unset, as in Claude Code itself.
 func (c Claude) AutoCompactEnabled() bool { return c.AutoCompact == nil || *c.AutoCompact }
+
+// PickerEnabled is true if unset.
+func (c Claude) PickerEnabled() bool { return c.Picker == nil || *c.Picker }
 
 // EnvOrDefault returns the additional variables for Claude Code.
 func (c Claude) EnvOrDefault() map[string]string {
