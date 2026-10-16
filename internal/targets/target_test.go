@@ -75,8 +75,8 @@ func TestClaudeCommand(t *testing.T) {
 		{Name: "aws/claude-sonnet-latest", Target: "bedrock/eu.anthropic.claude-sonnet-4-6", ContextTokens: 1_000_000},
 		{Name: "edge", Target: "edge", ContextTokens: claude1MThreshold},
 	}
-	off := false // the picker has its own test
-	env := Env{BaseURL: "https://gateway.example/", APIKey: "secret", Config: &config.Config{Claude: config.Claude{Picker: &off}}, Models: models}
+	off := false // the settings have their own test
+	env := Env{BaseURL: "https://gateway.example/", APIKey: "secret", Config: &config.Config{Claude: config.Claude{Picker: &off, StatusLine: &off}}, Models: models}
 
 	tests := []struct {
 		name  string
@@ -153,13 +153,14 @@ func TestClaudeSettings(t *testing.T) {
 		return &s, cmd.Args
 	}
 
-	t.Run("picker by default", func(t *testing.T) {
+	off := false
+	t.Run("picker and status line by default", func(t *testing.T) {
 		s, args := parse(t, config.Claude{})
 		if s == nil || s.ModelPicker == nil {
 			t.Fatalf("no model picker: %q", args)
 		}
-		if s.StatusLine != nil {
-			t.Errorf("status line without claude.statusline")
+		if s.StatusLine == nil || s.StatusLine.Command != "llmenu statusline" {
+			t.Errorf("no status line: %q", args)
 		}
 		if !s.ModelPicker.ReplaceBuiltInOptions {
 			t.Errorf("built-in options are kept")
@@ -179,24 +180,23 @@ func TestClaudeSettings(t *testing.T) {
 			t.Errorf("options =\n%q\nwant\n%q", s.ModelPicker.Options, want)
 		}
 	})
-	t.Run("with status line", func(t *testing.T) {
-		s, args := parse(t, config.Claude{StatusLine: true})
-		if s == nil || s.StatusLine == nil || s.StatusLine.Command != "llmenu statusline" || s.ModelPicker == nil {
-			t.Errorf("want status line and picker in one --settings: %q", args)
+	t.Run("status line off", func(t *testing.T) {
+		s, args := parse(t, config.Claude{StatusLine: &off})
+		if s == nil || s.StatusLine != nil || s.ModelPicker == nil {
+			t.Errorf("want only the picker: %q", args)
 		}
 	})
 	t.Run("picker off", func(t *testing.T) {
-		off := false
-		if _, args := parse(t, config.Claude{Picker: &off}); slices.Contains(args, "--settings") {
-			t.Errorf("--settings without picker and status line: %q", args)
-		}
-		s, _ := parse(t, config.Claude{Picker: &off, StatusLine: true})
+		s, _ := parse(t, config.Claude{Picker: &off})
 		if s == nil || s.ModelPicker != nil || s.StatusLine == nil {
 			t.Errorf("want only the status line: %+v", s)
 		}
+		if _, args := parse(t, config.Claude{Picker: &off, StatusLine: &off}); slices.Contains(args, "--settings") {
+			t.Errorf("--settings without picker and status line: %q", args)
+		}
 	})
 	t.Run("own settings win", func(t *testing.T) {
-		_, args := parse(t, config.Claude{StatusLine: true}, "--settings", "my.json")
+		_, args := parse(t, config.Claude{}, "--settings", "my.json")
 		if want := []string{"claude", "--settings", "my.json"}; !slices.Equal(args, want) {
 			t.Errorf("Args = %q, want %q", args, want)
 		}

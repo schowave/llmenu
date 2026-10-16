@@ -66,7 +66,7 @@ committed.
   `LLMENU_PROJECT` (also `none`), so a status line inside them shows the
   session's project rather than one switched to later.
   `llmenu project current` serves status lines and prompts without keyring
-  or network. Opt-in `claude.statusline` passes llmenu's status line to
+  or network. `claude.statusline` (on by default) passes llmenu's status line to
   Claude Code via `--settings`, for the session only. It runs the user's
   own status line (project, then user settings) with the same session JSON
   and appends the project and the key's spend from LiteLLM's `/key/info`,

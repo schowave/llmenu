@@ -59,26 +59,8 @@ var Keys = []Key{
 		func(c *Config) *string { return &c.Claude.Haiku }, nil),
 	optBool("claude.auto_compact", "automatic compaction in Claude Code (true|false)",
 		func(c *Config) **bool { return &c.Claude.AutoCompact }, "true"),
-	{
-		Name: "claude.statusline",
-		Help: "add project and spend to Claude Code's status line in sessions llmenu starts; your own status line stays (true|false)",
-		get: func(c *Config) (string, bool) {
-			return strconv.FormatBool(c.Claude.StatusLine), c.Claude.StatusLine
-		},
-		def: func(*Config) string { return "false" },
-		put: func(c *Config, v string) error {
-			if v == "" {
-				c.Claude.StatusLine = false
-				return nil
-			}
-			b, err := strconv.ParseBool(v)
-			if err != nil {
-				return fmt.Errorf("expected true or false, not %q", v)
-			}
-			c.Claude.StatusLine = b
-			return nil
-		},
-	},
+	optBool("claude.statusline", "add project and spend to Claude Code's status line in sessions llmenu starts; your own status line stays (true|false)",
+		func(c *Config) **bool { return &c.Claude.StatusLine }, "true"),
 	optBool("claude.picker", "list all gateway models in Claude Code's /model in sessions llmenu starts (true|false)",
 		func(c *Config) **bool { return &c.Claude.Picker }, "true"),
 	str("codex.default", "default model for Codex (required without a terminal if no -m is given)",
