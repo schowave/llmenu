@@ -15,6 +15,7 @@ import (
 type Options struct {
 	ShowAliasTarget bool                       // show aliases as "name -> target"
 	Mark            func(catalog.Model) string // optional one-character mark before the name
+	Code            bool                       // show the Coding Index column, e.g. when sorting by it
 }
 
 // Format returns the header and one row per model with equal-width columns.
@@ -35,16 +36,21 @@ func Format(models []catalog.Model, opt Options) (header string, rows []string) 
 		width = max(width, utf8.RuneCountInString(labels[i]))
 		withBench = withBench || m.Bench != nil
 	}
+	// Without benchmark columns a line ends in the tier mark's place.
+	trim := func(s string) string { return strings.TrimRight(s, " ") }
 
 	var b strings.Builder
 	if withMark {
 		b.WriteString("  ")
 	}
-	fmt.Fprintf(&b, "%-*s %8s %9s %9s", width, "MODEL", "CONTEXT", "$ IN", "$ OUT")
+	fmt.Fprintf(&b, "%-*s %8s %9s %8s ", width, "MODEL", "CONTEXT", "$ IN", "$ OUT")
 	if withBench {
-		fmt.Fprintf(&b, " %6s %6s %6s", "INTEL", "TB4", "CODE")
+		fmt.Fprintf(&b, " %6s %6s", "INTEL", "TB4")
+		if opt.Code {
+			fmt.Fprintf(&b, " %6s", "CODE")
+		}
 	}
-	header = b.String()
+	header = trim(b.String())
 
 	rows = make([]string, len(models))
 	for i, m := range models {
@@ -52,17 +58,42 @@ func Format(models []catalog.Model, opt Options) (header string, rows []string) 
 		if withMark {
 			fmt.Fprintf(&b, "%-1s ", marks[i])
 		}
-		fmt.Fprintf(&b, "%-*s %8s %9.2f %9.2f", width, labels[i], Tokens(m.ContextTokens), m.InputPrice, m.OutputPrice)
+		fmt.Fprintf(&b, "%-*s %8s %9s %8s%s", width, labels[i], Tokens(m.ContextTokens),
+			Price(m, m.InputPrice), Price(m, m.OutputPrice), TierMark(m))
 		if withBench {
 			var bench catalog.Bench
 			if m.Bench != nil {
 				bench = *m.Bench
 			}
-			fmt.Fprintf(&b, " %6s %6s %6s", score(bench.Intelligence), score(bench.TerminalBench), score(bench.Coding))
+			fmt.Fprintf(&b, " %6s %6s", score(bench.Intelligence), score(bench.TerminalBench))
+			if opt.Code {
+				fmt.Fprintf(&b, " %6s", score(bench.Coding))
+			}
 		}
-		rows[i] = b.String()
+		rows[i] = trim(b.String())
 	}
 	return header, rows
+}
+
+// Price formats a price per million tokens: "-" if the gateway names none,
+// "free" for a price of 0.
+func Price(m catalog.Model, v float64) string {
+	switch {
+	case m.NoPrice:
+		return "-"
+	case v == 0:
+		return "free"
+	}
+	return fmt.Sprintf("%.2f", v)
+}
+
+// TierMark is "*" for a model that costs more for long prompts (see the
+// preview), otherwise " ", so prices stay aligned.
+func TierMark(m catalog.Model) string {
+	if len(m.Tiers) > 0 {
+		return "*"
+	}
+	return " "
 }
 
 func score(v *float64) string {

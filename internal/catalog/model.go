@@ -17,7 +17,8 @@ type Model struct {
 	OutputPrice     float64 `json:"output_price"`
 	CacheReadPrice  float64 `json:"cache_read_price"`
 	CacheWritePrice float64 `json:"cache_write_price"`
-	Tiers           []Tier  `json:"tiers,omitempty"` // higher prices for long prompts, by ascending threshold
+	NoPrice         bool    `json:"no_price,omitempty"` // the gateway names no input or output price; 0 then means unknown, not free
+	Tiers           []Tier  `json:"tiers,omitempty"`    // higher prices for long prompts, by ascending threshold
 
 	Bench *Bench `json:"bench,omitempty"` // nil until `llmenu bench` has run or if there is no match
 }

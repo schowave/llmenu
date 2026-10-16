@@ -57,10 +57,14 @@ func TestPickerLayout(t *testing.T) {
 	if !strings.HasPrefix(lines[0], "Search: ") || !strings.Contains(lines[0], "4/4") {
 		t.Errorf("search line: %q", lines[0])
 	}
-	for _, col := range []string{"MODEL", "CONTEXT", "$IN/1M", "$OUT/1M", "▼INTEL", "TB4 %", "CODE"} {
+	for _, col := range []string{"MODEL", "CONTEXT", "$IN/1M", "$OUT/1M", "▼INTEL", "TB4 %"} {
 		if !strings.Contains(lines[1], col) {
 			t.Errorf("header %q lacks %q", lines[1], col)
 		}
+	}
+	// The Coding Index only gets a column while sorting by it.
+	if strings.Contains(lines[1], "CODE") {
+		t.Errorf("header %q shows CODE without sorting by it", lines[1])
 	}
 	if !strings.Contains(lines[2], "▶ ") || !strings.Contains(lines[2], "aws/claude-opus-5-5") || !strings.Contains(lines[2], "1M") {
 		t.Errorf("first row: %q", lines[2])
@@ -364,5 +368,20 @@ func TestPickerSpendShortens(t *testing.T) {
 		if !strings.HasPrefix(line, "Search:  ") || !strings.HasSuffix(line, tt.want) {
 			t.Errorf("search line %q, want the search field free and the end %q", line, tt.want)
 		}
+	}
+}
+
+// TestPickerCodeColumn: Tab to the Coding Index adds its column; the table
+// gets wider by it and narrower again when sorting on.
+func TestPickerCodeColumn(t *testing.T) {
+	p := newTestPicker(Options{Metric: "tb4"})
+	w := p.tableWidth(p.nameWidth())
+	p.Update(key(tea.KeyTab))
+	if p.sortKey != "code" || !strings.Contains(plain(p)[1], "▼CODE") || p.tableWidth(p.nameWidth()) != w+7 {
+		t.Errorf("sorted by %q, header %q", p.sortKey, plain(p)[1])
+	}
+	p.Update(key(tea.KeyTab))
+	if strings.Contains(plain(p)[1], "CODE") || p.tableWidth(p.nameWidth()) != w {
+		t.Errorf("CODE column left after sorting on: %q", plain(p)[1])
 	}
 }

@@ -62,8 +62,12 @@ func Details(m catalog.Model, hint string) string {
 	}
 	fmt.Fprintf(&b, "\nContext  %s · output %s\n", table.Tokens(m.ContextTokens), table.Tokens(m.MaxOutputTokens))
 	fmt.Fprintf(&b, "Vision %s · reasoning %s\n", yesNo(m.Vision), yesNo(m.Reasoning && !m.NoThinking))
-	fmt.Fprintf(&b, "\n$ per 1M tokens\n  in %s · out %s\n  cache read %s · write %s\n",
-		money(m.InputPrice), money(m.OutputPrice), money(m.CacheReadPrice), money(m.CacheWritePrice))
+	if m.NoPrice {
+		fmt.Fprintf(&b, "\n$ per 1M tokens\n  unknown: the gateway names no price\n")
+	} else {
+		fmt.Fprintf(&b, "\n$ per 1M tokens\n  in %s · out %s\n  cache read %s · write %s\n",
+			money(m.InputPrice), money(m.OutputPrice), money(m.CacheReadPrice), money(m.CacheWritePrice))
+	}
 	for _, t := range m.Tiers {
 		fmt.Fprintf(&b, "  prompt > %s: in %s · out %s\n", table.Tokens(t.AboveTokens), money(t.InputPrice), money(t.OutputPrice))
 	}

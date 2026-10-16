@@ -148,6 +148,7 @@ func TestDeploymentPrices(t *testing.T) {
 		{"global endpoint", `{"litellm_params":{"vertex_location":"Global"},"model_info":{` + info + `}}`, 2, nil},
 		{"no location", `{"model_info":{` + info + `}}`, 2, nil},
 		{"no multiplier", `{"litellm_params":{"vertex_location":"eu"},"model_info":{"input_cost_per_token":2e-6}}`, 2, nil},
+		{"no price at all", `{"model_info":{"cache_read_input_token_cost":1e-7}}`, 0, nil},
 		{
 			"tiers sorted, missing price from base",
 			`{"model_info":{"input_cost_per_token":1e-6,"output_cost_per_token":5e-6,` +
@@ -166,6 +167,9 @@ func TestDeploymentPrices(t *testing.T) {
 				t.Fatal(err)
 			}
 			m := d.model()
+			if wantNo := tt.name == "no price at all"; m.NoPrice != wantNo {
+				t.Errorf("NoPrice = %v, want %v", m.NoPrice, wantNo)
+			}
 			if m.InputPrice != tt.wantIn || !slices.Equal(m.Tiers, tt.wantTiers) {
 				t.Errorf("InputPrice, Tiers = %v, %+v; want %v, %+v", m.InputPrice, m.Tiers, tt.wantIn, tt.wantTiers)
 			}

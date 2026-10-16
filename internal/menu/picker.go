@@ -233,7 +233,7 @@ const (
 	belowPreview    = 4
 )
 
-func (p *picker) sidePreview() bool { return p.width-tableWidth(p.nameWidth()) >= previewMinWidth }
+func (p *picker) sidePreview() bool { return p.width-p.tableWidth(p.nameWidth()) >= previewMinWidth }
 
 // rows is the number of visible table rows.
 func (p *picker) rows() int {
@@ -265,8 +265,18 @@ func (p *picker) nameWidth() int {
 	return min(w, nameMax)
 }
 
-// tableWidth: cursor (2) + name + context, prices, benchmarks.
-func tableWidth(name int) int { return 2 + name + 8 + 9 + 9 + 7 + 7 + 7 }
+// showCode: the Coding Index column only while sorting by it. The top models
+// often have no value there; the preview shows it either way.
+func (p *picker) showCode() bool { return p.sortKey == "code" }
+
+// tableWidth: cursor (2) + name + context, prices with tier mark, benchmarks.
+func (p *picker) tableWidth(name int) int {
+	w := 2 + name + 8 + 9 + 8 + 1 + 7 + 7
+	if p.showCode() {
+		w += 7
+	}
+	return w
+}
 
 func (p *picker) View() string {
 	nw := p.nameWidth()
@@ -274,8 +284,8 @@ func (p *picker) View() string {
 
 	count := fmt.Sprintf("%d/%d", len(p.shown), len(p.models))
 	search := p.st.prompt.Render("Search: ") + p.query + p.st.cursorBlock.Render(" ")
-	right := p.headerRight(count, tableWidth(nw)-lipgloss.Width(search)-2)
-	b.WriteString(padRight(search, tableWidth(nw)-lipgloss.Width(right)) + right + "\n")
+	right := p.headerRight(count, p.tableWidth(nw)-lipgloss.Width(search)-2)
+	b.WriteString(padRight(search, p.tableWidth(nw)-lipgloss.Width(right)) + right + "\n")
 	b.WriteString(p.header(nw) + "\n")
 
 	rows := p.rows()
@@ -295,10 +305,10 @@ func (p *picker) View() string {
 		detail = p.details(i)
 	}
 	if p.sidePreview() {
-		left := lipgloss.NewStyle().Width(tableWidth(nw)).Render(strings.Join(lines, "\n"))
+		left := lipgloss.NewStyle().Width(p.tableWidth(nw)).Render(strings.Join(lines, "\n"))
 		// Height is only a minimum in lipgloss; MaxHeight keeps a long preview
 		// from pushing the table off the screen.
-		right := p.st.preview.Width(p.width - tableWidth(nw) - 3).Height(rows).MaxHeight(rows).Render(detail)
+		right := p.st.preview.Width(p.width - p.tableWidth(nw) - 3).Height(rows).MaxHeight(rows).Render(detail)
 		b.WriteString(lipgloss.JoinHorizontal(lipgloss.Top, left, right) + "\n")
 	} else {
 		b.WriteString(strings.Join(lines, "\n") + "\n")
@@ -317,8 +327,11 @@ func (p *picker) header(nw int) string {
 		return fmt.Sprintf("%*s", width, label)
 	}
 	h := "  " + fmt.Sprintf("%-*s", nw, "MODEL") +
-		fmt.Sprintf("%8s", "CONTEXT") + fmt.Sprintf("%9s", "$IN/1M") + col("$OUT/1M", "price", 9) +
-		col("INTEL", "intel", 7) + col("TB4 %", "tb4", 7) + col("CODE", "code", 7)
+		fmt.Sprintf("%8s", "CONTEXT") + fmt.Sprintf("%9s", "$IN/1M") + col("$OUT/1M", "price", 8) + " " +
+		col("INTEL", "intel", 7) + col("TB4 %", "tb4", 7)
+	if p.showCode() {
+		h += col("CODE", "code", 7)
+	}
 	return p.st.header.Render(h)
 }
 
@@ -336,9 +349,13 @@ func (p *picker) row(i int, selected bool, nw int) string {
 	name := p.highlight(label, p.matches[i], base)
 	// The padding gets the row style too, so the selection bar has no gap.
 	pad := base.Render(strings.Repeat(" ", max(nw-runewidth.StringWidth(label), 0)))
-	nums := base.Render(fmt.Sprintf("%8s%9.2f%9.2f", table.Tokens(m.ContextTokens), m.InputPrice, m.OutputPrice))
-	return marker + name + pad + nums +
-		p.score(m, "intel", base) + p.score(m, "tb4", base) + p.score(m, "code", base)
+	nums := base.Render(fmt.Sprintf("%8s%9s%8s%s", table.Tokens(m.ContextTokens),
+		table.Price(m, m.InputPrice), table.Price(m, m.OutputPrice), table.TierMark(m)))
+	row := marker + name + pad + nums + p.score(m, "intel", base) + p.score(m, "tb4", base)
+	if p.showCode() {
+		row += p.score(m, "code", base)
+	}
+	return row
 }
 
 // score renders a benchmark value; the top values per column are green.
@@ -381,10 +398,11 @@ func (p *picker) details(i int) string {
 	}
 	d += "\nColumns\n" +
 		"  CONTEXT  context window\n" +
-		"  $/1M     price per million input/output tokens\n" +
+		"  $/1M     price per million input/output tokens;\n" +
+		"           * more for long prompts, free: costs nothing\n" +
 		"  INTEL    Intelligence Index\n" +
 		"  TB4 %    Terminal-Bench v4, tasks solved\n" +
-		"  CODE     Coding Index\n"
+		"  CODE     Coding Index (column while sorted by it)\n"
 	return d
 }
 
@@ -397,8 +415,9 @@ func (p *picker) compactDetails() string {
 	m := p.models[i]
 	lines := []string{
 		p.st.header.Render(m.Name) + p.st.dim.Render("  → "+m.Target),
-		fmt.Sprintf("context %s · output %s · $%.2f in / $%.2f out per 1M tokens",
-			table.Tokens(m.ContextTokens), table.Tokens(m.MaxOutputTokens), m.InputPrice, m.OutputPrice),
+		fmt.Sprintf("context %s · output %s · %s in / %s out per 1M tokens%s",
+			table.Tokens(m.ContextTokens), table.Tokens(m.MaxOutputTokens),
+			table.Price(m, m.InputPrice), table.Price(m, m.OutputPrice), strings.TrimSpace(table.TierMark(m))),
 	}
 	if h := p.hint(m); h != "" {
 		lines = append(lines, "Note: "+h)

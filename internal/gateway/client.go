@@ -149,6 +149,7 @@ func (d deployment) model() catalog.Model {
 		OutputPrice:     price(d.Info.OutputCost),
 		CacheReadPrice:  price(d.Info.CacheReadCost),
 		CacheWritePrice: price(d.Info.CacheWriteCost),
+		NoPrice:         d.Info.InputCost == nil && d.Info.OutputCost == nil,
 		Tiers:           d.tiers(uplift),
 	}
 }

@@ -65,6 +65,15 @@ func TestDetails(t *testing.T) {
 	}
 }
 
+// TestDetailsNoPrice: without a price from the gateway, the preview says so
+// instead of showing 0.00.
+func TestDetailsNoPrice(t *testing.T) {
+	got := Details(catalog.Model{Name: "x/none", NoPrice: true}, "")
+	if !strings.Contains(got, "$ per 1M tokens\n  unknown: the gateway names no price\n") || strings.Contains(got, "0.00") {
+		t.Errorf("Details:\n%s", got)
+	}
+}
+
 func TestMoney(t *testing.T) {
 	for v, want := range map[float64]string{0: "0.00", 4.4: "4.40", 0.068: "0.07", 0.0035: "0.0035", 22: "22.00"} {
 		if got := money(v); got != want {
