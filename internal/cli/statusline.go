@@ -25,8 +25,10 @@ const (
 	// statusLineWait bounds the user's own status line command.
 	statusLineWait = 3 * time.Second
 	// statusSpendWait bounds the gateway request; a cached value is shown
-	// when it does not answer in time.
-	statusSpendWait = 1500 * time.Millisecond
+	// when it does not answer in time. A project key's budget needs
+	// /user/info, which takes over a second on large teams; the cache keeps
+	// the wait to about once a minute.
+	statusSpendWait = 3 * time.Second
 	// statusLineEnv is set for the user's own command, so a script that
 	// calls llmenu statusline again neither loops nor repeats the line.
 	statusLineEnv = "LLMENU_STATUSLINE"

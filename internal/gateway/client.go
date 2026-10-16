@@ -235,7 +235,21 @@ func (b Budget) left() float64 { return b.Max - b.Spend }
 // the one with the least left wins; without any, the key's spend. Every key
 // may ask about itself, its user and its user's teams, so no admin rights
 // are needed.
+//
+// /user/info is asked at the same time as /key/info: on large teams it takes
+// over a second, and nearly every key has a user or team that needs it.
 func (c Client) Spend(ctx context.Context) (Budget, error) {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	user := make(chan userInfo, 1)
+	go func() {
+		var u userInfo
+		if c.getJSON(ctx, "user/info", nil, "", &u) != nil {
+			u = userInfo{}
+		}
+		user <- u
+	}()
+
 	var key struct {
 		budgetInfo
 		TeamID *string `json:"team_id"`
@@ -262,9 +276,11 @@ func (c Client) Spend(ctx context.Context) (Budget, error) {
 	var other Budget
 	switch {
 	case key.TeamID != nil && *key.TeamID != "":
-		other = c.teamBudget(ctx, *key.TeamID)
+		other = c.teamBudget(ctx, <-user, *key.TeamID)
 	case key.UserID != nil && *key.UserID != "":
-		other = c.scopeBudget(ctx, "user/info", nil, "user_info", "user")
+		if u := <-user; u.User != nil && u.User.Spend != nil {
+			other = u.User.budget("user")
+		}
 	}
 	if other.Max > 0 && (best.Max == 0 || other.left() < best.left()) {
 		best = other
@@ -273,18 +289,22 @@ func (c Client) Spend(ctx context.Context) (Budget, error) {
 	return best, nil
 }
 
-// teamBudget is a team's budget: from the teams /user/info lists, which every
-// key may read, else from /team/info, which gateways often keep for admins.
-func (c Client) teamBudget(ctx context.Context, id string) Budget {
-	var teams []struct {
+// userInfo is the part of /user/info Spend needs; empty if the gateway
+// refuses it.
+type userInfo struct {
+	User  *budgetInfo `json:"user_info"`
+	Teams []struct {
 		budgetInfo
 		TeamID string `json:"team_id"`
-	}
-	if c.getJSON(ctx, "user/info", nil, "teams", &teams) == nil {
-		for _, t := range teams {
-			if t.TeamID == id && t.Spend != nil {
-				return t.budget("team")
-			}
+	} `json:"teams"`
+}
+
+// teamBudget is a team's budget: from the teams /user/info lists, which every
+// key may read, else from /team/info, which gateways often keep for admins.
+func (c Client) teamBudget(ctx context.Context, u userInfo, id string) Budget {
+	for _, t := range u.Teams {
+		if t.TeamID == id && t.Spend != nil {
+			return t.budget("team")
 		}
 	}
 	return c.scopeBudget(ctx, "team/info", url.Values{"team_id": {id}}, "team_info", "team")
@@ -325,7 +345,8 @@ func (i budgetInfo) budget(scope string) Budget {
 	return b
 }
 
-// getJSON reads the object in field of the response from path into v.
+// getJSON reads the object in field of the response from path into v; an
+// empty field reads the whole response.
 func (c Client) getJSON(ctx context.Context, path string, query url.Values, field string, v any) error {
 	u, err := url.JoinPath(c.BaseURL, path)
 	if err != nil {
@@ -338,13 +359,17 @@ func (c Client) getJSON(ctx context.Context, path string, query url.Values, fiel
 	if err != nil {
 		return err
 	}
-	var resp map[string]json.RawMessage
-	if err := json.Unmarshal(body, &resp); err != nil {
-		return fmt.Errorf("unexpected response from %s: %w", u, err)
-	}
-	raw, ok := resp[field]
-	if !ok || string(raw) == "null" {
-		return fmt.Errorf("unexpected response from %s: no %s", u, field)
+	raw := json.RawMessage(body)
+	if field != "" {
+		var resp map[string]json.RawMessage
+		if err := json.Unmarshal(body, &resp); err != nil {
+			return fmt.Errorf("unexpected response from %s: %w", u, err)
+		}
+		var ok bool
+		raw, ok = resp[field]
+		if !ok || string(raw) == "null" {
+			return fmt.Errorf("unexpected response from %s: no %s", u, field)
+		}
 	}
 	if err := json.Unmarshal(raw, v); err != nil {
 		return fmt.Errorf("unexpected response from %s: %w", u, err)

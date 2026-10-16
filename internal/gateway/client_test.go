@@ -264,6 +264,37 @@ func TestSpend(t *testing.T) {
 	}
 }
 
+// TestSpendAsksUserInfoAtOnce: /key/info only answers once /user/info has
+// been asked, which a client asking one after the other never does.
+func TestSpendAsksUserInfoAtOnce(t *testing.T) {
+	asked := make(chan struct{})
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/user/info":
+			close(asked)
+			_, _ = w.Write([]byte(`{"teams":[{"team_id":"t1","spend":3,"max_budget":10}]}`))
+		case "/key/info":
+			select {
+			case <-asked:
+			case <-time.After(5 * time.Second):
+				http.Error(w, "user/info not asked", http.StatusGatewayTimeout)
+				return
+			}
+			_, _ = w.Write([]byte(`{"info":{"spend":1,"team_id":"t1"}}`))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	t.Cleanup(srv.Close)
+	got, err := Client{BaseURL: srv.URL, APIKey: "sk-test"}.Spend(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Scope != "team" || got.Spend != 3 || got.KeySpend != 1 || got.Max != 10 {
+		t.Errorf("Spend = %+v, want the team's budget", got)
+	}
+}
+
 func TestSpendErrors(t *testing.T) {
 	tests := []struct {
 		name   string

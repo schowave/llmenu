@@ -40,7 +40,12 @@ func TestFormatBudget(t *testing.T) {
 func TestBudgetCache(t *testing.T) {
 	t.Setenv("LLMENU_CACHE_DIR", t.TempDir())
 	var calls, failing atomic.Int32
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Each budget asks /key/info once; /user/info runs beside it.
+		if r.URL.Path != "/key/info" {
+			http.NotFound(w, r)
+			return
+		}
 		calls.Add(1)
 		if failing.Load() == 1 {
 			http.Error(w, "down", http.StatusBadGateway)
