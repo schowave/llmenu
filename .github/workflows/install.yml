@@ -51,7 +51,15 @@ jobs:
         if: runner.os == 'Linux'
         run: echo "/home/linuxbrew/.linuxbrew/bin" >> "$GITHUB_PATH"
       - name: Install
-        run: brew install --cask schowave/tap/llmenu
+        # One retry: Homebrew on the Linux runners occasionally aborts with
+        # "Broken pipe" after linking, unrelated to the cask.
+        run: |
+          brew install --cask schowave/tap/llmenu || {
+            echo "::warning::brew install failed, retrying once"
+            brew uninstall --cask --force llmenu || true
+            sleep 10
+            brew install --cask schowave/tap/llmenu
+          }
       - name: Check version
         run: |
           out=$(llmenu --version)
