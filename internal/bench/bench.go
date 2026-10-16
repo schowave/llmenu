@@ -42,7 +42,11 @@ type Entry struct {
 		Intelligence  *float64 `json:"artificial_analysis_intelligence_index"`
 		Coding        *float64 `json:"artificial_analysis_coding_index"`
 		TerminalBench *float64 `json:"terminalbench_v4_0"` // fraction 0..1
+		LongContext   *float64 `json:"lcr"`                // Long Context Reasoning, fraction 0..1
 	} `json:"evaluations"`
+	// OutputSpeed is measured at the model's own provider, not through the
+	// gateway; 0 means not measured.
+	OutputSpeed *float64 `json:"median_output_tokens_per_second"`
 }
 
 // Fetch retrieves all models from Artificial Analysis. url is overridable for tests.
@@ -107,14 +111,29 @@ func best(entries []Entry) catalog.Bench {
 		b.Intelligence = maxPtr(b.Intelligence, e.Evaluations.Intelligence)
 		b.Coding = maxPtr(b.Coding, e.Evaluations.Coding)
 		b.TerminalBench = maxPtr(b.TerminalBench, e.Evaluations.TerminalBench)
+		b.LongContext = maxPtr(b.LongContext, e.Evaluations.LongContext)
+		if e.OutputSpeed != nil && *e.OutputSpeed > 0 {
+			b.OutputSpeed = maxPtr(b.OutputSpeed, e.OutputSpeed)
+		}
 	}
 	slices.SortFunc(slugs, func(a, b string) int { return cmp.Or(cmp.Compare(len(a), len(b)), cmp.Compare(a, b)) })
 	b.Slug = slugs[0]
-	if b.TerminalBench != nil {
-		pct := math.Round(*b.TerminalBench*1000) / 10
-		b.TerminalBench = &pct
+	b.TerminalBench = percent(b.TerminalBench)
+	b.LongContext = percent(b.LongContext)
+	if b.OutputSpeed != nil {
+		tps := math.Round(*b.OutputSpeed)
+		b.OutputSpeed = &tps
 	}
 	return b
+}
+
+// percent turns a fraction into percent with one decimal.
+func percent(v *float64) *float64 {
+	if v == nil {
+		return nil
+	}
+	pct := math.Round(*v*1000) / 10
+	return &pct
 }
 
 func maxPtr(a, b *float64) *float64 {

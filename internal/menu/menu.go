@@ -84,10 +84,15 @@ func Details(m catalog.Model, hint string) string {
 			{"Intelligence  ", m.Bench.Intelligence, ""},
 			{"Terminal-Bench", m.Bench.TerminalBench, " %"},
 			{"Coding        ", m.Bench.Coding, ""},
+			{"Long context  ", m.Bench.LongContext, " %"},
 		} {
 			if v.value != nil {
 				fmt.Fprintf(&b, "  %s %5.1f%s\n", v.label, *v.value, v.unit)
 			}
+		}
+		// Measured at the model's provider; the gateway's region may differ.
+		if v := m.Bench.OutputSpeed; v != nil {
+			fmt.Fprintf(&b, "  Output speed   %3.0f tok/s at the provider\n", *v)
 		}
 	}
 	return b.String()

@@ -38,4 +38,6 @@ type Bench struct {
 	Intelligence  *float64 `json:"intelligence,omitempty"`
 	Coding        *float64 `json:"coding,omitempty"`
 	TerminalBench *float64 `json:"terminal_bench,omitempty"` // Terminal-Bench v4 in percent
+	LongContext   *float64 `json:"long_context,omitempty"`   // AA Long Context Reasoning in percent
+	OutputSpeed   *float64 `json:"output_speed,omitempty"`   // median output tokens per second, measured at the model's provider
 }

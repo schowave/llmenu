@@ -20,9 +20,19 @@ func entry(slug string, intel, coding, tb *float64) Entry {
 	return e
 }
 
+func withLCR(e Entry, lcr float64) Entry {
+	e.Evaluations.LongContext = &lcr
+	return e
+}
+
+func withSpeed(e Entry, tps float64) Entry {
+	e.OutputSpeed = &tps
+	return e
+}
+
 var aa = []Entry{
-	entry("claude-opus-5-5", f(57.6), nil, f(0.5959)),
-	entry("claude-opus-5-5-xhigh", f(56), f(80), f(0.6)),
+	withSpeed(entry("claude-opus-5-5", f(57.6), nil, f(0.5959)), 96.575),
+	withLCR(withSpeed(entry("claude-opus-5-5-xhigh", f(56), f(80), f(0.6)), 0), 0.846666), // 0: not measured
 	entry("claude-opus-5-5-low", f(42.3), nil, f(0.31)),
 	entry("qwen3-8-flash-next", f(40), nil, nil),
 	entry("qwen3-8-flash-next-non-reasoning", f(30), nil, nil),
@@ -52,7 +62,8 @@ func TestMatch(t *testing.T) {
 		t.Fatal("Opus has no match")
 	}
 	// Variants merged: best value per benchmark, shortest slug.
-	if opus.Slug != "claude-opus-5-5" || *opus.Intelligence != 57.6 || *opus.Coding != 80 || *opus.TerminalBench != 60 {
+	if opus.Slug != "claude-opus-5-5" || *opus.Intelligence != 57.6 || *opus.Coding != 80 || *opus.TerminalBench != 60 ||
+		opus.OutputSpeed == nil || *opus.OutputSpeed != 97 || opus.LongContext == nil || *opus.LongContext != 84.7 {
 		t.Errorf("Opus = %+v", show(opus))
 	}
 	if _, ok := got["aws/claude-opus-latest"]; !ok {

@@ -29,7 +29,7 @@ func TestDetails(t *testing.T) {
 		CacheReadPrice:  0.5,
 		CacheWritePrice: 6.25,
 		Tiers:           []catalog.Tier{{AboveTokens: 200_000, InputPrice: 10, OutputPrice: 37.5}},
-		Bench:           &catalog.Bench{Slug: "claude-opus-5-5", Intelligence: f(57.6), TerminalBench: f(59.6)},
+		Bench:           &catalog.Bench{Slug: "claude-opus-5-5", Intelligence: f(57.6), TerminalBench: f(59.6), LongContext: f(84.7), OutputSpeed: f(97)},
 	}
 	got := Details(m, "slot mismatch")
 	for _, want := range []string{
@@ -41,6 +41,8 @@ func TestDetails(t *testing.T) {
 		"Benchmarks (claude-opus-5-5)\n",
 		"  Intelligence    57.6\n",
 		"  Terminal-Bench  59.6 %\n",
+		"  Long context    84.7 %\n",
+		"  Output speed    97 tok/s at the provider\n",
 	} {
 		if !strings.Contains(got, want) {
 			t.Errorf("Details misses %q:\n%s", want, got)
