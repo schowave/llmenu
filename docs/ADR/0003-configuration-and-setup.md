@@ -102,6 +102,7 @@ opus    = "…"                       # suggestion from the gateway, see below
 sonnet  = "…"
 haiku   = "…"
 auto_compact = true                 # false sets DISABLE_AUTO_COMPACTION=1
+statusline = true                   # false: no project and spend in the status line (ADR-0005)
 picker = true                       # false keeps Claude's own /model list (ADR-0002)
 
 [claude.env]                        # any additional variables for Claude Code

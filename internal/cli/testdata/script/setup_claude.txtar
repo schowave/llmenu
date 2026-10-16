@@ -27,7 +27,7 @@ stderr '^Warning: azure/gpt-6-sol is not a Claude model; slot haiku runs e.g. su
 cmp config.toml want-other.toml
 exec llmenu claude
 stdout '^claude args: --settings @settings --model gcp/claude-sonnet-4-5$'
-stdout '^settings statusLine: llmenu statusline$'
+! stdout '^settings statusLine'
 stdout '^ANTHROPIC_DEFAULT_OPUS_MODEL=aws/claude-opus-5-5\[1m\]$'
 stdout '^ANTHROPIC_DEFAULT_HAIKU_MODEL=azure/gpt-6-sol\[1m\]$'
 stdout '^DISABLE_AUTO_COMPACTION=1$'
@@ -39,7 +39,7 @@ exec llmenu setup claude
 stderr '(?s)Claude Code: default model.*\n4\. local/Qwen3-Next\nEnter a number between 1 and 4'
 grep '^default = .local/Qwen3-Next.$' config.toml
 
-# Back to the defaults: slot opus and compaction on are not pinned.
+# Back to the defaults: slot opus, compaction and status line on are not pinned.
 stdin defaults.txt
 exec llmenu setup claude
 ! grep 'default =' config.toml
@@ -59,14 +59,14 @@ exec llmenu setup claude
 9
 2
 n
-y
+n
 -- defaults.txt --
 
 
 
 1
 y
-n
+y
 -- want-enter.toml --
 # Written by llmenu. Change with `llmenu setup` or `llmenu config set`;
 # comments in this file are lost on the next write.
@@ -80,4 +80,4 @@ default = 'sonnet'
 opus = 'aws/claude-opus-5-5'
 haiku = 'azure/gpt-6-sol'
 auto_compact = false
-statusline = true
+statusline = false

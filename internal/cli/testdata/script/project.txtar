@@ -130,8 +130,7 @@ stderr 'main key is not a project'
 exec llmenu secrets get gateway
 stdout '^sk-test$'
 
-# claude.statusline puts llmenu's status line into the session only.
-exec llmenu config set claude.statusline true
+# claude.statusline (on by default) puts llmenu's status line into the session only.
 exec llmenu claude -p hi
 stdout '^claude args: --settings @settings --model '
 stdout '^settings statusLine: llmenu statusline$'

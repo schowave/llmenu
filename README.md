@@ -233,19 +233,16 @@ llmenu shows the budget that applies to the key in use, and that key's share:
 
 - **in the menu**, next to the project,
 - **in `llmenu project list`**, for the main key and every project,
-- **in Claude Code's status line**, if you turn it on (`llmenu setup claude`
-  asks):
-
-  ```sh
-  llmenu config set claude.statusline true
-  ```
-
+- **in Claude Code's status line**, in sessions started with `llmenu claude`.
   Your own status line keeps running; llmenu adds one line below it, e.g. in
   a session with project acme:
 
   ```text
   project acme · team budget $40.00 / $100.00 · this key $12.45 · resets in 19d
   ```
+
+  To turn it off: `llmenu config set claude.statusline false` (or
+  `llmenu setup claude`).
 
   Without your own status line, llmenu's line also names the model.
 
@@ -322,8 +319,9 @@ saved it as the default for every session. Run `/model` and pick one of
 Claude's own models; in llmenu sessions pick with `s` instead.
 
 **No llmenu line in Claude Code's status line**: it is only added to sessions
-started with `llmenu claude`, and only with `claude.statusline` on
-(`llmenu config get claude.statusline`).
+started with `llmenu claude`, and not with `claude.statusline` off
+(`llmenu config get claude.statusline`). It runs `llmenu statusline`, so
+`llmenu` must be on the `PATH`.
 
 ## Updating and uninstalling
 

@@ -314,7 +314,7 @@ func setupClaude(cfg *config.Config, models []catalog.Model) error {
 	autoCompact := c.AutoCompactEnabled()
 	const defaultHelp = "The slot (or model) Claude Code starts with; the llmenu menu cursor starts there too."
 	const compactHelp = "Off: context grows up to the limit, which costs considerably more with large contexts."
-	statusLine := c.StatusLine
+	statusLine := c.StatusLineEnabled()
 	const statusHelp = "Adds a line with the project and the gateway budget (e.g. $18.00 / $50.00) below your own status line, in sessions llmenu starts."
 	groups = append(groups, huh.NewGroup(
 		huh.NewSelect[string]().Title(titled("Claude Code: default model", defaultHelp)).
@@ -336,7 +336,10 @@ func setupClaude(cfg *config.Config, models []catalog.Model) error {
 	for _, w := range applyClaude(c, models, answers, def, autoCompact) {
 		fmt.Fprintln(os.Stderr, "Warning:", w)
 	}
-	c.StatusLine = statusLine
+	c.StatusLine = nil // on is the default, only off is stored
+	if !statusLine {
+		c.StatusLine = &statusLine
+	}
 	return save(cfg)
 }
 

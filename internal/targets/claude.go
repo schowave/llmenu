@@ -117,7 +117,7 @@ func (c claude) Command(ctx context.Context, m *catalog.Model, args []string, en
 // Empty if neither is on.
 func sessionSettings(env Env) string {
 	s := map[string]any{}
-	if env.Config.Claude.StatusLine {
+	if env.Config.Claude.StatusLineEnabled() {
 		s["statusLine"] = map[string]string{"type": "command", "command": "llmenu statusline"}
 	}
 	if env.Config.Claude.PickerEnabled() {

@@ -24,7 +24,8 @@ stdout '^settings modelPicker: azure/gpt-6-sol\[1m\] \| azure/gpt-6-sol \| 922k 
 stdout '^settings modelPicker: local/Qwen3-Next \| local/Qwen3-Next \| 229k · free \| $'
 ! stdout 'claude-opus-latest \|'
 ! stdout 'text-embedding'
-! stdout '^settings statusLine'
+# llmenu's status line is on by default.
+stdout '^settings statusLine: llmenu statusline$'
 
 # An explicit --model wins and everything is passed through unchanged.
 exec llmenu claude --model sonnet -c --resume
@@ -55,9 +56,15 @@ stdout '^ANTHROPIC_MODEL=aws/claude-opus-5-5\[1m\]$'
 # claude.picker false leaves /model to Claude Code.
 exec llmenu config set claude.picker false
 exec llmenu claude -p hi
-stdout '^claude args: --model aws/claude-opus-5-5\[1m\] -p hi$'
+stdout '^claude args: --settings @settings --model aws/claude-opus-5-5\[1m\] -p hi$'
+stdout '^settings statusLine: llmenu statusline$'
 ! stdout 'modelPicker'
+# Without status line either, no --settings at all.
+exec llmenu config set claude.statusline false
+exec llmenu claude -p hi
+stdout '^claude args: --model aws/claude-opus-5-5\[1m\] -p hi$'
 exec llmenu config set claude.picker ''
+exec llmenu config set claude.statusline ''
 
 # The tool's exit code is passed through (checked exactly in Go tests).
 env FAKE_EXIT=7
