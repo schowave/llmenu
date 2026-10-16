@@ -16,7 +16,8 @@ import (
 
 var syncModels = []catalog.Model{
 	{Name: "aws/claude-opus-5-5", Target: "bedrock/eu.anthropic.claude-opus-5-5", ContextTokens: 1_000_000,
-		MaxOutputTokens: 128_000, Vision: true, Reasoning: true, InputPrice: 4.4, OutputPrice: 22, CacheReadPrice: 0.44, CacheWritePrice: 5.5},
+		MaxOutputTokens: 128_000, Vision: true, Reasoning: true, InputPrice: 4.4, OutputPrice: 22, CacheReadPrice: 0.44, CacheWritePrice: 5.5,
+		Tiers: []catalog.Tier{{AboveTokens: 200_000, InputPrice: 8.8, OutputPrice: 33}, {AboveTokens: 272_000, InputPrice: 9, OutputPrice: 40}}},
 	{Name: "local/Qwen3-Next-non-thinking", Target: "hosted_vllm/Qwen/Qwen3-Next-FP8", ContextTokens: 229_376,
 		MaxOutputTokens: 32_768, Reasoning: true, NoThinking: true},
 }
@@ -166,12 +167,17 @@ func TestOpencodeSync(t *testing.T) {
 		{[]string{"models", "aws/claude-opus-5-5", "temperature"}, true},
 		{[]string{"models", "aws/claude-opus-5-5", "limit", "context"}, 1e6},
 		{[]string{"models", "aws/claude-opus-5-5", "cost", "cache_read"}, 0.44},
+		{[]string{"models", "aws/claude-opus-5-5", "cost", "context_over_200k", "input"}, 8.8},
+		{[]string{"models", "aws/claude-opus-5-5", "cost", "context_over_200k", "output"}, 33.0},
 		{[]string{"models", "aws/claude-opus-5-5", "attachment"}, true},
 		{[]string{"models", "local/Qwen3-Next-non-thinking", "reasoning"}, false},
 	} {
 		if got := get(prov, c.path...); got != c.want {
 			t.Errorf("%v = %v, want %v", c.path, got, c.want)
 		}
+	}
+	if c := asMap(get(prov, "models", "local/Qwen3-Next-non-thinking", "cost")); c["context_over_200k"] != nil {
+		t.Errorf("context_over_200k without a 200k level: %v", c)
 	}
 	if get(cfg, "theme") != "tokyonight" {
 		t.Error("theme changed")

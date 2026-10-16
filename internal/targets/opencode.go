@@ -74,10 +74,18 @@ func (o opencode) Sync(_ context.Context, models []catalog.Model, opt SyncOption
 			setPositive(limit, "context", m.ContextTokens)
 			setPositive(limit, "output", m.MaxOutputTokens)
 			e["limit"] = limit
-			e["cost"] = map[string]float64{
+			cost := map[string]any{
 				"input": m.InputPrice, "output": m.OutputPrice,
 				"cache_read": m.CacheReadPrice, "cache_write": m.CacheWritePrice,
 			}
+			// opencode knows a single level, from 200k tokens on; another
+			// threshold would bill some prompts at the wrong price.
+			for _, t := range m.Tiers {
+				if t.AboveTokens == 200_000 {
+					cost["context_over_200k"] = map[string]float64{"input": t.InputPrice, "output": t.OutputPrice}
+				}
+			}
+			e["cost"] = cost
 			e["attachment"] = m.Vision
 			e["reasoning"] = m.Reasoning && !m.NoThinking
 			out[m.Name] = e
