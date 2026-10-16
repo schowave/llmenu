@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net/url"
 	"os"
-	"slices"
 	"strings"
 	"time"
 
@@ -78,11 +77,7 @@ func loadEnv(ctx context.Context) (targets.Env, error) {
 
 // sortModels sorts by the configured benchmark, or by price without benchmarks.
 func sortModels(models []catalog.Model, cfg *config.Config) {
-	if slices.ContainsFunc(models, func(m catalog.Model) bool { return m.Bench != nil }) {
-		catalog.SortByBench(models, cfg.Bench.MetricOrDefault())
-		return
-	}
-	catalog.SortByPrice(models)
+	catalog.Sort(models, cfg.Bench.MetricOrDefault())
 }
 
 // menuNote is the benchmark source for the preview; without benchmarks the

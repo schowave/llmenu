@@ -2,7 +2,7 @@
 # its gateway suggestion (latest alias) -> the concrete model, with [1m] for
 # 1M context.
 exec llmenu claude -p hi
-stdout '^claude args: --model aws/claude-opus-5-5\[1m\] -p hi$'
+stdout '^claude args: --settings @settings --model aws/claude-opus-5-5\[1m\] -p hi$'
 stdout '^ANTHROPIC_DEFAULT_OPUS_MODEL=aws/claude-opus-latest\[1m\]$'
 stdout '^ANTHROPIC_DEFAULT_SONNET_MODEL=gcp/claude-sonnet-4-5$'
 ! stdout 'ANTHROPIC_DEFAULT_HAIKU_MODEL'
@@ -11,14 +11,26 @@ stdout '^ANTHROPIC_BASE_URL=http://127.0.0.1:\d+/$'
 stdout '^ANTHROPIC_AUTH_TOKEN=sk-test$'
 stdout '^CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1$'
 ! stdout 'DISABLE_AUTO_COMPACTION'
+# /model lists the gateway's models instead of Claude's own: no aliases, the
+# same model at aws/ and gcp/ twice, sorted like the menu. Claude models
+# behave as their Anthropic model.
+stdout '^settings modelPicker replaceBuiltInOptions: true$'
+stdout '^settings modelPicker: aws/claude-opus-5-5\[1m\] \| aws/claude-opus-5-5 \| 1M · \$4\.40 in / \$22\.00 out \| claude-opus-5-5$'
+stdout '^settings modelPicker: aws/claude-sonnet-4-5 \| aws/claude-sonnet-4-5 \| 200k · \$3\.30 in / \$16\.50 out \| claude-sonnet-4-5$'
+stdout '^settings modelPicker: gcp/claude-sonnet-4-5 \| gcp/claude-sonnet-4-5 \| 200k · \$3\.00 in / \$15\.00 out, more above 200k \| claude-sonnet-4-5$'
+stdout '^settings modelPicker: azure/gpt-6-sol\[1m\] \| azure/gpt-6-sol \| 922k · \$2\.00 in / \$10\.00 out \| $'
+stdout '^settings modelPicker: local/Qwen3-Next \| local/Qwen3-Next \| 229k · free \| $'
+! stdout 'claude-opus-latest \|'
+! stdout 'text-embedding'
+! stdout '^settings statusLine'
 
 # An explicit --model wins and everything is passed through unchanged.
 exec llmenu claude --model sonnet -c --resume
-stdout '^claude args: --model sonnet -c --resume$'
+stdout '^claude args: --settings @settings --model sonnet -c --resume$'
 
 # --help belongs to claude, not to llmenu (the default model is still added).
 exec llmenu claude --help
-stdout '^claude args: --model aws/claude-opus-5-5\[1m\] --help$'
+stdout '^claude args: --settings @settings --model aws/claude-opus-5-5\[1m\] --help$'
 
 # Settings from the config file.
 exec llmenu config set claude.default sonnet
@@ -26,7 +38,7 @@ exec llmenu config set claude.auto_compact false
 exec llmenu config set claude.haiku azure/gpt-6-sol
 exec llmenu config set claude.env.FOO bar
 exec llmenu claude
-stdout '^claude args: --model gcp/claude-sonnet-4-5$'
+stdout '^claude args: --settings @settings --model gcp/claude-sonnet-4-5$'
 stdout '^ANTHROPIC_MODEL=sonnet$'
 stdout '^ANTHROPIC_DEFAULT_HAIKU_MODEL=azure/gpt-6-sol\[1m\]$'
 stdout '^DISABLE_AUTO_COMPACTION=1$'
@@ -38,6 +50,13 @@ exec llmenu config set claude.default aws/claude-opus-5-5
 exec llmenu claude
 stdout '^ANTHROPIC_MODEL=aws/claude-opus-5-5\[1m\]$'
 
+# claude.picker false leaves /model to Claude Code.
+exec llmenu config set claude.picker false
+exec llmenu claude -p hi
+stdout '^claude args: --model aws/claude-opus-5-5\[1m\] -p hi$'
+! stdout 'modelPicker'
+exec llmenu config set claude.picker ''
+
 # The tool's exit code is passed through (checked exactly in Go tests).
 env FAKE_EXIT=7
 ! exec llmenu claude --model x
@@ -45,4 +64,4 @@ env FAKE_EXIT=7
 # run is the long form.
 env FAKE_EXIT=
 exec llmenu run claude --model x
-stdout '^claude args: --model x$'
+stdout '^claude args: --settings @settings --model x$'

@@ -78,7 +78,7 @@ func TestRootDefaultTool(t *testing.T) {
 	if got, _ := config.Load(); got.Launch != "claude" {
 		t.Errorf("launch = %q", got.Launch)
 	}
-	if !strings.HasPrefix(launched(), "--model ") {
+	if !strings.Contains(launched(), "--model ") {
 		t.Errorf("claude not started after the question: %q", launched())
 	}
 
@@ -86,7 +86,7 @@ func TestRootDefaultTool(t *testing.T) {
 	if _, stderr, err := run(""); err != nil || strings.Contains(stderr, "without a command do?") {
 		t.Fatalf("second run: %v, %q", err, stderr)
 	}
-	if !strings.HasPrefix(launched(), "--model ") {
+	if !strings.Contains(launched(), "--model ") {
 		t.Errorf("claude not started: %q", launched())
 	}
 

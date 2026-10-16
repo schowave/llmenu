@@ -158,6 +158,15 @@ Gateway, key and models are passed in the environment (Claude Code) or via
 `-c` overrides (Codex CLI); `~/.claude` and `~/.codex` stay untouched.
 Defaults: `llmenu setup claude`, `llmenu setup codex`.
 
+In a Claude Code session started by llmenu, `/model` lists all of the
+gateway's models with context, prices and benchmark instead of Claude's own,
+so you can switch without restarting. Pick with **`s`** (this session only):
+**Enter** makes Claude Code save the gateway model as its default in
+`~/.claude/settings.json`, and a plain `claude` on your subscription then fails
+until you pick another model with `/model` (see
+[Troubleshooting](#troubleshooting)). To keep Claude's own list:
+`llmenu config set claude.picker false`.
+
 ```sh
 llmenu sync --dry-run    # opencode and pi: show what would change
 llmenu sync              # write the gateway's models, limits and prices
@@ -306,6 +315,11 @@ intended, confirm it with `llmenu config set gateway.url <new URL>`.
 `/key/info` (or `/user/info` for user and team budgets). Check with
 `curl -H "Authorization: Bearer $KEY" <gateway>/key/info`; llmenu shows
 whatever the gateway does answer.
+
+**"There's an issue with the selected model (aws/…)" in a plain `claude`**:
+the model was picked with Enter in a session started by llmenu, so Claude Code
+saved it as the default for every session. Run `/model` and pick one of
+Claude's own models; in llmenu sessions pick with `s` instead.
 
 **No llmenu line in Claude Code's status line**: it is only added to sessions
 started with `llmenu claude`, and only with `claude.statusline` on

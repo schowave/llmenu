@@ -2,6 +2,8 @@ package targets
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"maps"
 	"os/exec"
 	"slices"
@@ -9,6 +11,7 @@ import (
 
 	"github.com/schowave/llmenu/internal/catalog"
 	"github.com/schowave/llmenu/internal/config"
+	"github.com/schowave/llmenu/internal/table"
 )
 
 func init() { register(claude{}) }
@@ -74,8 +77,8 @@ func (c claude) Command(ctx context.Context, m *catalog.Model, args []string, en
 	}
 	// Session settings only: ~/.claude stays untouched (ADR-0002). Own
 	// --settings win, Claude Code takes only one.
-	if env.Config.Claude.StatusLine && !hasFlag(args, "--settings") {
-		args = append([]string{"--settings", StatusLineSettings}, args...)
+	if s := sessionSettings(env); s != "" && !hasFlag(args, "--settings") {
+		args = append([]string{"--settings", s}, args...)
 	}
 	cmd := exec.CommandContext(ctx, "claude", args...)
 
@@ -103,6 +106,86 @@ func (c claude) Command(ctx context.Context, m *catalog.Model, args []string, en
 	return cmd, nil
 }
 
-// StatusLineSettings sets llmenu's status line for one Claude Code session
-// (claude.statusline).
-const StatusLineSettings = `{"statusLine":{"type":"command","command":"llmenu statusline"}}`
+// sessionSettings is the JSON for --settings: llmenu's status line
+// (claude.statusline) and the gateway's models in /model (claude.picker).
+// Empty if neither is on.
+func sessionSettings(env Env) string {
+	s := map[string]any{}
+	if env.Config.Claude.StatusLine {
+		s["statusLine"] = map[string]string{"type": "command", "command": "llmenu statusline"}
+	}
+	if env.Config.Claude.PickerEnabled() {
+		if p := modelPicker(env); p != nil {
+			s["modelPicker"] = p
+		}
+	}
+	if len(s) == 0 {
+		return ""
+	}
+	b, _ := json.Marshal(s) // maps of strings and structs: cannot fail
+	return string(b)
+}
+
+type pickerOption struct {
+	Model       string `json:"model"`
+	Label       string `json:"label"`
+	Description string `json:"description,omitempty"`
+	BehavesAs   string `json:"behavesAs,omitempty"`
+}
+
+// modelPicker lists the gateway's models in /model, without aliases and
+// duplicates and sorted like the menu. Picking one with Enter makes Claude
+// Code save it as the default in ~/.claude/settings.json, where it fails
+// without the gateway; /model fixes that (ADR-0002).
+func modelPicker(env Env) map[string]any {
+	models := catalog.Dedupe(env.Models)
+	if len(models) == 0 {
+		return nil
+	}
+	metric := env.Config.Bench.MetricOrDefault()
+	catalog.Sort(models, metric)
+	opts := make([]pickerOption, 0, len(models))
+	for _, m := range models {
+		o := pickerOption{
+			Model:       withContext(m.Name, env.Models),
+			Label:       m.Name,
+			Description: pickerDescription(m, metric),
+		}
+		if IsClaude(m) {
+			o.BehavesAs = catalog.ShortTarget(m.Target)
+		}
+		opts = append(opts, o)
+	}
+	return map[string]any{"replaceBuiltInOptions": true, "options": opts}
+}
+
+var metricNames = map[string]string{"intel": "intelligence", "tb4": "Terminal-Bench", "code": "coding"}
+
+// pickerDescription is a model's line in /model: context, prices and the
+// benchmark the menu sorts by, e.g. "1M · $5.00 in / $25.00 out · intelligence 70.1".
+func pickerDescription(m catalog.Model, metric string) string {
+	parts := []string{table.Tokens(m.ContextTokens)}
+	switch {
+	case m.NoPrice:
+		parts = append(parts, "price unknown")
+	case m.InputPrice == 0 && m.OutputPrice == 0:
+		parts = append(parts, "free")
+	default:
+		price := usd(m, m.InputPrice) + " in / " + usd(m, m.OutputPrice) + " out"
+		if len(m.Tiers) > 0 {
+			price += ", more above " + table.Tokens(m.Tiers[0].AboveTokens)
+		}
+		parts = append(parts, price)
+	}
+	if v := m.Score(metric); v != nil {
+		parts = append(parts, fmt.Sprintf("%s %.1f", metricNames[metric], *v))
+	}
+	return strings.Join(parts, " · ")
+}
+
+func usd(m catalog.Model, v float64) string {
+	if p := table.Price(m, v); p != "free" {
+		return "$" + p
+	}
+	return "free"
+}

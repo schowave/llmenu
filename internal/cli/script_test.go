@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -38,10 +39,19 @@ func TestMain(m *testing.M) {
 }
 
 // fakeTool prints its arguments and the environment llmenu sets for it, and
-// exits with $FAKE_EXIT.
+// exits with $FAKE_EXIT. Inline JSON for --settings shows as @settings in the
+// arguments, followed by one line per setting.
 func fakeTool(name string) func() {
 	return func() {
-		fmt.Printf("%s args: %s\n", name, strings.Join(os.Args[1:], " "))
+		args := slices.Clone(os.Args[1:])
+		var settings string
+		for i := 1; i < len(args); i++ {
+			if args[i-1] == "--settings" && strings.HasPrefix(args[i], "{") {
+				settings, args[i] = args[i], "@settings"
+			}
+		}
+		fmt.Printf("%s args: %s\n", name, strings.Join(args, " "))
+		printSettings(settings)
 		var env []string
 		for _, kv := range os.Environ() {
 			k, _, _ := strings.Cut(kv, "=")
@@ -56,6 +66,37 @@ func fakeTool(name string) func() {
 		}
 		code, _ := strconv.Atoi(os.Getenv("FAKE_EXIT"))
 		os.Exit(code)
+	}
+}
+
+// printSettings prints the settings llmenu passes inline to Claude Code.
+func printSettings(raw string) {
+	if raw == "" {
+		return
+	}
+	var s struct {
+		StatusLine *struct {
+			Command string `json:"command"`
+		} `json:"statusLine"`
+		ModelPicker *struct {
+			ReplaceBuiltInOptions bool `json:"replaceBuiltInOptions"`
+			Options               []struct {
+				Model, Label, Description, BehavesAs string
+			} `json:"options"`
+		} `json:"modelPicker"`
+	}
+	if err := json.Unmarshal([]byte(raw), &s); err != nil {
+		fmt.Printf("settings: invalid JSON: %v\n", err)
+		return
+	}
+	if s.StatusLine != nil {
+		fmt.Printf("settings statusLine: %s\n", s.StatusLine.Command)
+	}
+	if p := s.ModelPicker; p != nil {
+		fmt.Printf("settings modelPicker replaceBuiltInOptions: %v\n", p.ReplaceBuiltInOptions)
+		for _, o := range p.Options {
+			fmt.Printf("settings modelPicker: %s | %s | %s | %s\n", o.Model, o.Label, o.Description, o.BehavesAs)
+		}
 	}
 }
 

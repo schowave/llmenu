@@ -146,7 +146,7 @@ func completeConfigSet(cmd *cobra.Command, args []string, toComplete string) ([]
 		values = config.Metrics
 	case "gateway.project":
 		values = projectNames()
-	case "claude.auto_compact", "claude.statusline":
+	case "claude.auto_compact", "claude.statusline", "claude.picker":
 		values = []string{"true", "false"}
 	case "tools":
 		values = append(targetNames(func(targets.Target) bool { return true }), "none")
