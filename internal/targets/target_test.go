@@ -119,7 +119,9 @@ func TestClaudeSettings(t *testing.T) {
 		{Name: "aws/claude-opus-latest", Target: "bedrock/eu.anthropic.claude-opus-4-8", ContextTokens: 1_000_000, InputPrice: 5, OutputPrice: 25},
 		{Name: "azure/gpt-6-luna", Target: "azure/gpt-6-luna", ContextTokens: 922_000, NoPrice: true},
 		{Name: "local/qwen", Target: "hosted_vllm/qwen", ContextTokens: 128_000},
+		{Name: "gcp/claude-3-5-sonnet", Target: "vertex_ai/claude-3-5-sonnet-v2@20241022", InputPrice: 3, OutputPrice: 15},
 	}
+	t.Setenv("LLMENU_CACHE_DIR", t.TempDir())
 	type option struct{ Model, Label, Description, BehavesAs string }
 	type settings struct {
 		StatusLine  *struct{ Command string }
@@ -130,7 +132,7 @@ func TestClaudeSettings(t *testing.T) {
 	}
 	parse := func(t *testing.T, cfg config.Claude, args ...string) (*settings, []string) {
 		t.Helper()
-		env := Env{Config: &config.Config{Claude: cfg}, Models: models}
+		env := Env{Config: &config.Config{Claude: cfg, Bench: config.Bench{Metric: "unknown"}}, Models: models}
 		cmd, err := l.Command(context.Background(), nil, args, env)
 		if err != nil {
 			t.Fatal(err)
@@ -139,9 +141,14 @@ func TestClaudeSettings(t *testing.T) {
 		if i < 0 {
 			return nil, cmd.Args
 		}
+		// A file, not inline: the list could exceed Windows' command line limit.
+		b, err := os.ReadFile(cmd.Args[i+1])
+		if err != nil {
+			return nil, cmd.Args // not llmenu's
+		}
 		var s settings
-		if err := json.Unmarshal([]byte(cmd.Args[i+1]), &s); err != nil {
-			return nil, cmd.Args
+		if err := json.Unmarshal(b, &s); err != nil {
+			t.Fatal(err)
 		}
 		return &s, cmd.Args
 	}
@@ -157,8 +164,13 @@ func TestClaudeSettings(t *testing.T) {
 		if !s.ModelPicker.ReplaceBuiltInOptions {
 			t.Errorf("built-in options are kept")
 		}
-		want := []option{ // benchmark first, then most expensive; no alias
+		// Benchmark first (an unknown metric is intelligence, as in
+		// Model.Score), then most expensive; no alias. behavesAs only where the
+		// shortened target is a valid Anthropic ID: claude-3-5-sonnet needs its
+		// date. Unknown context is left out.
+		want := []option{
 			{"aws/claude-opus-4-8[1m]", "aws/claude-opus-4-8", "1M · $5.00 in / $25.00 out · intelligence 70.0", "claude-opus-4-8"},
+			{"gcp/claude-3-5-sonnet", "gcp/claude-3-5-sonnet", "$3.00 in / $15.00 out", ""},
 			{"gcp/claude-sonnet-4-6", "gcp/claude-sonnet-4-6", "200k · $3.00 in / $15.00 out, more above 200k", "claude-sonnet-4-6"},
 			{"azure/gpt-6-luna[1m]", "azure/gpt-6-luna", "922k · price unknown", ""},
 			{"local/qwen", "local/qwen", "128k · free", ""},

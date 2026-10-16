@@ -130,7 +130,11 @@ compiled in for now.
 **Claude Code's `/model`:** llmenu passes the gateway's models (without
 aliases and duplicates, sorted like the menu) as `modelPicker` in the
 session's `--settings`, with `replaceBuiltInOptions`; Claude models get
-`behavesAs` with their Anthropic model. Claude Code only reads the list in
+`behavesAs` with their Anthropic model where the shortened target is a valid
+ID (`claude-opus-5-5`, not `claude-3-5-sonnet` without its date). The settings
+go to a file in the cache directory, not inline: with a few hundred models the
+JSON would exceed Windows' command line limit (8191 characters through
+`claude.cmd`). Claude Code only reads the list in
 sessions llmenu starts. Picking with Enter, however, makes Claude Code itself
 save the model ID in `~/.claude/settings.json` (tested with 2.1.301); a plain
 `claude` on the subscription then fails on the first prompt with "There's an

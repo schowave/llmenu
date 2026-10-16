@@ -30,15 +30,27 @@ func Path() (string, error) {
 	return guard.Path(p)
 }
 
-func path() (string, error) {
+// ClaudeSettingsPath returns the file with the settings llmenu passes to
+// Claude Code sessions via --settings.
+func ClaudeSettingsPath() (string, error) {
+	p, err := cacheFile("claude-settings.json")
+	if err != nil {
+		return "", err
+	}
+	return guard.Path(p)
+}
+
+func path() (string, error) { return cacheFile("state.json") }
+
+func cacheFile(name string) (string, error) {
 	if dir := os.Getenv("LLMENU_CACHE_DIR"); dir != "" {
-		return filepath.Join(dir, "state.json"), nil
+		return filepath.Join(dir, name), nil
 	}
 	dir, err := os.UserCacheDir()
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(dir, "llmenu", "state.json"), nil
+	return filepath.Join(dir, "llmenu", name), nil
 }
 
 // Load reads the state; on any error it returns an empty one.

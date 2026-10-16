@@ -15,6 +15,8 @@ stdout '^CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1$'
 # same model at aws/ and gcp/ twice, sorted like the menu. Claude models
 # behave as their Anthropic model.
 stdout '^settings modelPicker replaceBuiltInOptions: true$'
+# As a file in the cache: inline, the list could exceed Windows' command line.
+exists $LLMENU_CACHE_DIR/claude-settings.json
 stdout '^settings modelPicker: aws/claude-opus-5-5\[1m\] \| aws/claude-opus-5-5 \| 1M · \$4\.40 in / \$22\.00 out \| claude-opus-5-5$'
 stdout '^settings modelPicker: aws/claude-sonnet-4-5 \| aws/claude-sonnet-4-5 \| 200k · \$3\.30 in / \$16\.50 out \| claude-sonnet-4-5$'
 stdout '^settings modelPicker: gcp/claude-sonnet-4-5 \| gcp/claude-sonnet-4-5 \| 200k · \$3\.00 in / \$15\.00 out, more above 200k \| claude-sonnet-4-5$'

@@ -196,7 +196,7 @@ func resetItems() ([]resetItem, error) {
 }
 
 // cacheFiles are llmenu's files in the cache directory.
-var cacheFiles = []string{"state.json", "models.json", "spend.json", "bench.json"}
+var cacheFiles = []string{"state.json", "models.json", "spend.json", "bench.json", "claude-settings.json"}
 
 // removeCache removes llmenu's cache directory, or with LLMENU_CACHE_DIR,
 // which may be shared, only llmenu's files in it.
