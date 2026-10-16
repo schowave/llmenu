@@ -39,15 +39,20 @@ func TestMain(m *testing.M) {
 }
 
 // fakeTool prints its arguments and the environment llmenu sets for it, and
-// exits with $FAKE_EXIT. Inline JSON for --settings shows as @settings in the
-// arguments, followed by one line per setting.
+// exits with $FAKE_EXIT. A --settings file that exists, or inline JSON, shows
+// as @settings in the arguments, followed by one line per setting.
 func fakeTool(name string) func() {
 	return func() {
 		args := slices.Clone(os.Args[1:])
 		var settings string
 		for i := 1; i < len(args); i++ {
-			if args[i-1] == "--settings" && strings.HasPrefix(args[i], "{") {
+			if args[i-1] != "--settings" {
+				continue
+			}
+			if strings.HasPrefix(args[i], "{") {
 				settings, args[i] = args[i], "@settings"
+			} else if b, err := os.ReadFile(args[i]); err == nil { //nolint:gosec // G703: fake tool in tests, reads the file llmenu passes
+				settings, args[i] = string(b), "@settings"
 			}
 		}
 		fmt.Printf("%s args: %s\n", name, strings.Join(args, " "))

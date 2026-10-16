@@ -5,12 +5,16 @@ import (
 	"encoding/json"
 	"fmt"
 	"maps"
+	"os"
 	"os/exec"
+	"regexp"
 	"slices"
 	"strings"
 
+	"github.com/schowave/llmenu/internal/atomicfile"
 	"github.com/schowave/llmenu/internal/catalog"
 	"github.com/schowave/llmenu/internal/config"
+	"github.com/schowave/llmenu/internal/state"
 	"github.com/schowave/llmenu/internal/table"
 )
 
@@ -77,8 +81,10 @@ func (c claude) Command(ctx context.Context, m *catalog.Model, args []string, en
 	}
 	// Session settings only: ~/.claude stays untouched (ADR-0002). Own
 	// --settings win, Claude Code takes only one.
-	if s := sessionSettings(env); s != "" && !hasFlag(args, "--settings") {
-		args = append([]string{"--settings", s}, args...)
+	if !hasFlag(args, "--settings") {
+		if s := sessionSettings(env); s != "" {
+			args = append([]string{"--settings", settingsArg(s)}, args...)
+		}
 	}
 	cmd := exec.CommandContext(ctx, "claude", args...)
 
@@ -126,6 +132,25 @@ func sessionSettings(env Env) string {
 	return string(b)
 }
 
+// settingsArg returns the path of a file with the settings: inline, the
+// model list could exceed Windows' command line limit (8191 characters
+// through claude.cmd). The file is only rewritten when the settings change,
+// as running sessions may reload it. If it cannot be written, the settings
+// go inline.
+func settingsArg(settings string) string {
+	p, err := state.ClaudeSettingsPath()
+	if err != nil {
+		return settings
+	}
+	if b, err := os.ReadFile(p); err == nil && string(b) == settings {
+		return p
+	}
+	if atomicfile.Write(p, []byte(settings), 0o600) != nil {
+		return settings
+	}
+	return p
+}
+
 type pickerOption struct {
 	Model       string `json:"model"`
 	Label       string `json:"label"`
@@ -151,20 +176,37 @@ func modelPicker(env Env) map[string]any {
 			Label:       m.Name,
 			Description: pickerDescription(m, metric),
 		}
-		if IsClaude(m) {
-			o.BehavesAs = catalog.ShortTarget(m.Target)
+		if id := catalog.ShortTarget(m.Target); reClaudeID.MatchString(id) {
+			o.BehavesAs = id
 		}
 		opts = append(opts, o)
 	}
 	return map[string]any{"replaceBuiltInOptions": true, "options": opts}
 }
 
-var metricNames = map[string]string{"intel": "intelligence", "tb4": "Terminal-Bench", "code": "coding"}
+// reClaudeID matches the Anthropic model IDs a shortened target can be used
+// as for behavesAs, e.g. claude-opus-5-5 or claude-sonnet-4. Older names such
+// as claude-3-5-sonnet need their date, which ShortTarget drops.
+var reClaudeID = regexp.MustCompile(`^claude-(opus|sonnet|haiku|fable)-\d+(-\d+)?$`)
+
+// metricName names the benchmark Model.Score uses for metric.
+func metricName(metric string) string {
+	switch metric {
+	case "tb4":
+		return "Terminal-Bench"
+	case "code":
+		return "coding"
+	}
+	return "intelligence"
+}
 
 // pickerDescription is a model's line in /model: context, prices and the
 // benchmark the menu sorts by, e.g. "1M · $5.00 in / $25.00 out · intelligence 70.1".
 func pickerDescription(m catalog.Model, metric string) string {
-	parts := []string{table.Tokens(m.ContextTokens)}
+	var parts []string
+	if m.ContextTokens > 0 {
+		parts = append(parts, table.Tokens(m.ContextTokens))
+	}
 	switch {
 	case m.NoPrice:
 		parts = append(parts, "price unknown")
@@ -178,7 +220,7 @@ func pickerDescription(m catalog.Model, metric string) string {
 		parts = append(parts, price)
 	}
 	if v := m.Score(metric); v != nil {
-		parts = append(parts, fmt.Sprintf("%s %.1f", metricNames[metric], *v))
+		parts = append(parts, fmt.Sprintf("%s %.1f", metricName(metric), *v))
 	}
 	return strings.Join(parts, " · ")
 }

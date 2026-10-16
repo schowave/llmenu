@@ -57,29 +57,8 @@ var Keys = []Key{
 		func(c *Config) *string { return &c.Claude.Sonnet }, nil),
 	str("claude.haiku", "model for the haiku slot (empty: gateway suggestion)",
 		func(c *Config) *string { return &c.Claude.Haiku }, nil),
-	{
-		Name: "claude.auto_compact",
-		Help: "automatic compaction in Claude Code (true|false)",
-		get: func(c *Config) (string, bool) {
-			if c.Claude.AutoCompact == nil {
-				return "", false
-			}
-			return strconv.FormatBool(*c.Claude.AutoCompact), true
-		},
-		def: func(*Config) string { return "true" },
-		put: func(c *Config, v string) error {
-			if v == "" {
-				c.Claude.AutoCompact = nil
-				return nil
-			}
-			b, err := strconv.ParseBool(v)
-			if err != nil {
-				return fmt.Errorf("expected true or false, not %q", v)
-			}
-			c.Claude.AutoCompact = &b
-			return nil
-		},
-	},
+	optBool("claude.auto_compact", "automatic compaction in Claude Code (true|false)",
+		func(c *Config) **bool { return &c.Claude.AutoCompact }, "true"),
 	{
 		Name: "claude.statusline",
 		Help: "add project and spend to Claude Code's status line in sessions llmenu starts; your own status line stays (true|false)",
@@ -100,29 +79,8 @@ var Keys = []Key{
 			return nil
 		},
 	},
-	{
-		Name: "claude.picker",
-		Help: "list all gateway models in Claude Code's /model in sessions llmenu starts (true|false)",
-		get: func(c *Config) (string, bool) {
-			if c.Claude.Picker == nil {
-				return "", false
-			}
-			return strconv.FormatBool(*c.Claude.Picker), true
-		},
-		def: func(*Config) string { return "true" },
-		put: func(c *Config, v string) error {
-			if v == "" {
-				c.Claude.Picker = nil
-				return nil
-			}
-			b, err := strconv.ParseBool(v)
-			if err != nil {
-				return fmt.Errorf("expected true or false, not %q", v)
-			}
-			c.Claude.Picker = &b
-			return nil
-		},
-	},
+	optBool("claude.picker", "list all gateway models in Claude Code's /model in sessions llmenu starts (true|false)",
+		func(c *Config) **bool { return &c.Claude.Picker }, "true"),
 	str("codex.default", "default model for Codex (required without a terminal if no -m is given)",
 		func(c *Config) *string { return &c.Codex.Default }, nil),
 	{
@@ -174,6 +132,33 @@ var Keys = []Key{
 			return nil
 		},
 	},
+}
+
+// optBool is a boolean key that can be unset: nil uses def.
+func optBool(name, help string, field func(*Config) **bool, def string) Key {
+	return Key{
+		Name: name,
+		Help: help,
+		get: func(c *Config) (string, bool) {
+			if p := *field(c); p != nil {
+				return strconv.FormatBool(*p), true
+			}
+			return "", false
+		},
+		def: func(*Config) string { return def },
+		put: func(c *Config, v string) error {
+			if v == "" {
+				*field(c) = nil
+				return nil
+			}
+			b, err := strconv.ParseBool(v)
+			if err != nil {
+				return fmt.Errorf("expected true or false, not %q", v)
+			}
+			*field(c) = &b
+			return nil
+		},
+	}
 }
 
 func str(name, help string, field func(*Config) *string, def func(*Config) string) Key {

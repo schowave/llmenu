@@ -5,6 +5,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strings"
 	"testing"
@@ -78,7 +79,7 @@ func TestRootDefaultTool(t *testing.T) {
 	if got, _ := config.Load(); got.Launch != "claude" {
 		t.Errorf("launch = %q", got.Launch)
 	}
-	if !strings.Contains(launched(), "--model ") {
+	if !launchedWithModel.MatchString(launched()) {
 		t.Errorf("claude not started after the question: %q", launched())
 	}
 
@@ -86,7 +87,7 @@ func TestRootDefaultTool(t *testing.T) {
 	if _, stderr, err := run(""); err != nil || strings.Contains(stderr, "without a command do?") {
 		t.Fatalf("second run: %v, %q", err, stderr)
 	}
-	if !strings.Contains(launched(), "--model ") {
+	if !launchedWithModel.MatchString(launched()) {
 		t.Errorf("claude not started: %q", launched())
 	}
 
@@ -116,3 +117,7 @@ func mustLoad(t *testing.T) *config.Config {
 	}
 	return cfg
 }
+
+// launchedWithModel matches claude's arguments when llmenu added the model:
+// --model first, after llmenu's own --settings.
+var launchedWithModel = regexp.MustCompile(`^(--settings \S+ )?--model `)
