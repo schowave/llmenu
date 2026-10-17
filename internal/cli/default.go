@@ -65,6 +65,7 @@ func launchChoices(cfg *config.Config) []string {
 var launchLabels = map[string]string{
 	"claude":   "Start Claude Code",
 	"codex":    "Start Codex CLI",
+	"copilot":  "Start GitHub Copilot CLI",
 	"opencode": "Start opencode",
 }
 

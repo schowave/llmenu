@@ -19,7 +19,7 @@ func TestRegistry(t *testing.T) {
 	for _, tg := range All() {
 		names = append(names, tg.Name())
 	}
-	want := []string{"claude", "codex", "opencode", "pi"}
+	want := []string{"claude", "codex", "copilot", "opencode", "pi"}
 	if !slices.Equal(names, want) {
 		t.Fatalf("targets = %v, want %v", names, want)
 	}
@@ -27,6 +27,7 @@ func TestRegistry(t *testing.T) {
 	caps := map[string][2]bool{ // Sync, Launch
 		"claude":   {false, true},
 		"codex":    {false, true},
+		"copilot":  {false, true},
 		"opencode": {true, true},
 		"pi":       {true, false},
 	}
@@ -56,6 +57,9 @@ func TestHasModelArg(t *testing.T) {
 		{"codex", []string{"-m", "gpt-5"}, true},
 		{"codex", []string{"--model=gpt-5"}, true},
 		{"codex", []string{"exec", "hello"}, false},
+		{"copilot", []string{"-p", "hi"}, false},
+		{"copilot", []string{"--model", "gpt-5"}, true},
+		{"copilot", []string{"--model=gpt-5"}, true},
 	}
 	for _, tt := range tests {
 		tg, _ := Get(tt.target)
@@ -411,6 +415,111 @@ func TestConfigPathDefaults(t *testing.T) {
 	for _, tg := range []interface{ ConfigPath() (string, error) }{pi{}, opencode{}} {
 		if p, err := tg.ConfigPath(); err == nil {
 			t.Errorf("%T: ConfigPath() without HOME = %q, want an error", tg, p)
+		}
+	}
+}
+
+func TestCopilotCommand(t *testing.T) {
+	tg, _ := Get("copilot")
+	l := tg.(Launcher)
+	t.Setenv("COPILOT_PROVIDER_BEARER_TOKEN", "inherited")
+	cfg := &config.Config{}
+	env := Env{BaseURL: "https://gw.example.com/", APIKey: "secret", Config: cfg}
+	m := &catalog.Model{Name: "azure/gpt-6-luna", ContextTokens: 922_000, MaxOutputTokens: 128_000}
+
+	cmd, err := l.Command(context.Background(), m, []string{"-p", "hello"}, env)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := []string{"copilot", "-p", "hello"}; !slices.Equal(cmd.Args, want) {
+		t.Errorf("Args = %q, want %q", cmd.Args, want)
+	}
+	for _, v := range []string{
+		"COPILOT_PROVIDER_BASE_URL=https://gw.example.com/v1",
+		"COPILOT_PROVIDER_TYPE=openai",
+		"COPILOT_PROVIDER_API_KEY=secret",
+		"COPILOT_MODEL=azure/gpt-6-luna",
+		"COPILOT_PROVIDER_MAX_PROMPT_TOKENS=922000",
+		"COPILOT_PROVIDER_MAX_OUTPUT_TOKENS=128000",
+	} {
+		if !slices.Contains(cmd.Env, v) {
+			t.Errorf("Env lacks %s", v)
+		}
+	}
+	// An inherited bearer token would beat the gateway key.
+	if slices.ContainsFunc(cmd.Env, func(kv string) bool { return strings.HasPrefix(kv, "COPILOT_PROVIDER_BEARER_TOKEN=") }) {
+		t.Error("inherited COPILOT_PROVIDER_ variable kept")
+	}
+	if slices.Contains(cmd.Env, "COPILOT_OFFLINE=true") {
+		t.Error("offline without copilot.offline")
+	}
+
+	// Copilot appends /v1/messages itself for anthropic.
+	cfg.Copilot.ProviderType = "anthropic"
+	offline := true
+	cfg.Copilot.Offline = &offline
+	cmd, _ = l.Command(context.Background(), &catalog.Model{Name: "x"}, nil, env)
+	for _, v := range []string{
+		"COPILOT_PROVIDER_BASE_URL=https://gw.example.com",
+		"COPILOT_PROVIDER_TYPE=anthropic",
+		"COPILOT_OFFLINE=true",
+	} {
+		if !slices.Contains(cmd.Env, v) {
+			t.Errorf("Env lacks %s", v)
+		}
+	}
+	if slices.ContainsFunc(cmd.Env, func(kv string) bool { return strings.HasPrefix(kv, "COPILOT_PROVIDER_MODEL_ID=") }) {
+		t.Error("MODEL_ID for a model without Anthropic ID")
+	}
+	cmd, _ = l.Command(context.Background(), &catalog.Model{Name: "aws/claude-haiku-5-5", Target: "bedrock/eu.anthropic.claude-haiku-5-5"}, nil, env)
+	if !slices.Contains(cmd.Env, "COPILOT_PROVIDER_MODEL_ID=claude-haiku-5-5") || !slices.Contains(cmd.Env, "COPILOT_MODEL=aws/claude-haiku-5-5") {
+		t.Errorf("Claude model: env %q", cmd.Env)
+	}
+	// Unknown limits (0) are left to copilot.
+	if slices.ContainsFunc(cmd.Env, func(kv string) bool { return strings.HasPrefix(kv, "COPILOT_PROVIDER_MAX_") }) {
+		t.Errorf("unknown limits passed: %q", cmd.Env)
+	}
+
+	// --model of a gateway model: its limits and ID, but no COPILOT_MODEL.
+	env.Models = []catalog.Model{{Name: "gcp/claude-sonnet-5-5", Target: "vertex_ai/claude-sonnet-5-5", MaxOutputTokens: 64_000}}
+	cmd, _ = l.Command(context.Background(), nil, []string{"--model=gcp/claude-sonnet-5-5"}, env)
+	if !slices.Contains(cmd.Env, "COPILOT_PROVIDER_MODEL_ID=claude-sonnet-5-5") || !slices.Contains(cmd.Env, "COPILOT_PROVIDER_MAX_OUTPUT_TOKENS=64000") {
+		t.Errorf("--model of a gateway model: env %q", cmd.Env)
+	}
+
+	// --model passed through: no COPILOT_MODEL, the flag decides.
+	cmd, err = l.Command(context.Background(), nil, []string{"--model", "x"}, env)
+	if err != nil || slices.ContainsFunc(cmd.Env, func(kv string) bool { return strings.HasPrefix(kv, "COPILOT_MODEL=") }) {
+		t.Errorf("--model: err %v, env %q", err, cmd.Env)
+	}
+
+	if _, err := l.Command(context.Background(), nil, nil, env); err == nil {
+		t.Error("started without model")
+	}
+	if ok, hint := l.Supports(catalog.Model{}); !ok || hint != "" {
+		t.Error("model flagged")
+	}
+	if got := tg.(Defaulter).DefaultModel(Env{Config: &config.Config{Copilot: config.Copilot{Default: "y"}}}); got != "y" {
+		t.Errorf("DefaultModel = %q", got)
+	}
+}
+
+func TestFlagValue(t *testing.T) {
+	tests := []struct {
+		args []string
+		want string
+	}{
+		{nil, ""},
+		{[]string{"--model", "a"}, "a"},
+		{[]string{"--model=b", "-p", "hi"}, "b"},
+		{[]string{"--model", "a", "--model=b"}, "b"},
+		{[]string{"--model"}, ""},
+		{[]string{"--", "--model", "a"}, ""},
+		{[]string{"--models", "a"}, ""},
+	}
+	for _, tt := range tests {
+		if got := flagValue(tt.args, "--model"); got != tt.want {
+			t.Errorf("flagValue(%q) = %q, want %q", tt.args, got, tt.want)
 		}
 	}
 }

@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"sort"
+	"strings"
 
 	"github.com/schowave/llmenu/internal/catalog"
 	"github.com/schowave/llmenu/internal/config"
@@ -139,6 +140,23 @@ func All() []Target {
 func Get(name string) (Target, bool) {
 	t, ok := registry[name]
 	return t, ok
+}
+
+// flagValue returns the value of the last occurrence of flag, as
+// "--flag value" or "--flag=value", up to "--"; "" if absent.
+func flagValue(args []string, flag string) string {
+	v := ""
+	for i, a := range args {
+		switch {
+		case a == "--":
+			return v
+		case a == flag && i+1 < len(args):
+			v = args[i+1]
+		case strings.HasPrefix(a, flag+"="):
+			v = a[len(flag)+1:]
+		}
+	}
+	return v
 }
 
 // hasFlag checks whether args contains one of the flags, also in the form

@@ -87,6 +87,9 @@ var launchExamples = map[string]string{
 	"codex": `  llmenu codex
   llmenu codex exec "fix the failing test"
   llmenu codex -m azure/gpt-6-sol`,
+	"copilot": `  llmenu copilot
+  llmenu copilot -p "fix the failing test"
+  llmenu copilot --model azure/gpt-6-sol`,
 	"opencode": `  llmenu opencode
   llmenu opencode run "explain this repository"`,
 }

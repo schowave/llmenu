@@ -71,6 +71,7 @@ with it, or writes the model list into the tool's configuration.
 Supported tools:
   Claude Code   started with the chosen model          llmenu claude
   Codex CLI     started with the chosen model          llmenu codex
+  Copilot CLI   started with the chosen model          llmenu copilot
   opencode      models written into its config         llmenu sync, llmenu opencode
   pi            models written into its config         llmenu sync
 

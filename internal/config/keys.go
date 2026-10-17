@@ -65,6 +65,23 @@ var Keys = []Key{
 		func(c *Config) **bool { return &c.Claude.Picker }, "true"),
 	str("codex.default", "default model for Codex (required without a terminal if no -m is given)",
 		func(c *Config) *string { return &c.Codex.Default }, nil),
+	str("copilot.default", "default model for Copilot CLI (required without a terminal if no --model is given)",
+		func(c *Config) *string { return &c.Copilot.Default }, nil),
+	{
+		Name: "copilot.provider_type",
+		Help: "protocol Copilot CLI speaks to the gateway: openai (Chat Completions) or anthropic (Messages API)",
+		get:  func(c *Config) (string, bool) { return c.Copilot.ProviderType, c.Copilot.ProviderType != "" },
+		def:  func(*Config) string { return "openai" },
+		put: func(c *Config, v string) error {
+			if v != "" && !slices.Contains(CopilotProviderTypes, v) {
+				return fmt.Errorf("expected %v, not %q", CopilotProviderTypes, v)
+			}
+			c.Copilot.ProviderType = v
+			return nil
+		},
+	},
+	optBool("copilot.offline", "start Copilot CLI offline: no GitHub login, telemetry, web tools or auto-update (true|false)",
+		func(c *Config) **bool { return &c.Copilot.Offline }, "false"),
 	{
 		Name: "bench.metric",
 		Help: "benchmark for sorting: intel, tb4 or code",
@@ -94,7 +111,7 @@ var Keys = []Key{
 	},
 	{
 		Name: "tools",
-		Help: "coding tools in use, comma-separated (claude, codex, opencode, pi), or none",
+		Help: "coding tools in use, comma-separated (claude, codex, copilot, opencode, pi), or none",
 		get: func(c *Config) (string, bool) {
 			return strings.Join(c.ToolList(), ","), c.ToolsConfigured()
 		},

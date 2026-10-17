@@ -76,8 +76,8 @@ for CI and for trying things out. For tests and the development sandbox
 stores keys in a plain-text file instead of the OS keyring and is not meant
 for real keys.
 
-`tools` lists the coding tools in use (claude, codex, opencode, pi). The
-setup only asks the claude and codex sections for tools in use, `llmenu sync`
+`tools` lists the coding tools in use (claude, codex, copilot, opencode, pi). The
+setup only asks the claude, codex and copilot sections for tools in use, `llmenu sync`
 without arguments writes into the tools in use that keep a model list, and
 the help hides the launch commands of tools not in use. `tools` distinguishes
 "never configured" (then only Claude Code is preselected, whatever is
@@ -110,6 +110,11 @@ CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC = "1"
 
 [codex]
 default = "…"                       # optional; default model for llmenu codex (ADR-0002)
+
+[copilot]
+default = "…"                       # optional; default model for llmenu copilot (ADR-0002)
+provider_type = "openai"            # openai (Chat Completions) or anthropic (Messages API)
+offline = false                     # true sets COPILOT_OFFLINE=true
 
 ```
 
@@ -156,7 +161,7 @@ are removed and the first remaining part is taken. So
 | Command | Purpose |
 |---|---|
 | `llmenu setup` | ask what to set up (everything or one section); on the very first run everything without asking. Defaults are the current values, otherwise the derived suggestions |
-| `llmenu setup <section>` | only `gateway`, `tools`, `claude`, `codex` or `benchmarks` |
+| `llmenu setup <section>` | only `gateway`, `tools`, `default`, `claude`, `codex`, `copilot` or `benchmarks` |
 | `llmenu config list` | all values and where they come from (file, environment, default); keys only shown as "set" |
 | `llmenu config get <key>` | single value, e.g. `claude.default` |
 | `llmenu config set <key> <value>` | change a single value without a dialog |

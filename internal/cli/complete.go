@@ -140,13 +140,15 @@ func completeConfigSet(cmd *cobra.Command, args []string, toComplete string) ([]
 	switch args[0] {
 	case "claude.default":
 		values = append(slices.Clone(config.Slots), state.LoadModels()...)
-	case "claude.opus", "claude.sonnet", "claude.haiku", "codex.default":
+	case "claude.opus", "claude.sonnet", "claude.haiku", "codex.default", "copilot.default":
 		values = state.LoadModels()
 	case "bench.metric":
 		values = config.Metrics
+	case "copilot.provider_type":
+		values = config.CopilotProviderTypes
 	case "gateway.project":
 		values = projectNames()
-	case "claude.auto_compact", "claude.statusline", "claude.picker":
+	case "claude.auto_compact", "claude.statusline", "claude.picker", "copilot.offline":
 		values = []string{"true", "false"}
 	case "tools":
 		values = append(targetNames(func(targets.Target) bool { return true }), "none")
@@ -160,6 +162,7 @@ func completeConfigSet(cmd *cobra.Command, args []string, toComplete string) ([]
 var modelFlags = map[string][]string{
 	"claude":   {"--model"},
 	"codex":    {"-m", "--model"},
+	"copilot":  {"--model"},
 	"opencode": {"-m", "--model"},
 }
 

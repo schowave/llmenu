@@ -1,0 +1,38 @@
+# setup copilot: default model, protocol and offline mode, in accessible mode.
+env LLMENU_ACCESSIBLE=1
+
+# Enter keeps the defaults; nothing is stored.
+stdin enter.txt
+exec llmenu setup copilot
+stderr '^1\. \(no default: pick in the menu or pass --model\)$'
+stderr '^5\. azure/gpt-6-sol$'
+! stderr 'no Responses API'
+stderr 'Copilot CLI: protocol to the gateway'
+! grep 'copilot' config.toml
+
+# Only values that differ from the defaults are stored.
+stdin pick.txt
+exec llmenu setup copilot
+grep '^default = .azure/gpt-6-sol.$' config.toml
+grep '^provider_type = .anthropic.$' config.toml
+grep '^offline = true$' config.toml
+
+# Back to the defaults removes the entries again.
+stdin reset.txt
+exec llmenu setup copilot
+grep '^default = .azure/gpt-6-sol.$' config.toml
+! grep 'provider_type' config.toml
+! grep 'offline' config.toml
+
+-- enter.txt --
+
+
+
+-- pick.txt --
+5
+2
+y
+-- reset.txt --
+
+1
+n

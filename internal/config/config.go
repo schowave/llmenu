@@ -22,7 +22,7 @@ import (
 // Config is the content of config.toml. Empty fields mean "not set"; the
 // accessor methods supply the defaults.
 type Config struct {
-	// Tools are the coding tools in use (claude, codex, opencode, pi). nil:
+	// Tools are the coding tools in use (claude, codex, copilot, opencode, pi). nil:
 	// never chosen, the installed tools apply; an empty list is a deliberate
 	// "none" and is written as `tools = []`.
 	Tools *[]string `toml:"tools,omitempty"`
@@ -33,11 +33,36 @@ type Config struct {
 	Claude  Claude  `toml:"claude,omitempty"`
 	Bench   Bench   `toml:"bench,omitempty"`
 	Codex   Codex   `toml:"codex,omitempty"`
+	Copilot Copilot `toml:"copilot,omitempty"`
 }
 
 type Codex struct {
 	Default string `toml:"default,omitempty"` // model the menu starts on; required without a terminal
 }
+
+type Copilot struct {
+	Default string `toml:"default,omitempty"` // model the menu starts on; required without a terminal
+	// ProviderType is the protocol Copilot CLI speaks to the gateway
+	// (CopilotProviderTypes); empty: openai.
+	ProviderType string `toml:"provider_type,omitempty"`
+	Offline      *bool  `toml:"offline,omitempty"` // COPILOT_OFFLINE: no contact with GitHub
+}
+
+// CopilotProviderTypes are the COPILOT_PROVIDER_TYPE values that work with a
+// LiteLLM gateway; azure needs Azure's routes and deployment names.
+var CopilotProviderTypes = []string{"openai", "anthropic"}
+
+// ProviderTypeOrDefault returns the provider type, "openai" if unset, as in
+// Copilot CLI.
+func (c Copilot) ProviderTypeOrDefault() string {
+	if c.ProviderType == "" {
+		return "openai"
+	}
+	return c.ProviderType
+}
+
+// OfflineEnabled is false if unset.
+func (c Copilot) OfflineEnabled() bool { return c.Offline != nil && *c.Offline }
 
 type Gateway struct {
 	URL  string `toml:"url,omitempty"`

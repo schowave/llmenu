@@ -1,4 +1,4 @@
-// Command faketool stands in for claude and codex in the development sandbox:
+// Command faketool stands in for claude, codex and copilot in the development sandbox:
 // it prints how llmenu launched it instead of starting the real tool. Keys
 // are masked.
 package main
@@ -18,9 +18,9 @@ func main() {
 	for _, kv := range os.Environ() {
 		k, v, _ := strings.Cut(kv, "=")
 		switch {
-		case k == "ANTHROPIC_AUTH_TOKEN" || k == "LLMENU_API_KEY":
+		case k == "ANTHROPIC_AUTH_TOKEN" || k == "LLMENU_API_KEY" || k == "COPILOT_PROVIDER_API_KEY":
 			env = append(env, k+"="+mask(v))
-		case strings.HasPrefix(k, "ANTHROPIC_") || strings.HasPrefix(k, "CLAUDE_CODE_DISABLE_") || k == "DISABLE_AUTO_COMPACTION":
+		case strings.HasPrefix(k, "ANTHROPIC_") || strings.HasPrefix(k, "CLAUDE_CODE_DISABLE_") || strings.HasPrefix(k, "COPILOT_") || k == "DISABLE_AUTO_COMPACTION":
 			env = append(env, kv)
 		}
 	}

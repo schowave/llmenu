@@ -1,5 +1,5 @@
 # setup tools in accessible mode: numbers toggle, 0 confirms. On PATH are the
-# stand-ins for claude, codex and opencode; pi is not installed.
+# stand-ins for claude, codex, copilot and opencode; pi is not installed.
 env LLMENU_ACCESSIBLE=1
 
 # Without a choice, only Claude Code is preselected, whatever is installed.
@@ -7,7 +7,8 @@ stdin confirm.txt
 exec llmenu setup tools
 stderr '^1\. ✓ Claude Code'
 stderr '^2\.   Codex CLI'
-stderr '^4\.   pi .* - not installed$'
+stderr '^3\.   Copilot CLI'
+stderr '^5\.   pi .* - not installed$'
 grep '^tools = \[.claude.\]$' config.toml
 
 # claude off, opencode and pi on.
@@ -19,7 +20,7 @@ grep '^tools = \[.opencode., .pi.\]$' config.toml
 stdin confirm.txt
 exec llmenu setup tools
 stderr '^1\.   Claude Code'
-stderr '^4\. ✓ pi'
+stderr '^5\. ✓ pi'
 ! stderr 'Saved:'
 
 # Launchers of unused tools disappear from the help but keep working.
@@ -27,6 +28,7 @@ exec llmenu --help
 stdout '^  opencode '
 ! stdout '^  claude '
 ! stdout '^  codex '
+! stdout '^  copilot '
 exec llmenu claude --model x
 stdout '^claude args: --settings @settings --model x$'
 
@@ -66,12 +68,12 @@ exec llmenu setup tools
 0
 -- toggle.txt --
 1
-3
 4
+5
 0
 -- toggle-off.txt --
-3
 4
+5
 0
 -- full.txt --
 1

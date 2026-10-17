@@ -22,7 +22,7 @@ import (
 	"github.com/schowave/llmenu/internal/targets"
 )
 
-var sections = []string{"gateway", "tools", "default", "claude", "codex", "benchmarks"}
+var sections = []string{"gateway", "tools", "default", "claude", "codex", "copilot", "benchmarks"}
 
 func newSetupCmd() *cobra.Command {
 	return &cobra.Command{
@@ -30,13 +30,14 @@ func newSetupCmd() *cobra.Command {
 		Short: "Set up gateway, key, your coding tools and their defaults",
 		Long: `Asks what to set up, or runs the given section directly:
   gateway     URL and key of the LiteLLM gateway (checked right away)
-  tools       which coding tools you use (Claude Code, Codex CLI, opencode, pi)
+  tools       which coding tools you use (Claude Code, Codex CLI, Copilot CLI, opencode, pi)
   default     which tool llmenu without a command starts
   claude      models for Claude Code's opus/sonnet/haiku slots, default, compaction
   codex       default model for Codex CLI
+  copilot     default model, protocol and offline mode for GitHub Copilot CLI
   benchmarks  free Artificial Analysis key for llmenu bench
 
-The default, claude and codex sections are only asked for the tools you use.
+The default, claude, codex and copilot sections are only asked for the tools you use.
 
 Run it again any time: Enter keeps the current value. To change a single
 value without the dialog, use llmenu config set.
@@ -84,6 +85,7 @@ var sectionLabels = map[string]string{
 	"default":    "What llmenu without a command starts",
 	"claude":     "Claude Code (models for opus/sonnet/haiku, default model)",
 	"codex":      "Codex CLI (default model)",
+	"copilot":    "GitHub Copilot CLI (default model, protocol, offline)",
 	"benchmarks": "Benchmarks (Artificial Analysis key)",
 }
 
@@ -155,6 +157,15 @@ func runSetup(ctx context.Context, args []string) error {
 			return err
 		}
 		if err := setupCodex(cfg, m); err != nil {
+			return err
+		}
+	}
+	if want("copilot", toolEnabled(cfg, "copilot")) {
+		m, err := gatewayModels()
+		if err != nil {
+			return err
+		}
+		if err := setupCopilot(cfg, m); err != nil {
 			return err
 		}
 	}

@@ -34,6 +34,7 @@ func TestMain(m *testing.M) {
 		},
 		"claude":   fakeTool("claude"),
 		"codex":    fakeTool("codex"),
+		"copilot":  fakeTool("copilot"),
 		"opencode": fakeTool("opencode"),
 	})
 }
@@ -60,7 +61,7 @@ func fakeTool(name string) func() {
 		var env []string
 		for _, kv := range os.Environ() {
 			k, _, _ := strings.Cut(kv, "=")
-			if strings.HasPrefix(k, "ANTHROPIC_") || strings.HasPrefix(k, "CLAUDE_CODE_DISABLE_") ||
+			if strings.HasPrefix(k, "ANTHROPIC_") || strings.HasPrefix(k, "CLAUDE_CODE_DISABLE_") || strings.HasPrefix(k, "COPILOT_") ||
 				k == "DISABLE_AUTO_COMPACTION" || k == "LLMENU_API_KEY" || k == "LLMENU_PROJECT" || k == "FOO" {
 				env = append(env, kv)
 			}

@@ -43,7 +43,7 @@ mise run sandbox:clean         # delete .sandbox/
 The sandbox opens a shell in which llmenu, pi and opencode only see
 `.sandbox/`: its own HOME, config, cache and a plain-text key file instead of
 the OS keyring. A fake gateway answers on `http://127.0.0.1:4111/` (key
-`sk-dev`, benchmark key `aa-dev`), and `claude`/`codex` are stand-ins that
+`sk-dev`, benchmark key `aa-dev`), and `claude`/`codex`/`copilot` are stand-ins that
 print how llmenu would have started them. Exit the shell to leave.
 
 > **macOS:** never redirect `HOME` while llmenu can reach the OS keyring —

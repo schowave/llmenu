@@ -1,7 +1,7 @@
 <h1 align="center">llmenu</h1>
 
 <p align="center">
-  <strong>Pick an LLM from your LiteLLM gateway — by price, context and benchmarks — and use it in Claude Code, Codex CLI, pi and opencode.</strong>
+  <strong>Pick an LLM from your LiteLLM gateway — by price, context and benchmarks — and use it in Claude Code, Codex CLI, GitHub Copilot CLI, pi and opencode.</strong>
 </p>
 
 <p align="center">
@@ -39,11 +39,11 @@ that model.
   price.
 - **Zero configuration.** Without llmenu you export a gateway URL, a key and
   one model variable per slot, in a different format for each tool. With it:
-  `llmenu claude`. Your `~/.claude` and `~/.codex` stay untouched.
+  `llmenu claude`. Your `~/.claude`, `~/.codex` and `~/.copilot` stay untouched.
 - **See what you spend.** The menu and Claude Code's status line show the
   budget of the key you are using — yours or the project's — and how much of
   it is gone.
-- **One gateway, four tools.** Claude Code and Codex CLI are started with the
+- **One gateway, five tools.** Claude Code, Codex CLI and Copilot CLI are started with the
   chosen model; pi and opencode get the gateway's models, limits and prices
   written into their configs. When the gateway changes, `llmenu sync` brings
   every tool up to date.
@@ -143,6 +143,7 @@ llmenu integrates each tool the way that tool works best: some are
 |---|---|---|
 | [Claude Code](https://github.com/anthropics/claude-code) | starts it with the chosen model | `llmenu claude` |
 | [Codex CLI](https://github.com/openai/codex) | starts it with the chosen model | `llmenu codex` |
+| [GitHub Copilot CLI](https://github.com/github/copilot-cli) | starts it with the chosen model | `llmenu copilot` |
 | [opencode](https://opencode.ai) | writes the models into its config; starts it with the key | `llmenu sync`, then `llmenu opencode` |
 | [pi](https://www.npmjs.com/package/@earendil-works/pi-coding-agent) | writes the models into its config | `llmenu sync`, then `pi` |
 | anything else | prints the chosen model name | `tool --model "$(llmenu)"` |
@@ -152,11 +153,20 @@ llmenu claude                      # menu with the cursor on your default, then 
 llmenu claude --model sonnet -c    # no menu; every argument goes to claude unchanged
 llmenu claude -p "explain this" > answer.md   # no terminal: default model, no menu
 llmenu codex exec "fix the failing test"
+llmenu copilot -p "fix the failing test"
 ```
 
-Gateway, key and models are passed in the environment (Claude Code) or via
-`-c` overrides (Codex CLI); `~/.claude` and `~/.codex` stay untouched.
-Defaults: `llmenu setup claude`, `llmenu setup codex`.
+Gateway, key and models are passed in the environment (Claude Code, Copilot
+CLI) or via `-c` overrides (Codex CLI); `~/.claude`, `~/.codex` and
+`~/.copilot` stay untouched. Defaults: `llmenu setup claude`,
+`llmenu setup codex`, `llmenu setup copilot`.
+
+Copilot CLI uses the gateway as its own provider (BYOK) and needs no GitHub
+login then. It speaks Chat Completions to `<gateway>/v1` by default;
+`llmenu config set copilot.provider_type anthropic` switches to the Messages
+API. `copilot.offline true` also turns off telemetry, web tools and
+auto-update. A `~/.copilot/providers.json` that declares providers wins over
+what llmenu passes.
 
 In a Claude Code session started by llmenu, `/model` lists all of the
 gateway's models with context, prices and benchmark instead of Claude's own,
@@ -322,6 +332,9 @@ Claude's own models; in llmenu sessions pick with `s` instead.
 started with `llmenu claude`, and not with `claude.statusline` off
 (`llmenu config get claude.statusline`). It runs `llmenu statusline`, so
 `llmenu` must be on the `PATH`.
+
+**Copilot CLI answers with an error about tool calling or streaming**: Copilot
+needs a model that supports both; pick another one.
 
 ## Updating and uninstalling
 

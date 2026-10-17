@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Development sandbox for llmenu: a shell in which llmenu, pi and opencode only
-# see .sandbox/ (config, cache, keys, HOME), claude and codex are stand-ins
+# see .sandbox/ (config, cache, keys, HOME), claude, codex and copilot are stand-ins
 # that print how they would be started, and by default a fake gateway answers
 # on localhost. Nothing outside .sandbox/ is read or written, the OS keyring
 # is never used.
@@ -30,11 +30,13 @@ go build -o "$sb/bin/llmenu" "$root/cmd/llmenu"
 go build -o "$sb/bin/fakegateway" "$root/tools/fakegateway"
 go build -o "$sb/bin/claude" "$root/tools/faketool"
 cp "$sb/bin/claude" "$sb/bin/codex"
+cp "$sb/bin/claude" "$sb/bin/copilot"
 
 # Isolate every place the tools look at.
 export HOME=$sb/home ZDOTDIR=$sb/home
 export XDG_CONFIG_HOME=$HOME/.config XDG_CACHE_HOME=$HOME/.cache XDG_DATA_HOME=$HOME/.local/share XDG_STATE_HOME=$HOME/.local/state
 export CODEX_HOME=$HOME/.codex
+export COPILOT_HOME=$HOME/.copilot
 export LLMENU_CONFIG=$sb/config.toml LLMENU_CACHE_DIR=$sb/cache LLMENU_KEYRING_FILE=$sb/keyring.json
 export LLMENU_KEYRING_SERVICE=llmenu-sandbox
 export PATH=$sb/bin:$PATH
@@ -70,7 +72,7 @@ else
 MSG
 fi
 cat <<'MSG'
-  claude and codex are stand-ins that only print how they would be started;
+  claude, codex and copilot are stand-ins that only print how they would be started;
   pi and opencode (if installed) read their configs from the sandbox HOME.
 
   Try: llmenu claude · llmenu list · llmenu setup · llmenu bench · llmenu sync pi opencode

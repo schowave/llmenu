@@ -1,0 +1,35 @@
+# No terminal, no --model, no copilot.default: there is no sensible model.
+! exec llmenu copilot -p hi
+stderr 'no model'
+
+# --model is passed through; the provider comes entirely from COPILOT_PROVIDER_*.
+# An inherited bearer token would beat the gateway key and is dropped.
+env COPILOT_PROVIDER_BEARER_TOKEN=inherited
+exec llmenu copilot --model azure/gpt-6-sol -p hi
+stdout '^copilot args: --model azure/gpt-6-sol -p hi$'
+stdout '^COPILOT_PROVIDER_API_KEY=sk-test$'
+stdout '^COPILOT_PROVIDER_BASE_URL=http://127\.0\.0\.1:\d+/v1$'
+stdout '^COPILOT_PROVIDER_TYPE=openai$'
+! stdout 'COPILOT_MODEL='
+! stdout 'BEARER_TOKEN'
+! stdout 'COPILOT_OFFLINE'
+
+# copilot.default is used without a terminal, with the gateway's limits.
+exec llmenu config set copilot.default azure/gpt-6-sol
+exec llmenu copilot -p hi
+stdout '^copilot args: -p hi$'
+stdout '^COPILOT_MODEL=azure/gpt-6-sol$'
+stdout '^COPILOT_PROVIDER_MAX_OUTPUT_TOKENS=128000$'
+stdout '^COPILOT_PROVIDER_MAX_PROMPT_TOKENS=922000$'
+
+# anthropic: Copilot appends /v1/messages itself. Offline on request.
+exec llmenu config set copilot.provider_type anthropic
+exec llmenu config set copilot.offline true
+exec llmenu copilot -p hi
+stdout '^COPILOT_PROVIDER_BASE_URL=http://127\.0\.0\.1:\d+$'
+stdout '^COPILOT_PROVIDER_TYPE=anthropic$'
+stdout '^COPILOT_OFFLINE=true$'
+
+# Azure needs Azure's routes; the gateway is none.
+! exec llmenu config set copilot.provider_type azure
+stderr 'expected \[openai anthropic\], not "azure"'

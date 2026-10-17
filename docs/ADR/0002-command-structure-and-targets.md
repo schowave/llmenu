@@ -76,7 +76,7 @@ compiled in for now.
 |---|---|---|
 | `llmenu` | Open the menu, then start the default tool (`launch`, chosen in setup, once on first use, or with `llmenu default`) like `llmenu <tool>` without arguments; with `launch = "none"` or when stdout is not a terminal, print the selected model name. This way any tool without its own target can be integrated: `strix --model "$(llmenu)"` | `_gateway-pick` |
 | `llmenu run <target> [args…]` | Launch the tool with gateway and model (only targets with launch) | `claude-api`, `claude-pick` |
-| `llmenu claude [args…]`, `llmenu codex [args…]` | Shorthands for `run`, one per launch target | |
+| `llmenu claude [args…]`, `llmenu codex [args…]`, `llmenu copilot [args…]` | Shorthands for `run`, one per launch target | |
 | `llmenu sync [target…] [--dry-run]` | Write the model list into the targets' configuration; without arguments, the tools in use (setting `tools`, ADR-0003) that keep a model list. `--dry-run` shows the diff | Configuration part of `pi-pick` |
 | `llmenu bench` | Refresh benchmarks. No automatic `sync`: pi and opencode do not store benchmark values | `claude-benchmark` |
 | `llmenu list [--json]` | Table without menu | new |
@@ -90,7 +90,7 @@ compiled in for now.
   collisions. Settings for `llmenu` itself come from the configuration file
   or from environment variables (`LLMENU_*`).
 - If the arguments already contain the tool's model flag (`--model` for
-  Claude Code, `-m`/`--model` for Codex), no menu opens.
+  Claude Code and Copilot CLI, `-m`/`--model` for Codex), no menu opens.
 - Otherwise the menu opens with the cursor on the target's default model
   (see [ADR-0003](0003-configuration-and-setup.md)). A single Enter is
   enough. If the target has no default, the cursor is on the most recently
@@ -126,6 +126,7 @@ compiled in for now.
 | **pi** | Sync | Provider `mygateway` in `~/.pi/agent/models.json` with context, max output, vision, reasoning and prices. Key via `!llmenu secrets get gateway`. pi already supports `!command`; today it contains `!~/credentials/creds …` | implemented |
 | **opencode** | Sync + Launch | Provider (name from `gateway.name`) in the global opencode configuration (`~/.config/opencode/opencode.json[c]`) via `@ai-sdk/openai-compatible`, models with `limit`, `cost`, `attachment`, `reasoning`. For the key, opencode only knows `{env:…}`/`{file:…}`, not a command; so it contains `{env:LLMENU_API_KEY}`, and `llmenu opencode` sets the variable at startup (without its own menu, opencode picks the model itself) | implemented; path on Windows still to be verified |
 | **Codex CLI** | Launch | Provider entirely via `-c` overrides at startup: `model_provider=<id>` and `model_providers.<id>={name, base_url=<gateway>/v1, env_key="LLMENU_API_KEY", wire_api="responses"}`. The model is passed as `-c model="<name>"` plus `model_context_window` and `model_max_output_tokens` instead of `-m`, so it also applies to subcommands such as `codex exec`. `~/.codex/config.toml` stays untouched. Optional `codex.default` in the configuration as the default model (required without a terminal unless `-m` is given) | implemented; spike succeeded, see below |
+| **GitHub Copilot CLI** | Launch | BYOK entirely via environment variables: `COPILOT_PROVIDER_BASE_URL`, `COPILOT_PROVIDER_TYPE` (`copilot.provider_type`: `openai`, the default, with `<gateway>/v1`, Copilot appending `/chat/completions`; or `anthropic` with `<gateway>`, Copilot appending `/v1/messages`), `COPILOT_PROVIDER_API_KEY`, `COPILOT_MODEL` plus `COPILOT_PROVIDER_MAX_PROMPT_TOKENS`/`MAX_OUTPUT_TOKENS`, and for Claude models with a valid Anthropic ID (as for `behavesAs`) `COPILOT_PROVIDER_MODEL_ID`, without which Copilot warns that it cannot count tokens for the model. The model goes in the environment, so a `--model` passed through wins; for such a model llmenu looks up limits and ID in the gateway list. Inherited `COPILOT_PROVIDER_*` variables are dropped, since a bearer token or key command would beat the gateway key. With a BYOK provider Copilot needs no GitHub login; `copilot.offline` adds `COPILOT_OFFLINE=true`. `azure` is not offered: the gateway has no Azure routes. `~/.copilot` stays untouched; a `providers.json` there that declares providers takes precedence. Optional `copilot.default` as for Codex | implemented; paths checked against Copilot CLI 1.0.98 |
 
 **Claude Code's `/model`:** llmenu passes the gateway's models (without
 aliases and duplicates, sorted like the menu) as `modelPicker` in the

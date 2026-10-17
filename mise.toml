@@ -73,7 +73,7 @@ description = "Install llmenu into $(go env GOPATH)/bin"
 run = "go install ./cmd/llmenu"
 
 [tasks.sandbox]
-description = "Fresh development sandbox: isolated HOME/config/keys, fake gateway, stand-in claude/codex"
+description = "Fresh development sandbox: isolated HOME/config/keys, fake gateway, stand-in claude/codex/copilot"
 run = "scripts/sandbox.sh fresh"
 raw = true
 
@@ -83,7 +83,7 @@ run = "scripts/sandbox.sh resume"
 raw = true
 
 [tasks."sandbox:live"]
-description = "Sandbox against your real gateway (llmenu setup inside); still isolated, still stand-in claude/codex"
+description = "Sandbox against your real gateway (llmenu setup inside); still isolated, still stand-in claude/codex/copilot"
 run = "scripts/sandbox.sh live"
 raw = true
 
