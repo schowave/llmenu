@@ -7,6 +7,8 @@ import (
 	"os"
 	"strconv"
 
+	"github.com/charmbracelet/bubbles/key"
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
 )
 
@@ -14,6 +16,10 @@ import (
 // questions are answered; huh would otherwise take the defaults, and a retry
 // loop would never end.
 var errInputEnded = errors.New("input ended before all questions were answered")
+
+// errBack: Esc left a dialog. It counts as an abort everywhere; only the
+// setup list tells the two apart and returns to itself on Esc.
+var errBack = fmt.Errorf("back: %w", huh.ErrUserAborted)
 
 // accessible reports whether LLMENU_ACCESSIBLE is set (1, true). Then all
 // dialogs run in huh's accessible mode: plain prompts, numbered options and
@@ -41,6 +47,9 @@ type prompt interface {
 // runPrompt shows a dialog, in accessible mode line by line.
 func runPrompt(p prompt) error {
 	if !accessible() {
+		if form := formOf(p); form != nil {
+			return runForm(form)
+		}
 		return p.Run()
 	}
 	in := &lineReader{r: os.Stdin}
@@ -59,6 +68,60 @@ func runPrompt(p prompt) error {
 		return errInputEnded
 	}
 	return nil
+}
+
+// formOf returns the form a prompt runs in; a single field gets its own, as
+// in huh.Run.
+func formOf(p prompt) *huh.Form {
+	switch p := p.(type) {
+	case asForm:
+		return p.Form
+	case huh.Field:
+		return huh.NewForm(huh.NewGroup(p)).WithShowHelp(false)
+	}
+	return nil
+}
+
+// runForm runs a form like huh's Form.Run, with Esc as errBack.
+func runForm(form *huh.Form) error {
+	form.SubmitCmd = tea.Quit
+	form.CancelCmd = tea.Interrupt
+	m, err := tea.NewProgram(&escForm{Form: form}, tea.WithOutput(os.Stderr), tea.WithReportFocus()).Run()
+	switch {
+	case m.(*escForm).back:
+		return errBack
+	case errors.Is(err, tea.ErrInterrupted) || form.State == huh.StateAborted:
+		return huh.ErrUserAborted
+	case err != nil:
+		return fmt.Errorf("huh: %w", err)
+	}
+	return nil
+}
+
+// escForm leaves the form on Esc, unless the focused field uses Esc itself,
+// e.g. to end filtering. Unlike Ctrl+C it ends the program cleanly, so the
+// form disappears before the next dialog.
+type escForm struct {
+	*huh.Form
+	back bool
+}
+
+func (m *escForm) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	if k, ok := msg.(tea.KeyMsg); ok && k.Type == tea.KeyEsc &&
+		!key.Matches(k, m.GetFocusedField().KeyBinds()...) {
+		m.back = true
+		return m, tea.Quit
+	}
+	f, cmd := m.Form.Update(msg)
+	m.Form = f.(*huh.Form)
+	return m, cmd
+}
+
+func (m *escForm) View() string {
+	if m.back {
+		return ""
+	}
+	return m.Form.View()
 }
 
 // asForm lets runPrompt run a whole form.

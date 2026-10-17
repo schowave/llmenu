@@ -39,6 +39,10 @@ func newSetupCmd() *cobra.Command {
 
 The default, claude, codex and copilot sections are only asked for the tools you use.
 
+Without a section, the list comes back after each section until you choose
+Done. Esc in a section returns to the list without saving that section;
+Shift+Tab goes back a page within a section.
+
 Run it again any time: Enter keeps the current value. To change a single
 value without the dialog, use llmenu config set.
 
@@ -58,22 +62,9 @@ screen readers; the answers can then also come from stdin.`,
 			// Without a section, ask what to set up — except on the very first
 			// run, where everything is needed anyway.
 			if len(args) == 0 && !firstRun() {
-				section, err := chooseSection()
-				if errors.Is(err, huh.ErrUserAborted) {
-					return exitCodeError{130}
-				}
-				if err != nil {
-					return err
-				}
-				if section != "" {
-					args = []string{section}
-				}
+				return abortCode(setupMenu(cmd.Context()))
 			}
-			err := runSetup(cmd.Context(), args)
-			if errors.Is(err, huh.ErrUserAborted) {
-				return exitCodeError{130}
-			}
-			return err
+			return abortCode(runSetup(cmd.Context(), args))
 		},
 	}
 }
@@ -89,16 +80,73 @@ var sectionLabels = map[string]string{
 	"benchmarks": "Benchmarks (Artificial Analysis key)",
 }
 
-// chooseSection asks which section to set up; "" means everything.
-func chooseSection() (string, error) {
-	opts := []huh.Option[string]{huh.NewOption("Everything", "")}
-	for _, s := range sections {
-		opts = append(opts, huh.NewOption(sectionLabels[s], s))
+// setupDone ends the setup list.
+const setupDone = "done"
+
+// setupMenu asks what to set up until Done. Esc in a section returns to the
+// list without saving that section; Esc in the list ends it.
+func setupMenu(ctx context.Context) error {
+	done := map[string]bool{}
+	choice := ""
+	for {
+		var err error
+		choice, err = chooseSection(choice, done)
+		if errors.Is(err, errBack) || err == nil && choice == setupDone {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		var args []string
+		if choice != "" {
+			args = []string{choice}
+		}
+		err = runSetup(ctx, args)
+		if errors.Is(err, errBack) {
+			continue // the cursor stays on the section
+		}
+		if errors.Is(err, huh.ErrUserAborted) || errors.Is(err, errInputEnded) {
+			return err
+		}
+		if err != nil {
+			// E.g. an unreachable gateway: another section may fix it.
+			fmt.Fprintln(os.Stderr, "llmenu:", err)
+			continue
+		}
+		done[choice] = true
+		choice = setupDone
 	}
-	var section string
-	err := runPrompt(huh.NewSelect[string]().Title("What do you want to set up?").
-		Options(opts...).Value(&section))
-	return section, err
+}
+
+// chooseSection asks which section to set up; "" means everything. The
+// cursor starts on cursor, sections in done are ticked.
+func chooseSection(cursor string, done map[string]bool) (string, error) {
+	label := func(s, l string) huh.Option[string] {
+		if done[s] {
+			l += "  ✓"
+		}
+		return huh.NewOption(l, s)
+	}
+	opts := []huh.Option[string]{label("", "Everything")}
+	for _, s := range sections {
+		opts = append(opts, label(s, sectionLabels[s]))
+	}
+	opts = append(opts, huh.NewOption("Done", setupDone))
+	sel := huh.NewSelect[string]().Title("What do you want to set up?").
+		Options(opts...).Value(&cursor)
+	if !accessible() {
+		sel.Description("Enter opens a section, Esc there comes back here without saving it, Ctrl+C quits.")
+	}
+	err := runPrompt(sel)
+	return cursor, err
+}
+
+// abortCode turns an aborted dialog into exit code 130.
+func abortCode(err error) error {
+	if errors.Is(err, huh.ErrUserAborted) {
+		return exitCodeError{130}
+	}
+	return err
 }
 
 func runSetup(ctx context.Context, args []string) error {

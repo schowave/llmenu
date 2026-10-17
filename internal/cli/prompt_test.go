@@ -14,6 +14,7 @@ import (
 	"strings"
 	"testing"
 
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
 
 	"github.com/schowave/llmenu/internal/catalog"
@@ -283,5 +284,25 @@ func TestWarnKeySource(t *testing.T) {
 	t.Setenv("LLMENU_KEYRING_SERVICE", "llmenu-test")
 	if got := captureStderr(t, warnKeySource); got != "" {
 		t.Errorf("unexpected warnings %q", got)
+	}
+}
+
+func TestEscForm(t *testing.T) {
+	esc := tea.KeyMsg{Type: tea.KeyEsc}
+	m := &escForm{Form: formOf(huh.NewSelect[string]().Options(huh.NewOptions("a", "b")...))}
+	m.Init()
+
+	// While filtering, Esc ends the filter and stays in the dialog.
+	m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("/")})
+	m.Update(esc)
+	if m.back || m.View() == "" {
+		t.Fatal("esc while filtering left the dialog")
+	}
+	m.Update(esc)
+	if !m.back || m.View() != "" {
+		t.Fatalf("esc: back=%v view=%q", m.back, m.View())
+	}
+	if !errors.Is(errBack, huh.ErrUserAborted) {
+		t.Error("errBack is no abort")
 	}
 }
