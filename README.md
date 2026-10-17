@@ -43,10 +43,10 @@ that model.
 - **See what you spend.** The menu and Claude Code's status line show the
   budget of the key you are using — yours or the project's — and how much of
   it is gone.
-- **One gateway, five tools.** Claude Code, Codex CLI and Copilot CLI are started with the
-  chosen model; pi and opencode get the gateway's models, limits and prices
-  written into their configs. When the gateway changes, `llmenu sync` brings
-  every tool up to date.
+- **One gateway, five tools.** Claude Code, Codex CLI and Copilot CLI are
+  started with the chosen model; pi and opencode get the gateway's models,
+  limits and prices written into their configs. When the gateway changes,
+  `llmenu sync` brings every tool up to date.
 
 > **Requires** a LiteLLM gateway (URL and API key). llmenu does not talk to
 > model providers directly. The budget display also needs the gateway to let
@@ -165,8 +165,9 @@ Copilot CLI uses the gateway as its own provider (BYOK) and needs no GitHub
 login then. It speaks Chat Completions to `<gateway>/v1` by default;
 `llmenu config set copilot.provider_type anthropic` switches to the Messages
 API. `copilot.offline true` also turns off telemetry, web tools and
-auto-update. A `~/.copilot/providers.json` that declares providers wins over
-what llmenu passes.
+auto-update; a `COPILOT_OFFLINE` from your shell does not count. A
+`~/.copilot/providers.json` that declares providers wins over what llmenu
+passes; llmenu warns at startup.
 
 In a Claude Code session started by llmenu, `/model` lists all of the
 gateway's models with context, prices and benchmark instead of Claude's own,

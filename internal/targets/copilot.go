@@ -2,12 +2,17 @@ package targets
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/url"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"slices"
 	"strconv"
 	"strings"
+
+	"github.com/tailscale/hujson"
 
 	"github.com/schowave/llmenu/internal/catalog"
 )
@@ -16,8 +21,11 @@ func init() { register(copilot{}) }
 
 // copilotEnvPrefix covers Copilot CLI's BYOK variables. Inherited ones are
 // dropped: a bearer token or key command from the shell would beat the
-// gateway key.
-const copilotEnvPrefix = "COPILOT_PROVIDER_"
+// gateway key. Likewise COPILOT_OFFLINE, so copilot.offline decides.
+const (
+	copilotEnvPrefix  = "COPILOT_PROVIDER_"
+	copilotOfflineEnv = "COPILOT_OFFLINE"
+)
 
 // copilot launches GitHub Copilot CLI with the gateway as BYOK provider,
 // entirely via COPILOT_PROVIDER_* variables; ~/.copilot stays untouched. A
@@ -80,13 +88,44 @@ func (copilot) Command(ctx context.Context, m *catalog.Model, args []string, env
 		}
 	}
 	if env.Config.Copilot.OfflineEnabled() {
-		vars = append(vars, "COPILOT_OFFLINE=true")
+		vars = append(vars, copilotOfflineEnv+"=true")
 	}
 
 	cmd := exec.CommandContext(ctx, "copilot", args...)
 	cmd.Env = slices.DeleteFunc(env.childEnv(), func(kv string) bool {
-		return strings.HasPrefix(kv, copilotEnvPrefix)
+		return strings.HasPrefix(kv, copilotEnvPrefix) || strings.HasPrefix(kv, copilotOfflineEnv+"=")
 	})
 	cmd.Env = append(cmd.Env, vars...)
 	return cmd, nil
+}
+
+// Check warns about a providers.json that declares providers or models:
+// Copilot then ignores the gateway and model llmenu passes.
+func (copilot) Check() []string {
+	path := os.Getenv("COPILOT_PROVIDERS_CONFIG")
+	if path == "" {
+		home := os.Getenv("COPILOT_HOME")
+		if home == "" {
+			h, err := os.UserHomeDir()
+			if err != nil {
+				return nil
+			}
+			home = filepath.Join(h, ".copilot")
+		}
+		path = filepath.Join(home, "providers.json")
+	}
+	raw, err := os.ReadFile(path) //nolint:gosec // G304: Copilot's own config file, read only
+	if err != nil {
+		return nil
+	}
+	var f struct {
+		Providers, Models map[string]any
+	}
+	if std, err := hujson.Standardize(raw); err != nil || json.Unmarshal(std, &f) != nil {
+		return nil
+	}
+	if len(f.Providers)+len(f.Models) == 0 {
+		return nil
+	}
+	return []string{path + " declares providers, so Copilot CLI ignores the gateway and model llmenu passes"}
 }

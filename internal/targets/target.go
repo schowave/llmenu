@@ -103,6 +103,12 @@ type Defaulter interface {
 	DefaultModel(env Env) string
 }
 
+// Checker is optional: problems in the tool's own setup that override what
+// llmenu passes. They are printed before the start, which goes ahead anyway.
+type Checker interface {
+	Check() []string
+}
+
 // OwnSelection is optional: the tool lets the user choose a model itself,
 // llmenu shows no menu at launch.
 type OwnSelection interface {
@@ -150,7 +156,7 @@ func flagValue(args []string, flag string) string {
 		switch {
 		case a == "--":
 			return v
-		case a == flag && i+1 < len(args):
+		case a == flag && i+1 < len(args) && args[i+1] != "--":
 			v = args[i+1]
 		case strings.HasPrefix(a, flag+"="):
 			v = a[len(flag)+1:]

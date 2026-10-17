@@ -30,6 +30,17 @@ stdout '^COPILOT_PROVIDER_BASE_URL=http://127\.0\.0\.1:\d+$'
 stdout '^COPILOT_PROVIDER_TYPE=anthropic$'
 stdout '^COPILOT_OFFLINE=true$'
 
+# A providers.json that declares providers beats llmenu: warn, start anyway.
+env COPILOT_HOME=$WORK/copilot-home
+mkdir $WORK/copilot-home
+cp providers.json $WORK/copilot-home/providers.json
+exec llmenu copilot -p hi
+stderr '^llmenu: warning: .*providers\.json declares providers'
+stdout '^copilot args: -p hi$'
+
 # Azure needs Azure's routes; the gateway is none.
 ! exec llmenu config set copilot.provider_type azure
 stderr 'expected \[openai anthropic\], not "azure"'
+
+-- providers.json --
+{"providers": {"mine": {"type": "openai"}}}

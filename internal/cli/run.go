@@ -133,6 +133,11 @@ func launch(ctx context.Context, l targets.Launcher, args []string) error {
 	if err != nil {
 		return err
 	}
+	if c, ok := l.(targets.Checker); ok {
+		for _, w := range c.Check() {
+			fmt.Fprintln(os.Stderr, "llmenu: warning:", w)
+		}
+	}
 	// Which project pays stays visible after the menu is gone.
 	if env.Project != "" {
 		line := "llmenu: project " + env.Project

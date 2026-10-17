@@ -423,6 +423,7 @@ func TestCopilotCommand(t *testing.T) {
 	tg, _ := Get("copilot")
 	l := tg.(Launcher)
 	t.Setenv("COPILOT_PROVIDER_BEARER_TOKEN", "inherited")
+	t.Setenv("COPILOT_OFFLINE", "true")
 	cfg := &config.Config{}
 	env := Env{BaseURL: "https://gw.example.com/", APIKey: "secret", Config: cfg}
 	m := &catalog.Model{Name: "azure/gpt-6-luna", ContextTokens: 922_000, MaxOutputTokens: 128_000}
@@ -450,8 +451,8 @@ func TestCopilotCommand(t *testing.T) {
 	if slices.ContainsFunc(cmd.Env, func(kv string) bool { return strings.HasPrefix(kv, "COPILOT_PROVIDER_BEARER_TOKEN=") }) {
 		t.Error("inherited COPILOT_PROVIDER_ variable kept")
 	}
-	if slices.Contains(cmd.Env, "COPILOT_OFFLINE=true") {
-		t.Error("offline without copilot.offline")
+	if slices.ContainsFunc(cmd.Env, func(kv string) bool { return strings.HasPrefix(kv, "COPILOT_OFFLINE=") }) {
+		t.Error("offline without copilot.offline, e.g. inherited")
 	}
 
 	// Copilot appends /v1/messages itself for anthropic.
@@ -516,10 +517,43 @@ func TestFlagValue(t *testing.T) {
 		{[]string{"--model"}, ""},
 		{[]string{"--", "--model", "a"}, ""},
 		{[]string{"--models", "a"}, ""},
+		{[]string{"--model", "--"}, ""},
 	}
 	for _, tt := range tests {
 		if got := flagValue(tt.args, "--model"); got != tt.want {
 			t.Errorf("flagValue(%q) = %q, want %q", tt.args, got, tt.want)
 		}
+	}
+}
+
+func TestCopilotCheck(t *testing.T) {
+	tg, _ := Get("copilot")
+	c := tg.(Checker)
+	home := t.TempDir()
+	t.Setenv("COPILOT_HOME", home)
+	t.Setenv("COPILOT_PROVIDERS_CONFIG", "")
+	file := filepath.Join(home, "providers.json")
+
+	if w := c.Check(); w != nil {
+		t.Errorf("no providers.json: %q", w)
+	}
+	for content, warn := range map[string]bool{
+		`{"providers": {}, "models": {}}`:                  false,
+		`not json`:                                         false,
+		`{"providers": {"mine": {"type": "openai"}}}`:      true,
+		"{\n  // a comment\n  \"models\": {\"m\": {}},\n}": true,
+	} {
+		if err := os.WriteFile(file, []byte(content), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		if w := c.Check(); (len(w) > 0) != warn || (warn && !strings.Contains(w[0], file)) {
+			t.Errorf("%s: warnings %q, want warning %v", content, w, warn)
+		}
+	}
+
+	// COPILOT_PROVIDERS_CONFIG moves the file.
+	t.Setenv("COPILOT_PROVIDERS_CONFIG", filepath.Join(home, "elsewhere.json"))
+	if w := c.Check(); w != nil {
+		t.Errorf("moved file: %q", w)
 	}
 }
