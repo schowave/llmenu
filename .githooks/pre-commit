@@ -1,0 +1,17 @@
+#!/bin/sh
+# The fast part of mise run ci (seconds): format, tidy go.mod, vet, lint.
+# Tests, coverage and govulncheck stay with mise run ci and CI.
+# Set up with: mise run hooks. Skip once with git commit --no-verify.
+set -e
+run() {
+  if command -v mise >/dev/null 2>&1; then mise exec -- "$@"; else "$@"; fi
+}
+unformatted=$(run gofmt -l .)
+if [ -n "$unformatted" ]; then
+  echo "pre-commit: not gofmt-formatted (mise run fmt):" >&2
+  echo "$unformatted" >&2
+  exit 1
+fi
+run go mod tidy -diff >/dev/null || { echo "pre-commit: go.mod/go.sum not tidy (go mod tidy)" >&2; exit 1; }
+run go vet ./...
+run golangci-lint run ./...

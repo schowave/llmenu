@@ -15,7 +15,7 @@ Tools and tasks are managed with [mise](https://mise.jdx.dev) (`mise.toml`):
 
 ```sh
 mise install                   # Go, golangci-lint, goreleaser, actionlint, govulncheck, gremlins
-mise run hooks                 # once: git checks the commit message shape (.githooks)
+mise run hooks                 # once: git checks fmt, tidy, vet, lint and the commit message shape (.githooks)
 mise run ci                    # everything CI checks: fmt, tidy, vet, tests (-race), coverage, lint, govulncheck, workflows
 ```
 
@@ -46,6 +46,11 @@ The sandbox opens a shell in which llmenu, pi and opencode only see
 the OS keyring. A fake gateway answers on `http://127.0.0.1:4111/` (key
 `sk-dev`, benchmark key `aa-dev`), and `claude`/`codex`/`copilot` are stand-ins that
 print how llmenu would have started them. Exit the shell to leave.
+
+`scripts/tui.sh` runs the same sandbox in a detached tmux session and prints
+the screen after each key, for checking dialogs and the menu without sitting
+at them (redraws, leftovers, Esc and Shift+Tab); `scripts/tui.sh` alone lists
+its commands.
 
 > **macOS:** never redirect `HOME` while llmenu can reach the OS keyring —
 > `security` then finds no keychain and opens a dialog. Choose "Cancel", never

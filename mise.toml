@@ -69,7 +69,7 @@ description = "Build llmenu into dist/"
 run = "go build -o dist/llmenu ./cmd/llmenu"
 
 [tasks.hooks]
-description = "Use the repository's git hooks (.githooks: commit message shape)"
+description = "Use the repository's git hooks (.githooks: fmt, tidy, vet, lint before a commit; commit message shape)"
 run = "git config core.hooksPath .githooks"
 
 [tasks.install]
