@@ -58,7 +58,7 @@ func runPrompt(p prompt) error {
 		// Hidden input reads the terminal directly and needs its descriptor.
 		r = ttyLineReader{in}
 	}
-	err := p.RunAccessible(os.Stderr, r)
+	err := runAccessible(p, r, in)
 	// Separates the questions; answers from a pipe are not echoed.
 	fmt.Fprintln(os.Stderr)
 	if err != nil {
@@ -68,6 +68,20 @@ func runPrompt(p prompt) error {
 		return errInputEnded
 	}
 	return nil
+}
+
+// runAccessible runs p line by line. huh panics when stdin ends right after
+// an answer it rejected; that is the end of input, not a bug to crash on.
+func runAccessible(p prompt, r io.Reader, in *lineReader) (err error) {
+	defer func() {
+		if v := recover(); v != nil {
+			if !in.ended {
+				panic(v)
+			}
+			err = errInputEnded
+		}
+	}()
+	return p.RunAccessible(os.Stderr, r)
 }
 
 // formOf returns the form a prompt runs in; a single field gets its own, as

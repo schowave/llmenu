@@ -45,7 +45,7 @@ description = "Mutation testing only on lines changed against origin/main (LLMEN
 run = 'scripts/mutation.sh --diff "${LLMENU_DIFF_BASE:-origin/main}"'
 
 [tasks.compat]
-description = "Real pi, opencode and codex read what llmenu generates (tools must be installed)"
+description = "Real pi, opencode, codex and copilot read what llmenu generates (tools must be installed)"
 run = "go test -tags compat -count=1 -v ./test/compat/"
 
 [tasks.lint]
@@ -67,6 +67,10 @@ run = ["goreleaser check", "goreleaser release --snapshot --clean"]
 [tasks.build]
 description = "Build llmenu into dist/"
 run = "go build -o dist/llmenu ./cmd/llmenu"
+
+[tasks.hooks]
+description = "Use the repository's git hooks (.githooks: commit message shape)"
+run = "git config core.hooksPath .githooks"
 
 [tasks.install]
 description = "Install llmenu into $(go env GOPATH)/bin"

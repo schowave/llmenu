@@ -15,6 +15,7 @@ Tools and tasks are managed with [mise](https://mise.jdx.dev) (`mise.toml`):
 
 ```sh
 mise install                   # Go, golangci-lint, goreleaser, actionlint, govulncheck, gremlins
+mise run hooks                 # once: git checks the commit message shape (.githooks)
 mise run ci                    # everything CI checks: fmt, tidy, vet, tests (-race), coverage, lint, govulncheck, workflows
 ```
 
@@ -25,7 +26,7 @@ mise run test                  # unit and script tests
 mise run cover                 # coverage; fails below the minimum in scripts/coverage.sh
 mise run mutation:changed      # mutation testing of your changes only (seconds)
 mise run mutation              # mutation testing of everything (a few minutes)
-mise run compat                # the real pi, opencode and codex read what llmenu generates
+mise run compat                # the real pi, opencode, codex and copilot read what llmenu generates
 mise run release-check         # validate .goreleaser.yaml and build a snapshot into dist/
 mise run install               # install your build into $(go env GOPATH)/bin
 mise run demo                  # re-record the README demo docs/demo.gif (needs `brew install vhs`)

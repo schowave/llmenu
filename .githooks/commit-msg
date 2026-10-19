@@ -1,0 +1,13 @@
+#!/bin/sh
+# Checks the commit message shape: a subject and, if there is a body, an
+# empty line between them; otherwise git joins both into the subject.
+# Comment lines are ignored. Set up with: mise run hooks
+msg=$(grep -v '^#' "$1")
+if [ -z "$(printf '%s\n' "$msg" | sed -n 1p)" ]; then
+  echo "commit-msg: empty subject" >&2
+  exit 1
+fi
+if [ -n "$(printf '%s\n' "$msg" | sed -n 2p)" ]; then
+  echo "commit-msg: the second line must be empty (subject, empty line, body)" >&2
+  exit 1
+fi

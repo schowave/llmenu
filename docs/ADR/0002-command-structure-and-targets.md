@@ -163,23 +163,10 @@ usually still work through LiteLLM's translation.
 
 ### Code structure
 
-```go
-// internal/targets
-type Target interface {
-    Name() string              // "claude", "pi", "opencode", "codex"
-    Installed() (path string, ok bool)
-}
-
-type Syncer interface {        // optional
-    Sync(ctx context.Context, models []catalog.Model, opt SyncOptions) (Diff, error)
-}
-
-type Launcher interface {      // optional
-    HasModelArg(args []string) bool
-    Supports(m catalog.Model) (ok bool, hint string)  // e.g. Codex: mark models without Responses API
-    Command(ctx context.Context, m catalog.Model, args []string, env Env) (*exec.Cmd, error)
-}
-```
+The interfaces live in `internal/targets/target.go`: every target is a
+`Target` and additionally a `Syncer`, a `Launcher` or both; `Defaulter`
+(default model), `Checker` (warnings before the start) and `OwnSelection`
+(no llmenu menu) are optional.
 
 - Each target is a file under `internal/targets/` and registers itself in a
   registry. The commands `run`, `sync` and `targets` as well as the
@@ -191,6 +178,20 @@ type Launcher interface {      // optional
   models yields the expected configuration), including comments and other
   providers. For each launch target a test of the generated arguments and
   environment variables, without starting the tool.
+
+### Adding a target
+
+1. Research with the tool itself: install it and read its built-in help
+   (e.g. `copilot help environment`); web docs are often incomplete. Check
+   which paths and headers it sends with a local server that logs requests.
+2. Write `internal/targets/<tool>.go` with tests in `target_test.go`.
+3. Fill the per-tool tables in `internal/cli`; `TestTargetTables` names
+   every missing entry. Settings go to `internal/config` (`config.go`,
+   `keys.go`), a setup page to `setup.go`/`tools.go`.
+4. Add a script test `internal/cli/testdata/script/<tool>.txtar` and a test
+   in `test/compat` that runs the real tool, plus its installation in
+   `.github/workflows/compat.yml`.
+5. Update README, this ADR's target table and ADR-0003 for new settings.
 
 ## Consequences
 

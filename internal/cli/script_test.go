@@ -27,17 +27,21 @@ func TestMain(m *testing.M) {
 	}
 	// In-process tests never reach the real keychain either.
 	keyring.MockInit()
-	testscript.Main(m, map[string]func(){
+	cmds := map[string]func(){
 		"llmenu": func() {
 			keyring.MockInit() // never touch the real keyring from tests
 			os.Exit(Execute())
 		},
-		"claude":   fakeTool("claude"),
-		"codex":    fakeTool("codex"),
-		"copilot":  fakeTool("copilot"),
-		"opencode": fakeTool("opencode"),
-	})
+	}
+	for _, name := range standIns {
+		cmds[name] = fakeTool(name)
+	}
+	testscript.Main(m, cmds)
 }
+
+// standIns are the launch targets the scripts find on the PATH; pi is
+// missing on purpose ("not installed").
+var standIns = []string{"claude", "codex", "copilot", "opencode"}
 
 // fakeTool prints its arguments and the environment llmenu sets for it, and
 // exits with $FAKE_EXIT. A --settings file that exists, or inline JSON, shows

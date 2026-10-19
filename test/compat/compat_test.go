@@ -1,6 +1,6 @@
 //go:build compat
 
-// Package compat runs the real tools (pi, opencode, Codex CLI) against the
+// Package compat runs the real tools (pi, opencode, Codex CLI, Copilot CLI) against the
 // configuration llmenu generates for them. The unit tests in internal/targets
 // only cover formats we know; these tests catch a tool changing its format
 // (ADR-0002, "Consequences").
@@ -17,6 +17,7 @@ package compat
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -26,6 +27,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 )
@@ -104,6 +106,42 @@ func moduleRoot() (string, error) {
 type sandbox struct {
 	dir string
 	env []string
+
+	// With acceptCalls, the fake gateway records model calls instead of
+	// failing the test, and answers them with 400 so the tool stops early.
+	acceptCalls bool
+	mu          sync.Mutex
+	calls       []call
+}
+
+// call is a model request the fake gateway received.
+type call struct {
+	Method, Path, Auth, Model string
+}
+
+func (s *sandbox) record(w http.ResponseWriter, r *http.Request) {
+	c := call{Method: r.Method, Path: r.URL.Path, Auth: r.Header.Get("Authorization")}
+	if k := r.Header.Get("X-Api-Key"); k != "" {
+		c.Auth = "x-api-key " + k
+	}
+	var body struct {
+		Model string `json:"model"`
+	}
+	_ = json.NewDecoder(r.Body).Decode(&body)
+	c.Model = body.Model
+	s.mu.Lock()
+	s.calls = append(s.calls, c)
+	s.mu.Unlock()
+	http.Error(w, `{"error": {"message": "compat test"}}`, http.StatusBadRequest)
+}
+
+// takeCalls returns the recorded calls and forgets them.
+func (s *sandbox) takeCalls() []call {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	c := s.calls
+	s.calls = nil
+	return c
 }
 
 func newSandbox(t *testing.T) *sandbox {
@@ -112,7 +150,12 @@ func newSandbox(t *testing.T) *sandbox {
 	if err != nil {
 		t.Fatal(err)
 	}
+	s := &sandbox{}
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/model/info" && s.acceptCalls {
+			s.record(w, r)
+			return
+		}
 		if r.URL.Path != "/model/info" || r.Header.Get("Authorization") != "Bearer "+apiKey {
 			t.Errorf("fake gateway: unexpected request %s %s", r.Method, r.URL)
 			http.NotFound(w, r)
@@ -125,7 +168,7 @@ func newSandbox(t *testing.T) *sandbox {
 
 	dir := t.TempDir()
 	home := filepath.Join(dir, "home")
-	for _, d := range []string{home, filepath.Join(dir, "codex")} {
+	for _, d := range []string{home, filepath.Join(dir, "codex"), filepath.Join(dir, "copilot")} {
 		if err := os.MkdirAll(d, 0o750); err != nil {
 			t.Fatal(err)
 		}
@@ -148,6 +191,9 @@ func newSandbox(t *testing.T) *sandbox {
 		"XDG_CACHE_HOME":  filepath.Join(home, ".cache"),
 		"XDG_STATE_HOME":  filepath.Join(home, ".local", "state"),
 		"CODEX_HOME":      filepath.Join(dir, "codex"),
+		// Copilot: own state directory, no self-update during the test.
+		"COPILOT_HOME":        filepath.Join(dir, "copilot"),
+		"COPILOT_AUTO_UPDATE": "false",
 		// opencode: no models.dev download, no update check.
 		"OPENCODE_DISABLE_MODELS_FETCH": "true",
 		"OPENCODE_DISABLE_AUTOUPDATE":   "true",
@@ -156,7 +202,7 @@ func newSandbox(t *testing.T) *sandbox {
 	var env []string
 	for _, kv := range os.Environ() {
 		k, _, _ := strings.Cut(kv, "=")
-		if _, ok := set[k]; ok || strings.HasPrefix(k, "LLMENU_") || strings.HasPrefix(k, "OPENCODE") {
+		if _, ok := set[k]; ok || strings.HasPrefix(k, "LLMENU_") || strings.HasPrefix(k, "OPENCODE") || strings.HasPrefix(k, "COPILOT_") {
 			continue
 		}
 		env = append(env, kv)
@@ -165,7 +211,7 @@ func newSandbox(t *testing.T) *sandbox {
 		env = append(env, k+"="+v)
 	}
 
-	s := &sandbox{dir: dir, env: env}
+	s.dir, s.env = dir, env
 	s.mustRun(t, llmenuBin, "config", "set", "gateway.name", provider)
 	return s
 }
@@ -305,4 +351,36 @@ func TestCodex(t *testing.T) {
 	t.Run("-m passed through", func(t *testing.T) {
 		s.mustRun(t, llmenuBin, "codex", "-m", codexModel, "features", "list")
 	})
+}
+
+// TestCopilot: Copilot CLI gets the gateway only through COPILOT_PROVIDER_*
+// variables, and appends its own path to the base URL. The fake gateway
+// records the first model call for each provider type: path, key header and
+// model must match what the gateway serves. Copilot then fails on the 400,
+// which is expected.
+func TestCopilot(t *testing.T) {
+	cp := requireTool(t, "copilot")
+	s := newSandbox(t)
+	s.acceptCalls = true
+	s.mustRun(t, llmenuBin, "config", "set", "copilot.default", codexModel)
+
+	for _, tt := range []struct {
+		providerType string
+		want         call
+	}{
+		{"openai", call{"POST", "/v1/chat/completions", "Bearer " + apiKey, codexModel}},
+		{"anthropic", call{"POST", "/v1/messages", "x-api-key " + apiKey, codexModel}},
+	} {
+		t.Run(tt.providerType, func(t *testing.T) {
+			s.mustRun(t, llmenuBin, "config", "set", "copilot.provider_type", tt.providerType)
+			out, _ := s.run(t, llmenuBin, "copilot", "-p", "hi")
+			calls := s.takeCalls()
+			if len(calls) == 0 {
+				t.Fatalf("%s made no model call to the gateway:\n%s", filepath.Base(cp), out)
+			}
+			if calls[0] != tt.want {
+				t.Errorf("first call = %+v, want %+v", calls[0], tt.want)
+			}
+		})
+	}
 }

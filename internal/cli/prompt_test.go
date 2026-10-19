@@ -306,3 +306,25 @@ func TestEscForm(t *testing.T) {
 		t.Error("errBack is no abort")
 	}
 }
+
+// panicPrompt fails like huh does on input that ends after a rejected answer.
+type panicPrompt struct{}
+
+func (panicPrompt) Run() error                               { return nil }
+func (panicPrompt) RunAccessible(io.Writer, io.Reader) error { panic("index out of range [-1]") }
+
+func TestRunAccessiblePanic(t *testing.T) {
+	ended := &lineReader{ended: true}
+	if err := runAccessible(panicPrompt{}, ended, ended); !errors.Is(err, errInputEnded) {
+		t.Errorf("input ended: err = %v, want errInputEnded", err)
+	}
+
+	// With input left, the panic is a real bug and stays one.
+	defer func() {
+		if recover() == nil {
+			t.Error("panic swallowed although input had not ended")
+		}
+	}()
+	open := &lineReader{}
+	_ = runAccessible(panicPrompt{}, open, open)
+}

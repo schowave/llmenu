@@ -35,12 +35,13 @@ jobs:
         with:
           node-version: lts/*
       - name: Install tools
-        run: npm install --global @earendil-works/pi-coding-agent@latest opencode-ai@latest @openai/codex@latest
+        run: npm install --global @earendil-works/pi-coding-agent@latest opencode-ai@latest @openai/codex@latest @github/copilot@latest
       - name: Tool versions
         run: |
           echo "pi       $(pi --version)"
           echo "opencode $(opencode --version)"
           echo "codex    $(codex --version)"
+          echo "copilot  $(copilot --version)"
       - name: Compatibility tests
         env:
           LLMENU_COMPAT_REQUIRE: "1"

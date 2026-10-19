@@ -22,6 +22,15 @@ exec llmenu setup codex
 stderr '^2\. gone/model  \(no longer in gateway\)$'
 grep '^default = .gone/model.$' config.toml
 
+# Input that ends right after a rejected answer stops the setup cleanly.
+stdin invalid.txt
+! exec llmenu setup codex
+stderr 'Invalid'
+stderr 'input ended before all questions were answered'
+! stderr 'panic'
+
+-- invalid.txt --
+x
 -- enter.txt --
 
 -- pick.txt --

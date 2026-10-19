@@ -28,9 +28,11 @@ mkdir -p "$sb/bin" "$sb/home"
 echo "Building llmenu and sandbox tools ..."
 go build -o "$sb/bin/llmenu" "$root/cmd/llmenu"
 go build -o "$sb/bin/fakegateway" "$root/tools/fakegateway"
-go build -o "$sb/bin/claude" "$root/tools/faketool"
-cp "$sb/bin/claude" "$sb/bin/codex"
-cp "$sb/bin/claude" "$sb/bin/copilot"
+go build -o "$sb/faketool" "$root/tools/faketool"
+# Every launch-only target gets a stand-in; opencode and pi are the real ones.
+for t in $("$sb/bin/llmenu" targets | awk 'NR > 1 && $2 == "launch" { print $1 }'); do
+  cp "$sb/faketool" "$sb/bin/$t"
+done
 
 # Isolate every place the tools look at.
 export HOME=$sb/home ZDOTDIR=$sb/home
