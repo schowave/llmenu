@@ -3,9 +3,12 @@ package bench
 import (
 	"context"
 	"fmt"
+	"maps"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -26,7 +29,7 @@ func withLCR(e Entry, lcr float64) Entry {
 }
 
 func withSpeed(e Entry, tps float64) Entry {
-	e.OutputSpeed = &tps
+	e.Performance.OutputSpeed = &tps
 	return e
 }
 
@@ -41,6 +44,9 @@ var aa = []Entry{
 	// A single benchmark is enough to count.
 	entry("only-coding", nil, f(70), nil),
 	entry("only-terminal", nil, nil, f(0.5)),
+	withSpeed(entry("only-speed", nil, nil, nil), 42.4),
+	withLCR(entry("only-lcr", nil, nil, nil), 0.5),
+	withSpeed(entry("speed-zero", nil, nil, nil), 0), // 0: not measured
 }
 
 func TestMatch(t *testing.T) {
@@ -54,6 +60,9 @@ func TestMatch(t *testing.T) {
 		{Name: "x/no-values", Target: "no-values"},
 		{Name: "x/only-coding", Target: "only-coding"},
 		{Name: "x/only-terminal", Target: "only-terminal"},
+		{Name: "x/only-speed", Target: "only-speed"},
+		{Name: "x/only-lcr", Target: "only-lcr"},
+		{Name: "x/speed-zero", Target: "speed-zero"},
 	}
 	got := Match(aa, models, map[string]string{"mistral/mistral-large-2512": "mistral-large-3"})
 
@@ -90,6 +99,15 @@ func TestMatch(t *testing.T) {
 	if tb := got["x/only-terminal"]; tb.TerminalBench == nil || *tb.TerminalBench != 50 {
 		t.Errorf("entry with only Terminal-Bench ignored: %v", show(tb))
 	}
+	if s := got["x/only-speed"]; s.OutputSpeed == nil || *s.OutputSpeed != 42 {
+		t.Errorf("entry with only a speed ignored: %+v", s)
+	}
+	if l := got["x/only-lcr"]; l.LongContext == nil || *l.LongContext != 50 {
+		t.Errorf("entry with only Long Context ignored: %+v", l)
+	}
+	if _, ok := got["x/speed-zero"]; ok {
+		t.Error("entry with an unmeasured speed matched")
+	}
 }
 
 func show(b catalog.Bench) string {
@@ -114,12 +132,134 @@ func TestFetch(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	got, err := Fetch(context.Background(), nil, srv.URL, "k")
-	if err != nil || len(got) != 1 || *got[0].Evaluations.Intelligence != 50 {
-		t.Fatalf("Fetch = %+v, %v", got, err)
+	res, err := Fetch(context.Background(), nil, srv.URL, "k", false)
+	if err != nil || len(res.Entries) != 1 || *res.Entries[0].Evaluations.Intelligence != 50 || res.Tier != "pro" || res.Truncated {
+		t.Fatalf("Fetch = %+v, %v", res, err)
 	}
-	if _, err := Fetch(context.Background(), nil, srv.URL, "wrong"); err == nil || !strings.Contains(err.Error(), "HTTP 401") {
+	if _, err := Fetch(context.Background(), nil, srv.URL, "wrong", false); err == nil || !strings.Contains(err.Error(), "HTTP 401") {
 		t.Errorf("wrong key: %v", err)
+	}
+}
+
+// aaServer serves the full list only to key "pro" and the free list in
+// pages of one model; requests are counted per URI.
+func aaServer(t *testing.T, pages int, totalPages bool) (*httptest.Server, func() map[string]int) {
+	t.Helper()
+	var mu sync.Mutex
+	seen := map[string]int{}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		seen[r.URL.RequestURI()]++
+		mu.Unlock()
+		switch r.URL.Path {
+		case "/m":
+			if r.Header.Get("x-api-key") != "pro" {
+				http.Error(w, `{"error":"Language models list requires a Pro subscription"}`, http.StatusForbidden)
+				return
+			}
+			_, _ = w.Write([]byte(`{"tier":"pro","data":[{"slug":"p","evaluations":{"terminalbench_v4_0":0.5}}]}`))
+		case "/m/free":
+			n := 1
+			if v := r.URL.Query().Get("page"); v != "" {
+				n, _ = strconv.Atoi(v)
+			}
+			total := ""
+			if totalPages {
+				total = fmt.Sprintf(`"total_pages":%d,`, pages)
+			}
+			fmt.Fprintf(w, `{"tier":"free","pagination":{"page":%d,%s"has_more":%t},
+				"data":[{"slug":"m%d","performance":{"median_output_tokens_per_second":80.07}}]}`, n, total, n < pages, n)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	t.Cleanup(srv.Close)
+	return srv, func() map[string]int {
+		mu.Lock()
+		defer mu.Unlock()
+		return maps.Clone(seen)
+	}
+}
+
+func slugs(es []Entry) string {
+	var s []string
+	for _, e := range es {
+		s = append(s, e.Slug)
+	}
+	return strings.Join(s, ",")
+}
+
+// TestFetchFree: a free key gets 403 for the full list and falls back to the
+// free list; its pages come in order whether fetched in parallel (the API
+// names total_pages) or one after another.
+func TestFetchFree(t *testing.T) {
+	for _, total := range []bool{true, false} {
+		t.Run(fmt.Sprintf("total_pages=%t", total), func(t *testing.T) {
+			srv, seen := aaServer(t, 7, total)
+			res, err := Fetch(context.Background(), nil, srv.URL+"/m", "k", false)
+			if err != nil || res.Tier != TierFree || res.Truncated || slugs(res.Entries) != "m1,m2,m3,m4,m5,m6,m7" {
+				t.Fatalf("Fetch = %s %+v, %v", slugs(res.Entries), res, err)
+			}
+			if v := res.Entries[0].Performance.OutputSpeed; v == nil || *v != 80.07 {
+				t.Errorf("output speed = %v", v)
+			}
+			if s := seen(); s["/m"] != 1 || s["/m/free"] != 1 || s["/m/free?page=7"] != 1 || len(s) != 8 {
+				t.Errorf("requests = %v", s)
+			}
+
+			// freeFirst skips the full list.
+			srv, seen = aaServer(t, 2, total)
+			res, err = Fetch(context.Background(), nil, srv.URL+"/m", "k", true)
+			if err != nil || res.Tier != TierFree || slugs(res.Entries) != "m1,m2" || seen()["/m"] != 0 {
+				t.Errorf("freeFirst: %s %+v, %v, requests %v", slugs(res.Entries), res, err, seen())
+			}
+		})
+	}
+}
+
+func TestFetchPro(t *testing.T) {
+	srv, _ := aaServer(t, 1, true)
+	res, err := Fetch(context.Background(), nil, srv.URL+"/m", "pro", false)
+	if err != nil || res.Tier != "pro" || slugs(res.Entries) != "p" {
+		t.Errorf("Fetch = %+v, %v", res, err)
+	}
+}
+
+// TestFetchTruncated: beyond maxPages the result is kept and marked.
+func TestFetchTruncated(t *testing.T) {
+	for _, total := range []bool{true, false} {
+		srv, seen := aaServer(t, maxPages+10, total)
+		res, err := Fetch(context.Background(), nil, srv.URL+"/m", "k", true)
+		if err != nil || !res.Truncated || len(res.Entries) != maxPages || len(seen()) != maxPages {
+			t.Errorf("total_pages=%t: %d entries, truncated %t, %d requests, %v", total, len(res.Entries), res.Truncated, len(seen()), err)
+		}
+	}
+}
+
+// TestFetchErrors: a failing free list reports the first error too; a
+// failing page fails the fetch; a query in the base URL is kept.
+func TestFetchErrors(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.URL.Path == "/blocked" || r.URL.Path == "/blocked/free":
+			http.Error(w, "blocked "+r.URL.Path, http.StatusForbidden)
+		case r.URL.Query().Get("x") != "1":
+			http.Error(w, "query lost: "+r.URL.RequestURI(), http.StatusBadRequest)
+		case r.URL.Query().Get("page") == "2":
+			http.Error(w, "page 2 broken", http.StatusInternalServerError)
+		default:
+			_, _ = w.Write([]byte(`{"pagination":{"total_pages":3,"has_more":true},"data":[]}`))
+		}
+	}))
+	defer srv.Close()
+
+	_, err := Fetch(context.Background(), nil, srv.URL+"/blocked", "k", false)
+	if err == nil || !strings.HasPrefix(err.Error(), "HTTP 403 from "+srv.URL+"/blocked/free: blocked /blocked/free") ||
+		!strings.HasSuffix(err.Error(), "(before that, the full list: HTTP 403 from "+srv.URL+"/blocked: blocked /blocked)") {
+		t.Errorf("both errors: %v", err)
+	}
+	if _, err := Fetch(context.Background(), nil, srv.URL+"/m?x=1", "k", false); err == nil || !strings.Contains(err.Error(), "page 2 broken") {
+		t.Errorf("broken page: %v", err)
 	}
 }
 

@@ -55,7 +55,8 @@ that model.
 ## Details
 
 - **Benchmarks** from [Artificial Analysis](https://artificialanalysis.ai)
-  (Intelligence Index, Terminal-Bench, Coding Index); aliases are folded
+  (Intelligence Index and output speed with a free key, plus Terminal-Bench
+  and Long Context Reasoning with a Pro key); aliases are folded
   together, the same model at several providers (e.g. aws/ and gcp/) stays
   selectable. Nothing is hard-coded: the suggestions for
   Claude Code's opus/sonnet/haiku slots come from the gateway's model list.
@@ -276,7 +277,8 @@ llmenu bench                       # refresh benchmark scores
 ```
 
 In the menu, type to search, **Tab** switches the sort column (INTEL, TB4,
-CODE, price) and Enter picks. The preview shows details and notes when a model
+CODE, price; a column without any score is skipped, e.g. TB4 with a free
+Artificial Analysis key) and Enter picks. The preview shows details and notes when a model
 does not suit the tool (e.g. a non-Claude model in `llmenu claude`).
 
 ## Configuration

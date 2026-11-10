@@ -114,7 +114,8 @@ func TestFetchUnexpected(t *testing.T) {
 				_, _ = w.Write([]byte(tt.body))
 			}))
 			defer srv.Close()
-			got, err := Fetch(context.Background(), nil, srv.URL, "k")
+			res, err := Fetch(context.Background(), nil, srv.URL, "k", false)
+			got := res.Entries
 			if err == nil || !strings.Contains(err.Error(), "no data array") {
 				t.Errorf("Fetch = %+v, %v", got, err)
 			}
@@ -125,7 +126,7 @@ func TestFetchUnexpected(t *testing.T) {
 		_, _ = w.Write([]byte(`{"data":[]}`))
 	}))
 	defer srv.Close()
-	if got, err := Fetch(context.Background(), nil, srv.URL, "k"); err != nil || got == nil || len(got) != 0 {
-		t.Errorf("empty data array: %+v, %v", got, err)
+	if res, err := Fetch(context.Background(), nil, srv.URL, "k", false); err != nil || res.Entries == nil || len(res.Entries) != 0 {
+		t.Errorf("empty data array: %+v, %v", res, err)
 	}
 }

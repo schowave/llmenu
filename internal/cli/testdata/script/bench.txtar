@@ -1,6 +1,6 @@
 ! exec llmenu bench
 stderr 'no Artificial Analysis key yet'
-stderr 'https://artificialanalysis.ai/api-reference#authentication'
+stderr 'https://artificialanalysis.ai/data-api/docs'
 stderr 'llmenu setup benchmarks'
 
 env LLMENU_AA_API_KEY=wrong

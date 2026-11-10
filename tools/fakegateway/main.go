@@ -4,11 +4,14 @@
 package main
 
 import (
+	"cmp"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
+	"strconv"
 	"time"
 )
 
@@ -24,7 +27,8 @@ func main() {
 	addr := flag.String("addr", "127.0.0.1:4111", "listen address")
 	models := flag.String("models", "internal/gateway/testdata/model_info.json", "response for /model/info")
 	key := flag.String("key", "sk-dev", "expected gateway key")
-	aaKey := flag.String("aa-key", "aa-dev", "expected Artificial Analysis key")
+	aaKey := flag.String("aa-key", "aa-dev", "expected Artificial Analysis Pro key")
+	aaFreeKey := flag.String("aa-free-key", "aa-free", "expected Artificial Analysis free key: HTTP 403 for /aa, /aa/free in pages")
 	bench := flag.String("bench", "", "response for the Artificial Analysis API (default: a small built-in set)")
 	flag.Parse()
 
@@ -65,19 +69,83 @@ func main() {
 			_, _ = w.Write([]byte(body))
 		})
 	}
+	free, err := freePages(aa, 2)
+	if err != nil {
+		log.Fatal(err)
+	}
 	mux.HandleFunc("/aa", func(w http.ResponseWriter, r *http.Request) {
-		if r.Header.Get("x-api-key") != *aaKey {
-			http.Error(w, `{"error":"invalid key, the sandbox expects `+*aaKey+`"}`, http.StatusUnauthorized)
+		switch r.Header.Get("x-api-key") {
+		case *aaKey:
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write(aa)
+		case *aaFreeKey:
+			http.Error(w, `{"error":"Language models list requires a Pro subscription"}`, http.StatusForbidden)
+		default:
+			http.Error(w, `{"error":"invalid key, the sandbox expects `+*aaKey+` or `+*aaFreeKey+`"}`, http.StatusUnauthorized)
+		}
+	})
+	mux.HandleFunc("/aa/free", func(w http.ResponseWriter, r *http.Request) {
+		if k := r.Header.Get("x-api-key"); k != *aaKey && k != *aaFreeKey {
+			http.Error(w, `{"error":"invalid key"}`, http.StatusUnauthorized)
+			return
+		}
+		n, err := strconv.Atoi(cmp.Or(r.URL.Query().Get("page"), "1"))
+		if err != nil || n < 1 || n > len(free) {
+			http.Error(w, `{"error":"no such page"}`, http.StatusBadRequest)
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write(aa)
+		_, _ = w.Write(free[n-1])
 	})
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, `{"error":{"message":"sandbox gateway: only /model/info, /key/info and /user/info are implemented, no chat"}}`, http.StatusNotImplemented)
 	})
 
 	srv := &http.Server{Addr: *addr, Handler: mux, ReadHeaderTimeout: 5 * time.Second}
-	fmt.Fprintf(os.Stderr, "fake gateway on http://%s/ (key %s), Artificial Analysis on http://%s/aa (key %s)\n", *addr, *key, *addr, *aaKey)
+	fmt.Fprintf(os.Stderr, "fake gateway on http://%s/ (key %s), Artificial Analysis on http://%s/aa (Pro key %s, free key %s)\n",
+		*addr, *key, *addr, *aaKey, *aaFreeKey)
 	log.Fatal(srv.ListenAndServe())
+}
+
+// freePages turns the full list into the free one as Artificial Analysis
+// serves it: only the Intelligence Index, a speed, and pages of size models.
+func freePages(full []byte, size int) ([][]byte, error) {
+	var in struct {
+		Data []struct {
+			Slug        string `json:"slug"`
+			Evaluations struct {
+				Intelligence *float64 `json:"artificial_analysis_intelligence_index"`
+			} `json:"evaluations"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(full, &in); err != nil {
+		return nil, fmt.Errorf("benchmarks: %w", err)
+	}
+	type entry struct {
+		Slug        string         `json:"slug"`
+		Evaluations map[string]any `json:"evaluations"`
+		Performance map[string]any `json:"performance"`
+	}
+	total := max((len(in.Data)+size-1)/size, 1)
+	pages := make([][]byte, total)
+	for p := range total {
+		data := []entry{}
+		for i, e := range in.Data[min(p*size, len(in.Data)):min((p+1)*size, len(in.Data))] {
+			data = append(data, entry{
+				Slug:        e.Slug,
+				Evaluations: map[string]any{"artificial_analysis_intelligence_index": e.Evaluations.Intelligence, "artificial_analysis_coding_index": nil},
+				Performance: map[string]any{"median_output_tokens_per_second": 40 + 20*(p*size+i)},
+			})
+		}
+		b, err := json.Marshal(map[string]any{
+			"tier":       "free",
+			"pagination": map[string]any{"page": p + 1, "page_size": size, "total_pages": total, "has_more": p+1 < total},
+			"data":       data,
+		})
+		if err != nil {
+			return nil, err
+		}
+		pages[p] = b
+	}
+	return pages, nil
 }

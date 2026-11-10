@@ -17,6 +17,7 @@ var (
 	tiered = catalog.Model{Name: "aws/claude-haiku-5-5", ContextTokens: 1_000_000, InputPrice: 0.11, OutputPrice: 0.55,
 		Tiers: []catalog.Tier{{AboveTokens: 100_000, InputPrice: 0.55, OutputPrice: 2.75}}}
 	benchd = catalog.Model{Name: "x/ä", Target: "x/ä", ContextTokens: 8_000, Bench: &catalog.Bench{Intelligence: f(57.64), Coding: f(80)}}
+	tb4    = catalog.Model{Name: "x/tb", Target: "x/tb", ContextTokens: 8_000, Bench: &catalog.Bench{TerminalBench: f(43.94)}}
 )
 
 func TestFormat(t *testing.T) {
@@ -75,20 +76,30 @@ func TestFormat(t *testing.T) {
 			rows:   []string{"aws/claude-opus-5-5       1M      5.00    25.00"},
 		},
 		{
+			// No Terminal-Bench score anywhere (free key): no TB4 column.
 			name:   "benchmarks, multi-byte name",
 			models: []catalog.Model{benchd, gpt},
-			header: "MODEL              CONTEXT      $ IN    $ OUT   INTEL    TB4",
+			header: "MODEL              CONTEXT      $ IN    $ OUT   INTEL",
 			rows: []string{
-				"x/ä                     8k      free     free    57.6      -",
-				"azure/gpt-5.6-sol     400k      1.25    10.00       -      -",
+				"x/ä                     8k      free     free    57.6",
+				"azure/gpt-5.6-sol     400k      1.25    10.00       -",
+			},
+		},
+		{
+			name:   "TB4 column when a model has a score",
+			models: []catalog.Model{benchd, tb4},
+			header: "MODEL  CONTEXT      $ IN    $ OUT   INTEL    TB4",
+			rows: []string{
+				"x/ä         8k      free     free    57.6      -",
+				"x/tb        8k      free     free       -   43.9",
 			},
 		},
 		{
 			name:   "coding column when sorted by it",
 			models: []catalog.Model{benchd},
 			opt:    Options{Code: true},
-			header: "MODEL  CONTEXT      $ IN    $ OUT   INTEL    TB4   CODE",
-			rows:   []string{"x/ä         8k      free     free    57.6      -   80.0"},
+			header: "MODEL  CONTEXT      $ IN    $ OUT   INTEL   CODE",
+			rows:   []string{"x/ä         8k      free     free    57.6   80.0"},
 		},
 		{
 			name:   "unknown price, tier mark",

@@ -1,0 +1,18 @@
+# A free Artificial Analysis key: the full list answers HTTP 403, llmenu
+# reads the free list in pages. There is no Terminal-Bench, so list has no
+# TB4 column; a model with only a speed still counts as matched.
+env LLMENU_AA_API_KEY=aa-free
+exec llmenu bench
+stdout '^6 of 8 models matched\. Intelligence Index: 5, output speed: 6\.$'
+stdout '^Free API key: Terminal-Bench and Long Context need an Artificial Analysis Pro key\.$'
+! stdout 'Coding Index'
+grep '"tier": "free"' $LLMENU_CACHE_DIR/bench.json
+
+exec llmenu list
+stdout '^MODEL +CONTEXT +\$ IN +\$ OUT +INTEL$'
+stdout '^aws/claude-opus-5-5 +1M +4.40 +22.00 +57.6$'
+
+# bench.metric = tb4 has no values here; list sorts by INTEL instead.
+exec llmenu config set bench.metric tb4
+exec llmenu list
+stdout '(?s)opus-5-5 .*gpt-6-sol .*sonnet-4-5 '

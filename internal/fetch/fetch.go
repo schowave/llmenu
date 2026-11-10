@@ -39,9 +39,20 @@ func Get(ctx context.Context, hc *http.Client, u string, header map[string]strin
 		return nil, fmt.Errorf("response from %s is larger than %d MB", u, maxBody>>20)
 	}
 	if res.StatusCode/100 != 2 {
-		return nil, fmt.Errorf("HTTP %d from %s: %s", res.StatusCode, u, snippet(body, 300))
+		return nil, &StatusError{Code: res.StatusCode, URL: u, Body: snippet(body, 300)}
 	}
 	return body, nil
+}
+
+// StatusError is a response with a non-2xx status.
+type StatusError struct {
+	Code int
+	URL  string
+	Body string // start of the response
+}
+
+func (e *StatusError) Error() string {
+	return fmt.Sprintf("HTTP %d from %s: %s", e.Code, e.URL, e.Body)
 }
 
 func snippet(b []byte, n int) string {

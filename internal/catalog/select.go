@@ -101,10 +101,25 @@ func (m Model) Score(metric string) *float64 {
 	}
 }
 
-// Sort sorts by the benchmark metric, or by price if no model has benchmarks.
+// HasScore reports whether any model has a value for the metric.
+func HasScore(models []Model, metric string) bool {
+	return slices.ContainsFunc(models, func(m Model) bool { return m.Score(metric) != nil })
+}
+
+// Metric returns metric if any model has a value for it, otherwise "intel",
+// e.g. for bench.metric = tb4 with a free Artificial Analysis key.
+func Metric(models []Model, metric string) string {
+	if HasScore(models, metric) {
+		return metric
+	}
+	return "intel"
+}
+
+// Sort sorts by the benchmark metric (see Metric), or by price if no model
+// has benchmarks.
 func Sort(models []Model, metric string) {
 	if slices.ContainsFunc(models, func(m Model) bool { return m.Bench != nil }) {
-		SortByBench(models, metric)
+		SortByBench(models, Metric(models, metric))
 		return
 	}
 	SortByPrice(models)

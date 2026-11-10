@@ -19,7 +19,8 @@ type Options struct {
 }
 
 // Format returns the header and one row per model with equal-width columns.
-// The benchmark columns only appear if at least one model has values.
+// The benchmark columns only appear if at least one model has values, TB4
+// only if a model has a Terminal-Bench score (it needs a Pro key).
 func Format(models []catalog.Model, opt Options) (header string, rows []string) {
 	labels := make([]string, len(models))
 	marks := make([]string, len(models))
@@ -36,6 +37,7 @@ func Format(models []catalog.Model, opt Options) (header string, rows []string) 
 		width = max(width, utf8.RuneCountInString(labels[i]))
 		withBench = withBench || m.Bench != nil
 	}
+	withTB4 := catalog.HasScore(models, "tb4")
 	// Without benchmark columns a line ends in the tier mark's place.
 	trim := func(s string) string { return strings.TrimRight(s, " ") }
 
@@ -45,7 +47,10 @@ func Format(models []catalog.Model, opt Options) (header string, rows []string) 
 	}
 	fmt.Fprintf(&b, "%-*s %8s %9s %8s ", width, "MODEL", "CONTEXT", "$ IN", "$ OUT")
 	if withBench {
-		fmt.Fprintf(&b, " %6s %6s", "INTEL", "TB4")
+		fmt.Fprintf(&b, " %6s", "INTEL")
+		if withTB4 {
+			fmt.Fprintf(&b, " %6s", "TB4")
+		}
 		if opt.Code {
 			fmt.Fprintf(&b, " %6s", "CODE")
 		}
@@ -65,7 +70,10 @@ func Format(models []catalog.Model, opt Options) (header string, rows []string) 
 			if m.Bench != nil {
 				bench = *m.Bench
 			}
-			fmt.Fprintf(&b, " %6s %6s", score(bench.Intelligence), score(bench.TerminalBench))
+			fmt.Fprintf(&b, " %6s", score(bench.Intelligence))
+			if withTB4 {
+				fmt.Fprintf(&b, " %6s", score(bench.TerminalBench))
+			}
 			if opt.Code {
 				fmt.Fprintf(&b, " %6s", score(bench.Coding))
 			}

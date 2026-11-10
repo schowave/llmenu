@@ -7,13 +7,17 @@ import (
 	"cmp"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/schowave/llmenu/internal/atomicfile"
@@ -24,10 +28,19 @@ import (
 )
 
 const (
-	URL    = "https://artificialanalysis.ai/api/v2/data/llms/models"
+	// URL is the full model list (Pro keys); free keys use URL/free, with
+	// fewer fields: no Terminal-Bench, no Long Context.
+	URL    = "https://artificialanalysis.ai/api/v2/language/models"
 	Source = "Artificial Analysis (https://artificialanalysis.ai)"
+	// TierFree is the tier of a key that only reaches the free list.
+	TierFree = "free"
 	// StaleAfter: from this age on, the menu points to `llmenu bench`.
 	StaleAfter = 14 * 24 * time.Hour
+	// maxPages caps the pages read (the list has a few at 200 models each);
+	// beyond it the result is marked as truncated.
+	maxPages = 50
+	// parallelPages: pages 2.. are fetched this many at a time.
+	parallelPages = 4
 )
 
 // Stopwords are longer than in the menu: for matching, variants like -high,
@@ -39,29 +52,147 @@ var Stopwords = append(slices.Clone(catalog.PickerStopwords),
 type Entry struct {
 	Slug        string `json:"slug"`
 	Evaluations struct {
-		Intelligence  *float64 `json:"artificial_analysis_intelligence_index"`
+		Intelligence *float64 `json:"artificial_analysis_intelligence_index"`
+		// Coding is no longer published (always null since the V2 API);
+		// kept for the fake servers and older data.
 		Coding        *float64 `json:"artificial_analysis_coding_index"`
-		TerminalBench *float64 `json:"terminalbench_v4_0"` // fraction 0..1
-		LongContext   *float64 `json:"lcr"`                // Long Context Reasoning, fraction 0..1
+		TerminalBench *float64 `json:"terminalbench_v4_0"` // fraction 0..1, Pro only
+		LongContext   *float64 `json:"aa_lcr"`             // Long Context Reasoning, fraction 0..1, Pro only
 	} `json:"evaluations"`
-	// OutputSpeed is measured at the model's own provider, not through the
-	// gateway; 0 means not measured.
-	OutputSpeed *float64 `json:"median_output_tokens_per_second"`
+	Performance struct {
+		// OutputSpeed is measured at the model's own provider, not through
+		// the gateway; 0 means not measured.
+		OutputSpeed *float64 `json:"median_output_tokens_per_second"`
+	} `json:"performance"`
 }
 
-// Fetch retrieves all models from Artificial Analysis. url is overridable for tests.
-func Fetch(ctx context.Context, hc *http.Client, url, key string) ([]Entry, error) {
-	body, err := fetch.Get(ctx, hc, url, map[string]string{"x-api-key": key})
+// Result is the outcome of Fetch.
+type Result struct {
+	Entries []Entry
+	// Tier as the API reports it, e.g. "pro"; TierFree if the free list
+	// was used.
+	Tier string
+	// Truncated: the list has more than maxPages pages; Entries holds the
+	// first maxPages.
+	Truncated bool
+}
+
+// Fetch retrieves all models from Artificial Analysis. base is URL, or
+// another server for tests. A key without Pro access gets HTTP 403 for the
+// full list; Fetch then reads the free list. freeFirst skips the full list,
+// e.g. when the last fetch found a free key.
+func Fetch(ctx context.Context, hc *http.Client, base, key string, freeFirst bool) (Result, error) {
+	free, err := url.JoinPath(base, TierFree)
 	if err != nil {
-		return nil, err
+		return Result{}, err
 	}
-	var resp struct {
-		Data *[]Entry `json:"data"`
+	if !freeFirst {
+		res, err := fetchAll(ctx, hc, base, key)
+		var se *fetch.StatusError
+		if !errors.As(err, &se) || se.Code != http.StatusForbidden {
+			res.Tier = cmp.Or(res.Tier, "pro")
+			return res, err
+		}
+		res, ferr := fetchAll(ctx, hc, free, key)
+		if ferr != nil {
+			return Result{}, fmt.Errorf("%w (before that, the full list: %v)", ferr, err)
+		}
+		res.Tier = cmp.Or(res.Tier, TierFree)
+		return res, nil
 	}
-	if err := json.Unmarshal(body, &resp); err != nil || resp.Data == nil {
-		return nil, fmt.Errorf("unexpected response from Artificial Analysis (no data array)")
+	res, err := fetchAll(ctx, hc, free, key)
+	res.Tier = cmp.Or(res.Tier, TierFree)
+	return res, err
+}
+
+// page is one response of a model list.
+type page struct {
+	Tier       string   `json:"tier"`
+	Data       *[]Entry `json:"data"`
+	Pagination struct {
+		TotalPages int  `json:"total_pages"`
+		HasMore    bool `json:"has_more"`
+	} `json:"pagination"`
+}
+
+// fetchAll reads page 1, then the remaining pages in parallel if the API
+// names their number, otherwise one after another while it reports more.
+func fetchAll(ctx context.Context, hc *http.Client, base, key string) (Result, error) {
+	first, err := getPage(ctx, hc, base, key, 1)
+	if err != nil {
+		return Result{}, err
 	}
-	return *resp.Data, nil
+	res := Result{Tier: first.Tier, Entries: slices.Clone(*first.Data)}
+	if res.Entries == nil {
+		res.Entries = []Entry{}
+	}
+	if !first.Pagination.HasMore {
+		return res, nil
+	}
+
+	if n := first.Pagination.TotalPages; n > 1 {
+		last := min(n, maxPages)
+		pages := make([][]Entry, last+1)
+		errs := make([]error, last+1)
+		sem := make(chan struct{}, parallelPages)
+		var wg sync.WaitGroup
+		for i := 2; i <= last; i++ {
+			wg.Go(func() {
+				sem <- struct{}{}
+				defer func() { <-sem }()
+				p, err := getPage(ctx, hc, base, key, i)
+				if err == nil {
+					pages[i] = *p.Data
+				}
+				errs[i] = err
+			})
+		}
+		wg.Wait()
+		if err := errors.Join(errs...); err != nil {
+			return Result{}, err
+		}
+		for _, p := range pages {
+			res.Entries = append(res.Entries, p...)
+		}
+		res.Truncated = n > maxPages
+		return res, nil
+	}
+
+	for i := 2; ; i++ {
+		if i > maxPages {
+			res.Truncated = true
+			return res, nil
+		}
+		p, err := getPage(ctx, hc, base, key, i)
+		if err != nil {
+			return Result{}, err
+		}
+		res.Entries = append(res.Entries, *p.Data...)
+		if !p.Pagination.HasMore {
+			return res, nil
+		}
+	}
+}
+
+func getPage(ctx context.Context, hc *http.Client, base, key string, n int) (page, error) {
+	u, err := url.Parse(base)
+	if err != nil {
+		return page{}, err
+	}
+	if n > 1 {
+		q := u.Query()
+		q.Set("page", strconv.Itoa(n))
+		u.RawQuery = q.Encode()
+	}
+	body, err := fetch.Get(ctx, hc, u.String(), map[string]string{"x-api-key": key})
+	if err != nil {
+		return page{}, err
+	}
+	var p page
+	if err := json.Unmarshal(body, &p); err != nil || p.Data == nil {
+		return page{}, fmt.Errorf("unexpected response from Artificial Analysis (no data array)")
+	}
+	return p, nil
 }
 
 // Match assigns values to each gateway model, as claude-benchmark did before:
@@ -72,8 +203,7 @@ func Fetch(ctx context.Context, hc *http.Client, url, key string) ([]Entry, erro
 func Match(entries []Entry, models []catalog.Model, overrides map[string]string) map[string]catalog.Bench {
 	byKey, byKeyNR, bySlug := map[string][]Entry{}, map[string][]Entry{}, map[string][]Entry{}
 	for _, e := range entries {
-		ev := e.Evaluations
-		if ev.Intelligence == nil && ev.Coding == nil && ev.TerminalBench == nil {
+		if !e.hasValues() {
 			continue
 		}
 		k := catalog.Key(e.Slug, Stopwords)
@@ -102,6 +232,14 @@ func Match(entries []Entry, models []catalog.Model, overrides map[string]string)
 	return out
 }
 
+// hasValues: at least one benchmark or a measured speed.
+func (e Entry) hasValues() bool {
+	ev := e.Evaluations
+	speed := e.Performance.OutputSpeed
+	return ev.Intelligence != nil || ev.Coding != nil || ev.TerminalBench != nil || ev.LongContext != nil ||
+		(speed != nil && *speed > 0)
+}
+
 // best merges variants: highest value each, shortest slug.
 func best(entries []Entry) catalog.Bench {
 	var b catalog.Bench
@@ -112,8 +250,8 @@ func best(entries []Entry) catalog.Bench {
 		b.Coding = maxPtr(b.Coding, e.Evaluations.Coding)
 		b.TerminalBench = maxPtr(b.TerminalBench, e.Evaluations.TerminalBench)
 		b.LongContext = maxPtr(b.LongContext, e.Evaluations.LongContext)
-		if e.OutputSpeed != nil && *e.OutputSpeed > 0 {
-			b.OutputSpeed = maxPtr(b.OutputSpeed, e.OutputSpeed)
+		if v := e.Performance.OutputSpeed; v != nil && *v > 0 {
+			b.OutputSpeed = maxPtr(b.OutputSpeed, v)
 		}
 	}
 	slices.SortFunc(slugs, func(a, b string) int { return cmp.Or(cmp.Compare(len(a), len(b)), cmp.Compare(a, b)) })
@@ -146,7 +284,8 @@ func maxPtr(a, b *float64) *float64 {
 // Store is the cache of the matched values.
 type Store struct {
 	FetchedAt time.Time                `json:"fetched_at"`
-	Models    map[string]catalog.Bench `json:"models"` // gateway name -> values
+	Tier      string                   `json:"tier,omitempty"` // the key's API tier, e.g. "free"
+	Models    map[string]catalog.Bench `json:"models"`         // gateway name -> values
 }
 
 // Path returns the cache location.

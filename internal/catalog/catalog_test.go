@@ -217,3 +217,25 @@ func TestSortByBench(t *testing.T) {
 		t.Errorf("tb4: first %s, want good", models[0].Name)
 	}
 }
+
+// TestMetric: a metric no model has a value for (tb4 with a free key, code
+// since Artificial Analysis dropped it) falls back to intel, for sorting too.
+func TestMetric(t *testing.T) {
+	f := func(v float64) *float64 { return &v }
+	models := []Model{
+		{Name: "cheap", OutputPrice: 1, Bench: &Bench{Intelligence: f(40)}},
+		{Name: "smart", OutputPrice: 30, Bench: &Bench{Intelligence: f(60)}},
+	}
+	if m := Metric(models, "tb4"); m != "intel" {
+		t.Errorf("tb4 without values: %s", m)
+	}
+	models[0].Bench.TerminalBench = f(10)
+	if m := Metric(models, "tb4"); m != "tb4" {
+		t.Errorf("tb4 with a value: %s", m)
+	}
+	models[0].Bench.TerminalBench = nil
+	Sort(models, "code")
+	if models[0].Name != "smart" {
+		t.Errorf("Sort by code without values: first %s, want smart (by intel)", models[0].Name)
+	}
+}

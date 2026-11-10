@@ -65,7 +65,7 @@ MSG
 if [ "$mode" != live ]; then
 	cat <<MSG
   Fake gateway:  http://127.0.0.1:$port/   key: sk-dev
-  Benchmarks:    key for "llmenu setup benchmarks": aa-dev
+  Benchmarks:    key for "llmenu setup benchmarks": aa-dev (Pro), aa-free (free)
 MSG
 else
 	cat <<MSG

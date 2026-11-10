@@ -149,12 +149,22 @@ func TestScripts(t *testing.T) {
 					http.NotFound(w, r)
 				}
 			}))
+			// Key aa-test is Pro; aa-free gets HTTP 403 for the full list
+			// and reads /free in two pages, as with Artificial Analysis.
 			aa := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				if r.Header.Get("x-api-key") != "aa-test" {
+				k := r.Header.Get("x-api-key")
+				switch {
+				case k != "aa-test" && k != "aa-free":
 					http.Error(w, `{"error":"invalid key"}`, http.StatusUnauthorized)
-					return
+				case r.URL.Path == "/free" && r.URL.Query().Get("page") == "2":
+					_, _ = w.Write([]byte(aaFreePage2))
+				case r.URL.Path == "/free":
+					_, _ = w.Write([]byte(aaFreePage1))
+				case k == "aa-free":
+					http.Error(w, `{"error":"Language models list requires a Pro subscription"}`, http.StatusForbidden)
+				default:
+					_, _ = w.Write([]byte(aaResponse))
 				}
-				_, _ = w.Write([]byte(aaResponse))
 			}))
 			env.Defer(gw.Close)
 			env.Defer(aa.Close)
@@ -193,4 +203,14 @@ const aaResponse = `{"data": [
   {"slug": "claude-sonnet-4-5", "evaluations": {"artificial_analysis_intelligence_index": 42}},
   {"slug": "gpt-6-sol", "evaluations": {"artificial_analysis_intelligence_index": 47.6, "terminalbench_v4_0": 0.439}},
   {"slug": "qwen3-next", "evaluations": {"artificial_analysis_intelligence_index": 30}}
+]}`
+
+const aaFreePage1 = `{"tier": "free", "pagination": {"page": 1, "page_size": 3, "total_pages": 2, "has_more": true}, "data": [
+  {"slug": "claude-opus-5-5", "evaluations": {"artificial_analysis_intelligence_index": 57.6, "artificial_analysis_coding_index": null}, "performance": {"median_output_tokens_per_second": 96.6}},
+  {"slug": "claude-sonnet-4-5", "evaluations": {"artificial_analysis_intelligence_index": 42}, "performance": {"median_output_tokens_per_second": 70}},
+  {"slug": "gpt-6-sol", "evaluations": {"artificial_analysis_intelligence_index": 47.6}, "performance": {"median_output_tokens_per_second": 120.4}}
+]}`
+
+const aaFreePage2 = `{"tier": "free", "pagination": {"page": 2, "page_size": 3, "total_pages": 2, "has_more": false}, "data": [
+  {"slug": "qwen3-next", "evaluations": {"artificial_analysis_intelligence_index": null}, "performance": {"median_output_tokens_per_second": 150}}
 ]}`

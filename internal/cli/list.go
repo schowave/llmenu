@@ -51,7 +51,8 @@ are folded together; --all shows them.`,
 }
 
 // fetchModels fetches the chat models from the gateway, without all stripped
-// of aliases and duplicates, and sorts them; metric is bench.metric.
+// of aliases and duplicates, and sorts them; metric is bench.metric, or
+// "intel" if no model has a value for it.
 func fetchModels(ctx context.Context, all bool, sortBy string) (models []catalog.Model, metric string, err error) {
 	env, err := loadEnv(ctx)
 	if err != nil {
@@ -67,7 +68,7 @@ func fetchModels(ctx context.Context, all bool, sortBy string) (models []catalog
 	} else {
 		sortModels(models, env.Config)
 	}
-	return models, env.Config.Bench.MetricOrDefault(), nil
+	return models, catalog.Metric(models, env.Config.Bench.MetricOrDefault()), nil
 }
 
 func printTable(w io.Writer, models []catalog.Model, opt table.Options) {

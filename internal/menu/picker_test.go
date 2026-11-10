@@ -385,3 +385,29 @@ func TestPickerCodeColumn(t *testing.T) {
 		t.Errorf("CODE column left after sorting on: %q", plain(p)[1])
 	}
 }
+
+// TestPickerFreeKey: with only the Intelligence Index (a free Artificial
+// Analysis key) there is no TB4 column, Tab switches between INTEL and
+// price only, and bench.metric = tb4 falls back to INTEL.
+func TestPickerFreeKey(t *testing.T) {
+	models := []catalog.Model{
+		{Name: "a", OutputPrice: 1, Bench: &catalog.Bench{Intelligence: f(50), OutputSpeed: f(80)}},
+		{Name: "b", OutputPrice: 2, Bench: &catalog.Bench{OutputSpeed: f(40)}},
+	}
+	p := newPicker(models, Options{Metric: "tb4"}, newStyles(lipgloss.NewRenderer(nil)))
+	p.Update(tea.WindowSizeMsg{Width: 160, Height: 20})
+	if p.sortKey != "intel" {
+		t.Errorf("metric without values: sort key %s, want intel", p.sortKey)
+	}
+	if lines := plain(p); strings.Contains(lines[1], "TB4") || !strings.Contains(lines[1], "▼INTEL") {
+		t.Errorf("header: %q", lines[1])
+	}
+	var keys []string
+	for range 3 {
+		p.Update(key(tea.KeyTab))
+		keys = append(keys, p.sortKey)
+	}
+	if strings.Join(keys, ",") != "price,intel,price" {
+		t.Errorf("Tab cycles %v, want price,intel,price", keys)
+	}
+}

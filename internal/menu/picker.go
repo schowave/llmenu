@@ -57,7 +57,7 @@ func newPicker(models []catalog.Model, opt Options, st styles) *picker {
 	// pressed, but show which column it corresponds to.
 	p.sortKey = "price"
 	if p.hasBench() {
-		p.sortKey = cmp.Or(opt.Metric, "intel")
+		p.sortKey = catalog.Metric(models, cmp.Or(opt.Metric, "intel"))
 	}
 	p.order = make([]int, len(models))
 	for i := range models {
@@ -216,11 +216,12 @@ func (p *picker) step(n int) {
 	p.scroll()
 }
 
+// cycleSort skips benchmarks no model has a value for, e.g. the Coding
+// Index, which Artificial Analysis no longer publishes.
 func (p *picker) cycleSort(dir int) {
-	keys := sortKeys
-	if !p.hasBench() {
-		keys = []string{"price"}
-	}
+	keys := slices.DeleteFunc(slices.Clone(sortKeys), func(k string) bool {
+		return k != "price" && !catalog.HasScore(p.models, k)
+	})
 	i := slices.Index(keys, p.sortKey)
 	p.sortKey = keys[(i+dir+len(keys))%len(keys)]
 	p.resort()
@@ -269,9 +270,16 @@ func (p *picker) nameWidth() int {
 // often have no value there; the preview shows it either way.
 func (p *picker) showCode() bool { return p.sortKey == "code" }
 
+// showTB4: Terminal-Bench needs an Artificial Analysis Pro key; without any
+// value the column is left out.
+func (p *picker) showTB4() bool { return catalog.HasScore(p.models, "tb4") }
+
 // tableWidth: cursor (2) + name + context, prices with tier mark, benchmarks.
 func (p *picker) tableWidth(name int) int {
-	w := 2 + name + 8 + 9 + 8 + 1 + 7 + 7
+	w := 2 + name + 8 + 9 + 8 + 1 + 7
+	if p.showTB4() {
+		w += 7
+	}
 	if p.showCode() {
 		w += 7
 	}
@@ -328,7 +336,10 @@ func (p *picker) header(nw int) string {
 	}
 	h := "  " + fmt.Sprintf("%-*s", nw, "MODEL") +
 		fmt.Sprintf("%8s", "CONTEXT") + fmt.Sprintf("%9s", "$IN/1M") + col("$OUT/1M", "price", 8) + " " +
-		col("INTEL", "intel", 7) + col("TB4 %", "tb4", 7)
+		col("INTEL", "intel", 7)
+	if p.showTB4() {
+		h += col("TB4 %", "tb4", 7)
+	}
 	if p.showCode() {
 		h += col("CODE", "code", 7)
 	}
@@ -351,7 +362,10 @@ func (p *picker) row(i int, selected bool, nw int) string {
 	pad := base.Render(strings.Repeat(" ", max(nw-runewidth.StringWidth(label), 0)))
 	nums := base.Render(fmt.Sprintf("%8s%9s%8s%s", table.Tokens(m.ContextTokens),
 		table.Price(m, m.InputPrice), table.Price(m, m.OutputPrice), table.TierMark(m)))
-	row := marker + name + pad + nums + p.score(m, "intel", base) + p.score(m, "tb4", base)
+	row := marker + name + pad + nums + p.score(m, "intel", base)
+	if p.showTB4() {
+		row += p.score(m, "tb4", base)
+	}
 	if p.showCode() {
 		row += p.score(m, "code", base)
 	}
@@ -401,7 +415,7 @@ func (p *picker) details(i int) string {
 		"  $/1M     price per million input/output tokens;\n" +
 		"           * more for long prompts, free: costs nothing\n" +
 		"  INTEL    Intelligence Index\n" +
-		"  TB4 %    Terminal-Bench v4, tasks solved\n" +
+		"  TB4 %    Terminal-Bench v4, tasks solved (Pro key)\n" +
 		"  CODE     Coding Index (column while sorted by it)\n"
 	return d
 }
