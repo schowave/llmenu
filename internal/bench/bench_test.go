@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -132,11 +133,11 @@ func TestFetch(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	res, err := Fetch(context.Background(), nil, srv.URL, "k", false)
+	res, err := Fetch(context.Background(), nil, srv.URL, "k")
 	if err != nil || len(res.Entries) != 1 || *res.Entries[0].Evaluations.Intelligence != 50 || res.Tier != "pro" || res.Truncated {
 		t.Fatalf("Fetch = %+v, %v", res, err)
 	}
-	if _, err := Fetch(context.Background(), nil, srv.URL, "wrong", false); err == nil || !strings.Contains(err.Error(), "HTTP 401") {
+	if _, err := Fetch(context.Background(), nil, srv.URL, "wrong"); err == nil || !strings.Contains(err.Error(), "HTTP 401") {
 		t.Errorf("wrong key: %v", err)
 	}
 }
@@ -196,7 +197,7 @@ func TestFetchFree(t *testing.T) {
 	for _, total := range []bool{true, false} {
 		t.Run(fmt.Sprintf("total_pages=%t", total), func(t *testing.T) {
 			srv, seen := aaServer(t, 7, total)
-			res, err := Fetch(context.Background(), nil, srv.URL+"/m", "k", false)
+			res, err := Fetch(context.Background(), nil, srv.URL+"/m", "k")
 			if err != nil || res.Tier != TierFree || res.Truncated || slugs(res.Entries) != "m1,m2,m3,m4,m5,m6,m7" {
 				t.Fatalf("Fetch = %s %+v, %v", slugs(res.Entries), res, err)
 			}
@@ -206,20 +207,13 @@ func TestFetchFree(t *testing.T) {
 			if s := seen(); s["/m"] != 1 || s["/m/free"] != 1 || s["/m/free?page=7"] != 1 || len(s) != 8 {
 				t.Errorf("requests = %v", s)
 			}
-
-			// freeFirst skips the full list.
-			srv, seen = aaServer(t, 2, total)
-			res, err = Fetch(context.Background(), nil, srv.URL+"/m", "k", true)
-			if err != nil || res.Tier != TierFree || slugs(res.Entries) != "m1,m2" || seen()["/m"] != 0 {
-				t.Errorf("freeFirst: %s %+v, %v, requests %v", slugs(res.Entries), res, err, seen())
-			}
 		})
 	}
 }
 
 func TestFetchPro(t *testing.T) {
 	srv, _ := aaServer(t, 1, true)
-	res, err := Fetch(context.Background(), nil, srv.URL+"/m", "pro", false)
+	res, err := Fetch(context.Background(), nil, srv.URL+"/m", "pro")
 	if err != nil || res.Tier != "pro" || slugs(res.Entries) != "p" {
 		t.Errorf("Fetch = %+v, %v", res, err)
 	}
@@ -229,8 +223,9 @@ func TestFetchPro(t *testing.T) {
 func TestFetchTruncated(t *testing.T) {
 	for _, total := range []bool{true, false} {
 		srv, seen := aaServer(t, maxPages+10, total)
-		res, err := Fetch(context.Background(), nil, srv.URL+"/m", "k", true)
-		if err != nil || !res.Truncated || len(res.Entries) != maxPages || len(seen()) != maxPages {
+		res, err := Fetch(context.Background(), nil, srv.URL+"/m", "k")
+		// maxPages free pages plus the full list's 403.
+		if err != nil || !res.Truncated || len(res.Entries) != maxPages || len(seen()) != maxPages+1 {
 			t.Errorf("total_pages=%t: %d entries, truncated %t, %d requests, %v", total, len(res.Entries), res.Truncated, len(seen()), err)
 		}
 	}
@@ -253,13 +248,37 @@ func TestFetchErrors(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	_, err := Fetch(context.Background(), nil, srv.URL+"/blocked", "k", false)
+	_, err := Fetch(context.Background(), nil, srv.URL+"/blocked", "k")
 	if err == nil || !strings.HasPrefix(err.Error(), "HTTP 403 from "+srv.URL+"/blocked/free: blocked /blocked/free") ||
 		!strings.HasSuffix(err.Error(), "(before that, the full list: HTTP 403 from "+srv.URL+"/blocked: blocked /blocked)") {
 		t.Errorf("both errors: %v", err)
 	}
-	if _, err := Fetch(context.Background(), nil, srv.URL+"/m?x=1", "k", false); err == nil || !strings.Contains(err.Error(), "page 2 broken") {
+	if _, err := Fetch(context.Background(), nil, srv.URL+"/m?x=1", "k"); err == nil || !strings.Contains(err.Error(), "page 2 broken") {
 		t.Errorf("broken page: %v", err)
+	}
+}
+
+// TestFetchFirstPageError: when the pages fail (e.g. a rate limit), the
+// first error cancels the rest and is the only one reported.
+func TestFetchFirstPageError(t *testing.T) {
+	var calls atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls.Add(1)
+		if r.URL.Query().Get("page") != "" {
+			http.Error(w, "slow down", http.StatusTooManyRequests)
+			return
+		}
+		_, _ = w.Write([]byte(`{"pagination":{"total_pages":40,"has_more":true},"data":[]}`))
+	}))
+	defer srv.Close()
+
+	_, err := Fetch(context.Background(), nil, srv.URL, "k")
+	if err == nil || strings.Count(err.Error(), "HTTP 429") != 1 {
+		t.Errorf("error: %v", err)
+	}
+	// Page 1, then at most the pages already running when the first failed.
+	if n := calls.Load(); n > 1+2*parallelPages {
+		t.Errorf("%d requests after the first error, want at most %d", n, 1+2*parallelPages)
 	}
 }
 

@@ -69,9 +69,11 @@ func main() {
 			_, _ = w.Write([]byte(body))
 		})
 	}
-	free, err := freePages(aa, 2)
-	if err != nil {
-		log.Fatal(err)
+	// A deliberately malformed -bench file is still served to the Pro key,
+	// for llmenu's error path; only the free list is then unavailable.
+	free, freeErr := freePages(aa, 2)
+	if freeErr != nil {
+		log.Printf("no free list: %v", freeErr)
 	}
 	mux.HandleFunc("/aa", func(w http.ResponseWriter, r *http.Request) {
 		switch r.Header.Get("x-api-key") {
@@ -87,6 +89,10 @@ func main() {
 	mux.HandleFunc("/aa/free", func(w http.ResponseWriter, r *http.Request) {
 		if k := r.Header.Get("x-api-key"); k != *aaKey && k != *aaFreeKey {
 			http.Error(w, `{"error":"invalid key"}`, http.StatusUnauthorized)
+			return
+		}
+		if freeErr != nil {
+			http.Error(w, `{"error":"sandbox: no free list, the -bench file is not valid"}`, http.StatusInternalServerError)
 			return
 		}
 		n, err := strconv.Atoi(cmp.Or(r.URL.Query().Get("page"), "1"))

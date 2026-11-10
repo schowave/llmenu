@@ -79,30 +79,25 @@ type Result struct {
 
 // Fetch retrieves all models from Artificial Analysis. base is URL, or
 // another server for tests. A key without Pro access gets HTTP 403 for the
-// full list; Fetch then reads the free list. freeFirst skips the full list,
-// e.g. when the last fetch found a free key.
-func Fetch(ctx context.Context, hc *http.Client, base, key string, freeFirst bool) (Result, error) {
+// full list; Fetch then reads the free list. The full list is tried every
+// time, so a key that became Pro, or a passing 403, is noticed.
+func Fetch(ctx context.Context, hc *http.Client, base, key string) (Result, error) {
 	free, err := url.JoinPath(base, TierFree)
 	if err != nil {
 		return Result{}, err
 	}
-	if !freeFirst {
-		res, err := fetchAll(ctx, hc, base, key)
-		var se *fetch.StatusError
-		if !errors.As(err, &se) || se.Code != http.StatusForbidden {
-			res.Tier = cmp.Or(res.Tier, "pro")
-			return res, err
-		}
-		res, ferr := fetchAll(ctx, hc, free, key)
-		if ferr != nil {
-			return Result{}, fmt.Errorf("%w (before that, the full list: %v)", ferr, err)
-		}
-		res.Tier = cmp.Or(res.Tier, TierFree)
-		return res, nil
+	res, err := fetchAll(ctx, hc, base, key)
+	var se *fetch.StatusError
+	if !errors.As(err, &se) || se.Code != http.StatusForbidden {
+		res.Tier = cmp.Or(res.Tier, "pro")
+		return res, err
 	}
-	res, err := fetchAll(ctx, hc, free, key)
+	res, ferr := fetchAll(ctx, hc, free, key)
+	if ferr != nil {
+		return Result{}, fmt.Errorf("%w (before that, the full list: %v)", ferr, err)
+	}
 	res.Tier = cmp.Or(res.Tier, TierFree)
-	return res, err
+	return res, nil
 }
 
 // page is one response of a model list.
@@ -133,22 +128,35 @@ func fetchAll(ctx context.Context, hc *http.Client, base, key string) (Result, e
 	if n := first.Pagination.TotalPages; n > 1 {
 		last := min(n, maxPages)
 		pages := make([][]Entry, last+1)
-		errs := make([]error, last+1)
+		// The first error cancels the pages still running or waiting, e.g.
+		// on a rate limit, and is the one reported.
+		ctx, cancel := context.WithCancel(ctx)
+		defer cancel()
+		var once sync.Once
+		var firstErr error
 		sem := make(chan struct{}, parallelPages)
 		var wg sync.WaitGroup
 		for i := 2; i <= last; i++ {
 			wg.Go(func() {
-				sem <- struct{}{}
+				select {
+				case sem <- struct{}{}:
+				case <-ctx.Done():
+					return
+				}
 				defer func() { <-sem }()
 				p, err := getPage(ctx, hc, base, key, i)
-				if err == nil {
-					pages[i] = *p.Data
+				if err != nil {
+					once.Do(func() { firstErr = err; cancel() })
+					return
 				}
-				errs[i] = err
+				pages[i] = *p.Data
 			})
 		}
 		wg.Wait()
-		if err := errors.Join(errs...); err != nil {
+		if firstErr != nil {
+			return Result{}, firstErr
+		}
+		if err := ctx.Err(); err != nil {
 			return Result{}, err
 		}
 		for _, p := range pages {
@@ -286,6 +294,8 @@ type Store struct {
 	FetchedAt time.Time                `json:"fetched_at"`
 	Tier      string                   `json:"tier,omitempty"` // the key's API tier, e.g. "free"
 	Models    map[string]catalog.Bench `json:"models"`         // gateway name -> values
+	// Truncated: the fetch stopped at the page limit; not saved.
+	Truncated bool `json:"-"`
 }
 
 // Path returns the cache location.

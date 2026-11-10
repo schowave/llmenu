@@ -13,6 +13,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/schowave/llmenu/internal/bench"
+	"github.com/schowave/llmenu/internal/catalog"
 	"github.com/schowave/llmenu/internal/secrets"
 	"github.com/schowave/llmenu/internal/state"
 	"github.com/schowave/llmenu/internal/targets"
@@ -58,36 +59,42 @@ map it by hand: llmenu config set bench.map.<model> <slug>`,
 			if err != nil {
 				return err
 			}
-			// Always try the full list first: the key may have become Pro.
-			st, err := fetchBench(cmd.Context(), env, key, false)
+			st, err := fetchBench(cmd.Context(), env, key)
 			if err != nil {
 				return err
 			}
 
+			// The Intelligence Index always, the others only where the API
+			// delivered values: the Coding Index is no longer published,
+			// Terminal-Bench and Long Context need a Pro key.
+			metrics := []struct {
+				label string
+				value func(catalog.Bench) *float64
+				count int
+			}{
+				{label: "Intelligence Index", value: func(b catalog.Bench) *float64 { return b.Intelligence }},
+				{label: "Terminal-Bench v4", value: func(b catalog.Bench) *float64 { return b.TerminalBench }},
+				{label: "Long Context", value: func(b catalog.Bench) *float64 { return b.LongContext }},
+				{label: "Coding Index", value: func(b catalog.Bench) *float64 { return b.Coding }},
+				{label: "output speed", value: func(b catalog.Bench) *float64 { return b.OutputSpeed }},
+			}
 			var missing []string
-			counts := map[string]int{}
 			for _, m := range env.Models {
 				b, ok := st.Models[m.Name]
 				if !ok {
 					missing = append(missing, m.Name)
 					continue
 				}
-				for label, v := range map[string]*float64{
-					"Intelligence Index": b.Intelligence, "Terminal-Bench v4": b.TerminalBench,
-					"Coding Index": b.Coding, "Long Context": b.LongContext, "output speed": b.OutputSpeed,
-				} {
-					if v != nil {
-						counts[label]++
+				for i := range metrics {
+					if metrics[i].value(b) != nil {
+						metrics[i].count++
 					}
 				}
 			}
-			// The Intelligence Index always, the others only where the API
-			// delivered values: the Coding Index is no longer published,
-			// Terminal-Bench and Long Context need a Pro key.
-			found := []string{fmt.Sprintf("Intelligence Index: %d", counts["Intelligence Index"])}
-			for _, label := range []string{"Terminal-Bench v4", "Long Context", "Coding Index", "output speed"} {
-				if counts[label] > 0 {
-					found = append(found, fmt.Sprintf("%s: %d", label, counts[label]))
+			var found []string
+			for i, mt := range metrics {
+				if i == 0 || mt.count > 0 {
+					found = append(found, fmt.Sprintf("%s: %d", mt.label, mt.count))
 				}
 			}
 			out := cmd.OutOrStdout()
@@ -95,6 +102,9 @@ map it by hand: llmenu config set bench.map.<model> <slug>`,
 			fmt.Fprintf(out, "%d of %d models matched. %s.\n", len(st.Models), len(env.Models), strings.Join(found, ", "))
 			if st.Tier == bench.TierFree {
 				fmt.Fprintln(out, "Free API key: Terminal-Bench and Long Context need an Artificial Analysis Pro key.")
+			}
+			if st.Truncated {
+				fmt.Fprintln(cmd.ErrOrStderr(), "Warning: Artificial Analysis has more pages than llmenu reads; some models may be missing.")
 			}
 			if len(missing) > 0 {
 				slices.Sort(missing)
@@ -115,18 +125,15 @@ map it by hand: llmenu config set bench.map.<model> <slug>`,
 
 // fetchBench fetches the benchmarks, matches them to the gateway's models,
 // saves them and attaches them to env.Models.
-// freeFirst skips the full list, which a free key cannot read.
-func fetchBench(ctx context.Context, env targets.Env, key string, freeFirst bool) (*bench.Store, error) {
-	res, err := bench.Fetch(ctx, nil, cmp.Or(os.Getenv("LLMENU_AA_URL"), bench.URL), key, freeFirst)
+func fetchBench(ctx context.Context, env targets.Env, key string) (*bench.Store, error) {
+	res, err := bench.Fetch(ctx, nil, cmp.Or(os.Getenv("LLMENU_AA_URL"), bench.URL), key)
 	if err != nil {
 		return nil, err
-	}
-	if res.Truncated {
-		fmt.Fprintln(os.Stderr, "Warning: Artificial Analysis has more pages than llmenu reads; some models may be missing.")
 	}
 	st := &bench.Store{
 		FetchedAt: now().UTC(),
 		Tier:      res.Tier,
+		Truncated: res.Truncated,
 		Models:    bench.Match(res.Entries, env.Models, env.Config.Bench.Map),
 	}
 	if err := st.Save(); err != nil {
@@ -165,7 +172,5 @@ func autoRefreshBench(ctx context.Context, env targets.Env) {
 	_ = s.Save()
 	ctx, cancel := context.WithTimeout(ctx, autoBenchTimeout)
 	defer cancel()
-	// A free key gets HTTP 403 for the full list; skipping it keeps the
-	// refresh within autoBenchTimeout.
-	_, _ = fetchBench(ctx, env, key, st != nil && st.Tier == bench.TierFree)
+	_, _ = fetchBench(ctx, env, key)
 }

@@ -24,7 +24,7 @@ type Options struct {
 func Format(models []catalog.Model, opt Options) (header string, rows []string) {
 	labels := make([]string, len(models))
 	marks := make([]string, len(models))
-	width, withBench, withMark := len("MODEL"), false, false
+	width, withMark := len("MODEL"), false
 	for i, m := range models {
 		labels[i] = m.Name
 		if opt.ShowAliasTarget && m.IsAlias() {
@@ -35,9 +35,8 @@ func Format(models []catalog.Model, opt Options) (header string, rows []string) 
 			withMark = withMark || marks[i] != ""
 		}
 		width = max(width, utf8.RuneCountInString(labels[i]))
-		withBench = withBench || m.Bench != nil
 	}
-	withTB4 := catalog.HasScore(models, "tb4")
+	withBench, withTB4 := catalog.HasAnyScore(models), catalog.HasScore(models, "tb4")
 	// Without benchmark columns a line ends in the tier mark's place.
 	trim := func(s string) string { return strings.TrimRight(s, " ") }
 

@@ -86,6 +86,13 @@ func TestFormat(t *testing.T) {
 			},
 		},
 		{
+			// A measured speed alone is no score: no benchmark columns.
+			name:   "speed only",
+			models: []catalog.Model{{Name: "x/s", ContextTokens: 8_000, Bench: &catalog.Bench{OutputSpeed: f(80)}}},
+			header: "MODEL  CONTEXT      $ IN    $ OUT",
+			rows:   []string{"x/s         8k      free     free"},
+		},
+		{
 			name:   "TB4 column when a model has a score",
 			models: []catalog.Model{benchd, tb4},
 			header: "MODEL  CONTEXT      $ IN    $ OUT   INTEL    TB4",

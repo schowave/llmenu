@@ -120,26 +120,4 @@ func TestAutoRefreshBench(t *testing.T) {
 			t.Errorf("requests = %d, want 1", got)
 		}
 	})
-
-	// After a fetch with a free key, the refresh goes straight to the free
-	// list: the full list's HTTP 403 would cost a round trip of the timeout.
-	t.Run("free key skips the full list", func(t *testing.T) {
-		t.Setenv("LLMENU_CACHE_DIR", t.TempDir())
-		t.Setenv("LLMENU_AA_API_KEY", "aa")
-		var paths []string
-		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			paths = append(paths, r.URL.Path)
-			_, _ = w.Write([]byte(`{"tier":"free","data":[{"slug":"claude-opus-5-5","evaluations":{"artificial_analysis_intelligence_index":57.6}}]}`))
-		}))
-		t.Cleanup(srv.Close)
-		t.Setenv("LLMENU_AA_URL", srv.URL+"/models")
-		setNow(t, t0)
-		if err := (&bench.Store{FetchedAt: t0.Add(-20 * 24 * time.Hour), Tier: bench.TierFree}).Save(); err != nil {
-			t.Fatal(err)
-		}
-		autoRefreshBench(context.Background(), autoEnv())
-		if len(paths) != 1 || paths[0] != "/models/free" {
-			t.Errorf("requests = %v, want only /models/free", paths)
-		}
-	})
 }

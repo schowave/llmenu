@@ -499,7 +499,7 @@ func setupBenchmarks(ctx context.Context, gatewayModels func() ([]catalog.Model,
 		return err
 	}
 	env.Models = models
-	st, err := fetchBench(ctx, env, key, false)
+	st, err := fetchBench(ctx, env, key)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "Benchmarks not fetched:", err, "— try llmenu bench later.")
 		return nil

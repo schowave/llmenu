@@ -39,6 +39,8 @@ type picker struct {
 	width    int
 	height   int
 	maxScore map[string]float64 // best value per benchmark, for highlighting
+	tb4      bool               // a model has a Terminal-Bench score (needs a Pro key)
+	scores   bool               // a model has any sortable score, not only a speed
 
 	chosen  int // model index once Enter was pressed, else -1
 	aborted bool
@@ -53,6 +55,7 @@ func newPicker(models []catalog.Model, opt Options, st styles) *picker {
 			}
 		}
 	}
+	p.tb4, p.scores = catalog.HasScore(models, "tb4"), catalog.HasAnyScore(models)
 	// The caller already sorted the models; keep that order until Tab is
 	// pressed, but show which column it corresponds to.
 	p.sortKey = "price"
@@ -70,9 +73,7 @@ func newPicker(models []catalog.Model, opt Options, st styles) *picker {
 	return p
 }
 
-func (p *picker) hasBench() bool {
-	return slices.ContainsFunc(p.models, func(m catalog.Model) bool { return m.Bench != nil })
-}
+func (p *picker) hasBench() bool { return p.scores }
 
 func (p *picker) hint(m catalog.Model) string {
 	if p.opt.Hint == nil {
@@ -272,7 +273,7 @@ func (p *picker) showCode() bool { return p.sortKey == "code" }
 
 // showTB4: Terminal-Bench needs an Artificial Analysis Pro key; without any
 // value the column is left out.
-func (p *picker) showTB4() bool { return catalog.HasScore(p.models, "tb4") }
+func (p *picker) showTB4() bool { return p.tb4 }
 
 // tableWidth: cursor (2) + name + context, prices with tier mark, benchmarks.
 func (p *picker) tableWidth(name int) int {

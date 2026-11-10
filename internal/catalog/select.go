@@ -106,6 +106,15 @@ func HasScore(models []Model, metric string) bool {
 	return slices.ContainsFunc(models, func(m Model) bool { return m.Score(metric) != nil })
 }
 
+// Metrics are the benchmarks one can sort by.
+var Metrics = []string{"intel", "tb4", "code"}
+
+// HasAnyScore reports whether any model has a value for a sortable
+// benchmark; a model with only a measured speed has none.
+func HasAnyScore(models []Model) bool {
+	return slices.ContainsFunc(Metrics, func(metric string) bool { return HasScore(models, metric) })
+}
+
 // Metric returns metric if any model has a value for it, otherwise "intel",
 // e.g. for bench.metric = tb4 with a free Artificial Analysis key.
 func Metric(models []Model, metric string) string {
@@ -116,9 +125,9 @@ func Metric(models []Model, metric string) string {
 }
 
 // Sort sorts by the benchmark metric (see Metric), or by price if no model
-// has benchmarks.
+// has a score.
 func Sort(models []Model, metric string) {
-	if slices.ContainsFunc(models, func(m Model) bool { return m.Bench != nil }) {
+	if HasAnyScore(models) {
 		SortByBench(models, Metric(models, metric))
 		return
 	}

@@ -16,6 +16,7 @@ import (
 	"github.com/pelletier/go-toml/v2"
 
 	"github.com/schowave/llmenu/internal/atomicfile"
+	"github.com/schowave/llmenu/internal/catalog"
 	"github.com/schowave/llmenu/internal/guard"
 )
 
@@ -176,7 +177,7 @@ func (c *Config) SetTools(tools []string) {
 }
 
 // Metrics are the benchmarks the menu and `list` can sort by.
-var Metrics = []string{"intel", "tb4", "code"}
+var Metrics = catalog.Metrics
 
 type Bench struct {
 	Metric string            `toml:"metric,omitempty"` // intel (default), tb4 or code

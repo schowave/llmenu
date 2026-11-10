@@ -269,6 +269,13 @@ func TestPickerBenchTip(t *testing.T) {
 	if lines := plain(p); lipgloss.Width(lines[len(lines)-1]) > 20 {
 		t.Errorf("narrow footer too wide: %q", lines[len(lines)-1])
 	}
+	// A measured speed alone is no quality score: the tip stays, no sorting.
+	speedOnly := []catalog.Model{{Name: "a/x", OutputPrice: 2, Bench: &catalog.Bench{OutputSpeed: f(80)}}}
+	s := newPicker(speedOnly, Options{}, newStyles(lipgloss.NewRenderer(nil)))
+	s.Update(tea.WindowSizeMsg{Width: 120, Height: 10})
+	if lines := plain(s); s.sortKey != "price" || !strings.Contains(lines[len(lines)-1], "no quality scores yet") {
+		t.Errorf("speed only: sort %s, footer %q", s.sortKey, lines[len(lines)-1])
+	}
 	// With benchmarks there is no tip.
 	q := newTestPicker(Options{})
 	if lines := plain(q); strings.Contains(lines[len(lines)-1], "llmenu bench") {
