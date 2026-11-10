@@ -1,0 +1,26 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "tight-leading",
+        "value": "*",
+        "files": [
+          "site/index.html"
+        ],
+        "createdAt": "2026-11-10T08:22:02.950Z",
+        "reason": "Claude: tight leading only on display type (h1/h2 0.98, footer wordmark 0.82) and single-line buttons; body text is 1.55, display leading 0.85-1.05 follows the design-taste-frontend type rules"
+      },
+      {
+        "rule": "cramped-padding",
+        "value": "*",
+        "files": [
+          "site/index.html"
+        ],
+        "createdAt": "2026-11-10T08:30:24.009Z",
+        "reason": "Claude: only finding is the #tools <section> (.field), which has padding clamp(72px,10vw,140px) var(--margin); browser inspector at 390/768/1440 shows its text inset; moving the padding inward did not change the static finding"
+      }
+    ]
+  }
+}
