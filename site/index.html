@@ -1,0 +1,381 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>llmenu – pick a model from your LiteLLM gateway</title>
+<meta name="description" content="llmenu reads the models from your LiteLLM gateway, compares price, context and benchmarks, and starts Claude Code, Codex CLI or GitHub Copilot CLI with the one you choose.">
+<link rel="canonical" href="https://schowave.github.io/llmenu/">
+<meta property="og:type" content="website">
+<meta property="og:title" content="llmenu – pick a model from your LiteLLM gateway">
+<meta property="og:description" content="Compare your gateway's models by price, context and benchmarks, then start Claude Code, Codex CLI, Copilot CLI, pi or opencode with it.">
+<meta property="og:url" content="https://schowave.github.io/llmenu/">
+<meta property="og:image" content="https://schowave.github.io/llmenu/img/social-preview.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="theme-color" content="#1d1d2d">
+<style>
+:root {
+  --ground: #1d1d2d;
+  --raised: #262639;
+  --ink: #e8e8f2;
+  --soft: #a9a9c0;
+  --accent: #8ab4f8;
+  --accent-ink: #11182a;
+  --green: #a6d189;
+  --paper: #eceef6;
+  --paper-ink: #1d1d2d;
+  --margin: clamp(16px, 3vw, 40px);
+  --gap: clamp(96px, 14vw, 200px);
+  --text: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --code: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+  --ease: cubic-bezier(.2, .7, .2, 1);
+}
+*, *::before, *::after { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--ground); color: var(--ink);
+  font: 400 18px/1.55 var(--text); -webkit-font-smoothing: antialiased;
+}
+img { display: block; max-width: 100%; height: auto; }
+a { color: inherit; }
+::selection { background: var(--accent); color: var(--accent-ink); }
+:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+h1, h2, h3 { margin: 0; font-weight: 700; letter-spacing: -0.035em; line-height: 0.98; }
+h2 { font-size: clamp(34px, 5.4vw, 76px); max-width: 16ch; }
+h3 { font-size: 22px; letter-spacing: -0.01em; line-height: 1.2; }
+p { margin: 0; }
+code, pre { font-family: var(--code); }
+.wrap { padding: 0 var(--margin); }
+.section { margin-top: var(--gap); }
+.lead { font-size: clamp(19px, 1.55vw, 22px); line-height: 1.45; max-width: 36em; }
+.shot { background: #1d1d2d; }
+.screen { background: #2c2c44; padding: clamp(10px, 2vw, 28px); }
+figure { margin: 0; }
+
+/* nav */
+.nav { display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 20px var(--margin); }
+.nav .mark { font-weight: 800; font-size: 22px; letter-spacing: -0.03em; text-decoration: none; }
+.nav ul { display: flex; gap: 28px; list-style: none; margin: 0; padding: 0; align-items: center; }
+.nav a { text-decoration: none; }
+.nav li a:not(.btn) { color: var(--soft); transition: color .2s; }
+.nav li a:not(.btn):hover { color: var(--ink); }
+@media (max-width: 720px) { .nav .hide-s { display: none; } }
+
+/* buttons */
+.btn {
+  display: inline-flex; align-items: center; gap: 10px; min-height: 48px; padding: 0 22px;
+  border: 0; border-radius: 999px; font: 600 18px/1 var(--text); text-decoration: none; cursor: pointer;
+  background: var(--accent); color: var(--accent-ink); transition: transform .18s var(--ease), background .2s;
+}
+.btn:hover { background: #a6c6fa; transform: translateY(-2px); }
+.btn:active { transform: translateY(0) scale(.97); }
+.btn.quiet { background: var(--raised); color: var(--ink); }
+.btn.quiet:hover { background: #303047; }
+
+/* hero */
+.hero { padding-top: clamp(40px, 7vw, 96px); }
+.hero h1 { font-size: clamp(38px, 7.6vw, 116px); max-width: 13ch; }
+.hero .lead { margin-top: 36px; }
+.hero .actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 36px; align-items: center; }
+.cmd {
+  min-width: 0;
+  display: inline-flex; align-items: center; gap: 4px; min-height: 48px; padding: 0 6px 0 20px;
+  background: var(--raised); border-radius: 999px; font-size: 15px; max-width: 100%;
+}
+.cmd code { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cmd code::before { content: "$ "; color: var(--soft); }
+.copy {
+  border: 0; background: transparent; color: var(--accent); font: 600 15px/1 var(--text);
+  padding: 12px 14px; border-radius: 999px; cursor: pointer; transition: background .2s;
+}
+.copy:hover { background: #33334a; }
+.hero-media { margin-top: clamp(48px, 6vw, 88px); }
+.hero-media .screen { overflow: hidden; }
+.hero-media img { width: 100%; }
+@media (max-width: 720px) { .hero-media img { width: 180%; max-width: none; } }
+.caption { margin-top: 14px; color: var(--soft); font-size: 15px; }
+
+/* compare */
+.compare { display: grid; grid-template-columns: repeat(12, 1fr); gap: 0 var(--margin); }
+.compare header { grid-column: 1 / 6; }
+.compare header .lead { margin-top: 28px; }
+.compare .cols { grid-column: 7 / 13; align-self: end; display: grid; grid-template-columns: auto 1fr; gap: 14px 28px; margin: 0; }
+.compare dt { font-weight: 700; }
+.compare dd { margin: 0; color: var(--ink); }
+.compare .wide { grid-column: 1 / 13; margin-top: 64px; }
+.compare .pair { grid-column: 1 / 13; display: grid; grid-template-columns: 1fr 1fr; gap: var(--margin); margin-top: 64px; align-items: start; }
+.compare .pair p { margin-top: 18px; max-width: 30em; }
+@media (max-width: 860px) {
+  .compare header, .compare .cols, .compare .wide, .compare .pair { grid-column: 1 / 13; }
+  .compare .cols { margin-top: 40px; }
+  .compare .pair { grid-template-columns: 1fr; gap: 48px; }
+}
+
+/* tools: a light field */
+.field { background: var(--paper); color: var(--paper-ink); padding: clamp(72px, 10vw, 140px) var(--margin); }
+.tools { display: grid; grid-template-columns: 5fr 7fr; gap: var(--margin); align-items: start; }
+.tools .lead { margin-top: 28px; }
+.tools table { width: 100%; border-collapse: collapse; }
+.tools th { text-align: left; font-size: 15px; font-weight: 600; color: #55556e; padding: 0 16px 12px 0; }
+.tools td { padding: 18px 16px 18px 0; border-top: 1px solid #cfd2e2; vertical-align: top; }
+.tools td:first-child { font-weight: 700; white-space: nowrap; }
+.tools td code { background: #dde1ef; padding: 3px 8px; border-radius: 6px; font-size: 15px; white-space: nowrap; }
+.tools tr { transition: background .2s; }
+.tools tbody tr:hover { background: #e2e5f1; }
+.tools a { text-decoration-thickness: 1px; text-underline-offset: 3px; }
+@media (max-width: 860px) {
+  .tools { grid-template-columns: 1fr; gap: 48px; }
+  .tools table, .tools tbody, .tools tr, .tools td { display: block; }
+  .tools thead { display: none; }
+  .tools td { border: 0; padding: 2px 0; }
+  .tools tr { border-top: 1px solid #cfd2e2; padding: 18px 0; }
+}
+
+/* budget */
+.budget { display: grid; grid-template-columns: 7fr 5fr; gap: var(--margin); align-items: center; }
+.budget .text .lead { margin-top: 28px; }
+.budget ul { margin: 32px 0 0; padding: 0 0 0 20px; }
+.budget li + li { margin-top: 10px; }
+.budget figure { margin: 0; }
+@media (max-width: 860px) { .budget { grid-template-columns: 1fr; gap: 48px; } .budget figure { order: 2; } }
+
+/* trust */
+.trust h2 { max-width: 20ch; }
+.trust .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--margin); margin-top: 64px; }
+.trust .grid > div { max-width: 26em; }
+
+.trust .grid p { margin-top: 14px; }
+@media (max-width: 860px) { .trust .grid { grid-template-columns: 1fr; } }
+
+/* install */
+.install { display: grid; grid-template-columns: 5fr 7fr; gap: var(--margin); align-items: start; }
+.install > *, .tools > *, .budget > *, .compare > * { min-width: 0; }
+.install .lead { margin-top: 28px; }
+.tabs { display: flex; gap: 8px; flex-wrap: wrap; }
+.tabs button {
+  border: 0; min-height: 44px; padding: 0 18px; border-radius: 999px; cursor: pointer;
+  font: 600 15px/1 var(--text); background: var(--raised); color: var(--ink); transition: background .2s, color .2s, transform .18s var(--ease);
+}
+.tabs button:hover { transform: translateY(-2px); }
+.tabs button[aria-selected="true"] { background: var(--accent); color: var(--accent-ink); }
+.panel { position: relative; margin-top: 16px; background: #14141f; padding: 28px 28px 28px 28px; }
+.panel pre { margin: 0; font-size: 15px; line-height: 1.7; overflow-x: auto; color: var(--ink); }
+.panel pre .c { color: var(--soft); }
+.panel .copy { position: absolute; top: 16px; right: 12px; }
+.panel:has(.copy) { padding-right: 96px; }
+.start { margin-top: 40px; }
+.start h3 { margin-bottom: 16px; }
+@media (max-width: 860px) { .install { grid-template-columns: 1fr; gap: 48px; } }
+
+/* footer */
+footer { margin-top: var(--gap); padding: 0 var(--margin) 32px; }
+footer .big { font-size: clamp(72px, 22vw, 340px); font-weight: 800; letter-spacing: -0.06em; line-height: .82; margin: 0 0 40px -0.04em; }
+footer .row { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 16px 32px; color: var(--soft); font-size: 15px; }
+footer .row a { color: var(--ink); }
+footer nav { display: flex; gap: 24px; flex-wrap: wrap; }
+
+/* motion */
+.js .rise { opacity: 0; transform: translateY(24px); transition: opacity .7s var(--ease), transform .7s var(--ease); transition-delay: var(--d, 0ms); }
+.js .rise.in { opacity: 1; transform: none; }
+.hero-media img { transform-origin: 50% 0; }
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  .js .rise { opacity: 1; transform: none; transition: none; }
+  .btn, .tabs button { transition: none; }
+}
+</style>
+<script>document.documentElement.classList.add("js")</script>
+</head>
+<body>
+<header class="nav">
+  <a class="mark" href="#top">llmenu</a>
+  <nav aria-label="Main">
+    <ul>
+      <li class="hide-s"><a href="#compare">Compare</a></li>
+      <li class="hide-s"><a href="#tools">Tools</a></li>
+      <li class="hide-s"><a href="#install">Install</a></li>
+      <li><a class="btn quiet" href="https://github.com/schowave/llmenu">GitHub</a></li>
+    </ul>
+  </nav>
+</header>
+
+<main id="top">
+  <section class="hero wrap" aria-labelledby="h1">
+    <h1 id="h1" class="rise">Pick a model. Start your agent.</h1>
+    <p class="lead rise" style="--d:80ms">llmenu reads the models from your LiteLLM gateway, shows price, context and benchmarks side by side, and starts Claude Code, Codex CLI or GitHub Copilot CLI with the one you choose.</p>
+    <div class="actions rise" style="--d:160ms">
+      <a class="btn" href="#install">Install llmenu</a>
+      <span class="cmd"><code id="hero-cmd">brew install --cask schowave/tap/llmenu</code><button class="copy" type="button" data-copy="hero-cmd" aria-label="Copy the Homebrew command">Copy</button></span>
+    </div>
+    <figure class="hero-media rise" style="--d:240ms">
+      <div class="screen"><img src="demo.gif" width="1440" height="620" alt="Terminal recording: llmenu makes Claude Code the default tool and binds a project to the folder, then opens a menu of the gateway's models with context size, prices and benchmark scores; Tab changes the sort column, typing searches, Enter starts Claude Code with the chosen model."></div>
+      <figcaption class="caption">Recorded against a sample gateway with sample prices and scores.</figcaption>
+    </figure>
+  </section>
+
+  <section id="compare" class="section wrap compare" aria-labelledby="compare-h">
+    <header>
+      <h2 id="compare-h" class="rise">Choose, don't guess.</h2>
+      <p class="lead rise" style="--d:80ms">Dozens of models from several providers, aliases like <code>claude-opus-latest</code>, prices that differ by a factor of fifty. The menu puts what matters in one table, sorted by quality or price.</p>
+    </header>
+    <dl class="cols rise" style="--d:160ms">
+      <dt>Context</dt><dd>the model's context window, as the gateway reports it</dd>
+      <dt>$ in / out</dt><dd>price per million input and output tokens</dd>
+      <dt>Intel</dt><dd>Artificial Analysis Intelligence Index</dd>
+      <dt>TB4 %</dt><dd>Terminal-Bench, tasks solved</dd>
+      <dt>Code</dt><dd>Artificial Analysis Coding Index</dd>
+    </dl>
+    <figure class="wide rise">
+      <img class="shot screen" src="img/compare.png" width="1440" height="500" loading="lazy" alt="The llmenu menu: sixteen models with context, input and output price, Intelligence, Terminal-Bench and Coding scores, sorted by Coding; the detail pane for aws/claude-opus-5-5 shows its Bedrock route, prices and benchmarks.">
+    </figure>
+    <div class="pair">
+      <figure class="rise">
+        <img class="shot screen" src="img/search.png" width="740" height="80" loading="lazy" alt="Typing sonnet in the menu narrows sixteen models down to two.">
+        <h3 style="margin-top:28px">Type to search</h3>
+        <p>Tab changes the sort column, typing filters, Enter starts the tool. The same model at several providers, say aws/ and gcp/, stays selectable on its own.</p>
+      </figure>
+      <figure class="rise" style="--d:90ms">
+        <img class="shot screen" src="img/detail.png" width="720" height="330" loading="lazy" alt="Detail pane for gcp/gemini-3-pro: a note that it is not a Claude model and runs via the gateway's translation, its context, prices and benchmarks.">
+        <h3 style="margin-top:28px">Every model, not only Claude</h3>
+        <p>The detail pane shows where a model really runs, what it can do and whether the gateway has to translate the API for it.</p>
+      </figure>
+    </div>
+  </section>
+
+  <section id="tools" class="section field" aria-labelledby="tools-h">
+    <div class="tools">
+      <div>
+        <h2 id="tools-h" class="rise">One gateway, five tools.</h2>
+        <p class="lead rise" style="--d:80ms">Each tool wants the gateway configured its own way. llmenu does the wiring: some tools it starts with the chosen model, others get the gateway's models, limits and prices written into their config. <code>llmenu sync</code> keeps them up to date.</p>
+      </div>
+      <table class="rise" style="--d:160ms">
+        <thead><tr><th scope="col">Tool</th><th scope="col">What llmenu does</th><th scope="col">You run</th></tr></thead>
+        <tbody>
+          <tr><td><a href="https://github.com/anthropics/claude-code">Claude Code</a></td><td>starts it with the chosen model</td><td><code>llmenu claude</code></td></tr>
+          <tr><td><a href="https://github.com/openai/codex">Codex CLI</a></td><td>starts it with the chosen model</td><td><code>llmenu codex</code></td></tr>
+          <tr><td><a href="https://github.com/github/copilot-cli">Copilot CLI</a></td><td>starts it with the chosen model, no GitHub login</td><td><code>llmenu copilot</code></td></tr>
+          <tr><td><a href="https://opencode.ai">opencode</a></td><td>writes the models into its config, starts it with the key</td><td><code>llmenu opencode</code></td></tr>
+          <tr><td><a href="https://www.npmjs.com/package/@earendil-works/pi-coding-agent">pi</a></td><td>writes the models into its config</td><td><code>llmenu sync</code></td></tr>
+          <tr><td>anything else</td><td>prints the chosen model name</td><td><code>tool --model "$(llmenu)"</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="budget" class="section wrap budget" aria-labelledby="budget-h">
+    <figure class="rise">
+      <img class="shot screen" src="img/shell.png" width="820" height="150" loading="lazy" alt="Terminal: llmenu default claude saves Claude Code as the default; llmenu project use acme --here binds the project acme to the folder.">
+    </figure>
+    <div class="text">
+      <h2 id="budget-h" class="rise">See what you spend.</h2>
+      <p class="lead rise" style="--d:80ms">The menu and Claude Code's status line show the budget of the key in use, yours or the project's, and how much of it is gone.</p>
+      <ul class="rise" style="--d:160ms">
+        <li>One gateway key per project or cost centre, switched with <code>llmenu project</code>.</li>
+        <li>Bind a project to a folder once, and every start in it uses that key.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="section wrap trust" aria-labelledby="trust-h">
+    <h2 id="trust-h" class="rise">Your configs stay yours.</h2>
+    <div class="grid">
+      <div class="rise"><h3>Keys in the keyring</h3><p>macOS Keychain, Windows Credential Manager or Secret Service. Never in config files or process arguments, and only sent to the gateway they were stored for.</p></div>
+      <div class="rise" style="--d:90ms"><h3>Nothing overwritten</h3><p><code>~/.claude</code>, <code>~/.codex</code> and <code>~/.copilot</code> stay untouched. In pi and opencode only llmenu's own provider entry changes, and a backup is kept.</p></div>
+      <div class="rise" style="--d:180ms"><h3>Scriptable</h3><p><code>llmenu list --json</code>, <code>"$(llmenu)"</code> in any script. Without a terminal nothing ever waits for input. One binary for macOS, Linux and Windows.</p></div>
+    </div>
+  </section>
+
+  <section id="install" class="section wrap install" aria-labelledby="install-h">
+    <div>
+      <h2 id="install-h" class="rise">Install it.</h2>
+      <p class="lead rise" style="--d:80ms">You need a LiteLLM gateway, its URL and an API key. llmenu does not talk to model providers directly. The benchmark key from Artificial Analysis is free.</p>
+    </div>
+    <div class="rise" style="--d:160ms">
+      <div class="tabs" role="tablist" aria-label="Install with">
+        <button type="button" role="tab" id="t-brew" aria-controls="p-brew" aria-selected="true">Homebrew</button>
+        <button type="button" role="tab" id="t-scoop" aria-controls="p-scoop" aria-selected="false" tabindex="-1">Scoop</button>
+        <button type="button" role="tab" id="t-go" aria-controls="p-go" aria-selected="false" tabindex="-1">Go</button>
+      </div>
+      <div class="panel" role="tabpanel" id="p-brew" aria-labelledby="t-brew" tabindex="0">
+        <pre id="c-brew">brew install --cask schowave/tap/llmenu</pre>
+        <button class="copy" type="button" data-copy="c-brew" aria-label="Copy the Homebrew command">Copy</button>
+      </div>
+      <div class="panel" role="tabpanel" id="p-scoop" aria-labelledby="t-scoop" tabindex="0" hidden>
+        <pre id="c-scoop">scoop bucket add schowave https://github.com/schowave/scoop-bucket
+scoop install llmenu</pre>
+        <button class="copy" type="button" data-copy="c-scoop" aria-label="Copy the Scoop commands">Copy</button>
+      </div>
+      <div class="panel" role="tabpanel" id="p-go" aria-labelledby="t-go" tabindex="0" hidden>
+        <pre id="c-go">go install github.com/schowave/llmenu/cmd/llmenu@latest</pre>
+        <button class="copy" type="button" data-copy="c-go" aria-label="Copy the Go command">Copy</button>
+      </div>
+      <div class="start">
+        <h3>Then</h3>
+        <div class="panel" style="margin-top:0">
+<pre>llmenu setup     <span class="c"># gateway URL and key, your tools, default models</span>
+llmenu claude    <span class="c"># pick a model and start Claude Code</span>
+llmenu bench     <span class="c"># optional: benchmark scores for the menu</span></pre>
+        </div>
+      </div>
+      <p style="margin-top:24px">Or download an archive with signed build provenance from the <a href="https://github.com/schowave/llmenu/releases">releases page</a>.</p>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <p class="big" aria-hidden="true">llmenu</p>
+  <div class="row">
+    <p>MIT licensed. Benchmark data from <a href="https://artificialanalysis.ai">Artificial Analysis</a>.</p>
+    <nav aria-label="Project">
+      <a href="https://github.com/schowave/llmenu">Source</a>
+      <a href="https://github.com/schowave/llmenu/releases">Releases</a>
+      <a href="https://github.com/schowave/llmenu/issues">Issues</a>
+      <a href="https://github.com/schowave/llmenu/blob/main/SECURITY.md">Security</a>
+    </nav>
+  </div>
+</footer>
+
+<script>
+(() => {
+  // copy buttons
+  document.querySelectorAll("[data-copy]").forEach((b) => {
+    b.addEventListener("click", async () => {
+      const text = document.getElementById(b.dataset.copy).textContent.trim();
+      try { await navigator.clipboard.writeText(text); b.textContent = "Copied"; }
+      catch { b.textContent = "Select it"; }
+      setTimeout(() => { b.textContent = "Copy"; }, 1600);
+    });
+  });
+
+  // install tabs
+  const tabs = [...document.querySelectorAll('[role="tab"]')];
+  const select = (t) => {
+    tabs.forEach((x) => {
+      const on = x === t;
+      x.setAttribute("aria-selected", on);
+      x.tabIndex = on ? 0 : -1;
+      document.getElementById(x.getAttribute("aria-controls")).hidden = !on;
+    });
+    t.focus();
+  };
+  tabs.forEach((t, i) => {
+    t.addEventListener("click", () => select(t));
+    t.addEventListener("keydown", (e) => {
+      const d = e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0;
+      if (d) { e.preventDefault(); select(tabs[(i + d + tabs.length) % tabs.length]); }
+    });
+  });
+  // pick the visitor's platform
+  if (/Win/.test(navigator.platform)) select(tabs[1]), document.activeElement.blur();
+
+  // entrances
+  const els = document.querySelectorAll(".rise");
+  if (!("IntersectionObserver" in window)) { els.forEach((e) => e.classList.add("in")); return; }
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach((en) => { if (en.isIntersecting) { en.target.classList.add("in"); io.unobserve(en.target); } });
+  }, { rootMargin: "0px 0px -8% 0px" });
+  els.forEach((e) => io.observe(e));
+})();
+</script>
+</body>
+</html>
