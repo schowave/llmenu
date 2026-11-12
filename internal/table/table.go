@@ -15,7 +15,6 @@ import (
 type Options struct {
 	ShowAliasTarget bool                       // show aliases as "name -> target"
 	Mark            func(catalog.Model) string // optional one-character mark before the name
-	Code            bool                       // show the Coding Index column, e.g. when sorting by it
 }
 
 // Format returns the header and one row per model with equal-width columns.
@@ -50,9 +49,6 @@ func Format(models []catalog.Model, opt Options) (header string, rows []string) 
 		if withTB4 {
 			fmt.Fprintf(&b, " %6s", "TB4")
 		}
-		if opt.Code {
-			fmt.Fprintf(&b, " %6s", "CODE")
-		}
 	}
 	header = trim(b.String())
 
@@ -72,9 +68,6 @@ func Format(models []catalog.Model, opt Options) (header string, rows []string) 
 			fmt.Fprintf(&b, " %6s", score(bench.Intelligence))
 			if withTB4 {
 				fmt.Fprintf(&b, " %6s", score(bench.TerminalBench))
-			}
-			if opt.Code {
-				fmt.Fprintf(&b, " %6s", score(bench.Coding))
 			}
 		}
 		rows[i] = trim(b.String())

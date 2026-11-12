@@ -16,7 +16,7 @@ var (
 	gpt    = catalog.Model{Name: "azure/gpt-5.6-sol", Target: "azure/gpt-5.6-sol", ContextTokens: 400_000, InputPrice: 1.25, OutputPrice: 10}
 	tiered = catalog.Model{Name: "aws/claude-haiku-5-5", ContextTokens: 1_000_000, InputPrice: 0.11, OutputPrice: 0.55,
 		Tiers: []catalog.Tier{{AboveTokens: 100_000, InputPrice: 0.55, OutputPrice: 2.75}}}
-	benchd = catalog.Model{Name: "x/ä", Target: "x/ä", ContextTokens: 8_000, Bench: &catalog.Bench{Intelligence: f(57.64), Coding: f(80)}}
+	benchd = catalog.Model{Name: "x/ä", Target: "x/ä", ContextTokens: 8_000, Bench: &catalog.Bench{Intelligence: f(57.64)}}
 	tb4    = catalog.Model{Name: "x/tb", Target: "x/tb", ContextTokens: 8_000, Bench: &catalog.Bench{TerminalBench: f(43.94)}}
 )
 
@@ -100,13 +100,6 @@ func TestFormat(t *testing.T) {
 				"x/ä         8k      free     free    57.6      -",
 				"x/tb        8k      free     free       -   43.9",
 			},
-		},
-		{
-			name:   "coding column when sorted by it",
-			models: []catalog.Model{benchd},
-			opt:    Options{Code: true},
-			header: "MODEL  CONTEXT      $ IN    $ OUT   INTEL   CODE",
-			rows:   []string{"x/ä         8k      free     free    57.6   80.0"},
 		},
 		{
 			name:   "unknown price, tier mark",

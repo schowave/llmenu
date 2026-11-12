@@ -65,8 +65,7 @@ map it by hand: llmenu config set bench.map.<model> <slug>`,
 			}
 
 			// The Intelligence Index always, the others only where the API
-			// delivered values: the Coding Index is no longer published,
-			// Terminal-Bench and Long Context need a Pro key.
+			// delivered values: Terminal-Bench and Long Context need a Pro key.
 			metrics := []struct {
 				label string
 				value func(catalog.Bench) *float64
@@ -75,7 +74,6 @@ map it by hand: llmenu config set bench.map.<model> <slug>`,
 				{label: "Intelligence Index", value: func(b catalog.Bench) *float64 { return b.Intelligence }},
 				{label: "Terminal-Bench v4", value: func(b catalog.Bench) *float64 { return b.TerminalBench }},
 				{label: "Long Context", value: func(b catalog.Bench) *float64 { return b.LongContext }},
-				{label: "Coding Index", value: func(b catalog.Bench) *float64 { return b.Coding }},
 				{label: "output speed", value: func(b catalog.Bench) *float64 { return b.OutputSpeed }},
 			}
 			var missing []string

@@ -180,7 +180,7 @@ func (c *Config) SetTools(tools []string) {
 var Metrics = catalog.Metrics
 
 type Bench struct {
-	Metric string            `toml:"metric,omitempty"` // intel (default), tb4 or code
+	Metric string            `toml:"metric,omitempty"` // intel (default) or tb4
 	Map    map[string]string `toml:"map,omitempty"`    // gateway name -> Artificial Analysis slug
 }
 
@@ -311,6 +311,11 @@ func Load() (*Config, error) {
 	var c Config
 	if err := toml.Unmarshal(b, &c); err != nil {
 		return nil, fmt.Errorf("%s: %w", p, err)
+	}
+	// A metric llmenu no longer offers, e.g. code (the Coding Index, which
+	// Artificial Analysis stopped publishing), falls back to the default.
+	if !slices.Contains(Metrics, c.Bench.Metric) {
+		c.Bench.Metric = ""
 	}
 	return &c, nil
 }

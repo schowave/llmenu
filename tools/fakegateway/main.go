@@ -17,7 +17,7 @@ import (
 
 const aaResponse = `{"data": [
   {"slug": "claude-opus-5-5", "evaluations": {"artificial_analysis_intelligence_index": 57.6, "terminalbench_v4_0": 0.596}},
-  {"slug": "claude-opus-5-5-xhigh", "evaluations": {"artificial_analysis_intelligence_index": 56, "artificial_analysis_coding_index": 80}},
+  {"slug": "claude-opus-5-5-xhigh", "evaluations": {"artificial_analysis_intelligence_index": 56}},
   {"slug": "claude-sonnet-4-5", "evaluations": {"artificial_analysis_intelligence_index": 42}},
   {"slug": "gpt-6-sol", "evaluations": {"artificial_analysis_intelligence_index": 47.6, "terminalbench_v4_0": 0.439}},
   {"slug": "qwen3-next", "evaluations": {"artificial_analysis_intelligence_index": 30}}
@@ -139,7 +139,7 @@ func freePages(full []byte, size int) ([][]byte, error) {
 		for i, e := range in.Data[min(p*size, len(in.Data)):min((p+1)*size, len(in.Data))] {
 			data = append(data, entry{
 				Slug:        e.Slug,
-				Evaluations: map[string]any{"artificial_analysis_intelligence_index": e.Evaluations.Intelligence, "artificial_analysis_coding_index": nil},
+				Evaluations: map[string]any{"artificial_analysis_intelligence_index": e.Evaluations.Intelligence},
 				Performance: map[string]any{"median_output_tokens_per_second": 40 + 20*(p*size+i)},
 			})
 		}

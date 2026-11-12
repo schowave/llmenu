@@ -199,7 +199,7 @@ func TestScripts(t *testing.T) {
 
 const aaResponse = `{"data": [
   {"slug": "claude-opus-5-5", "evaluations": {"artificial_analysis_intelligence_index": 57.6, "terminalbench_v4_0": 0.596}},
-  {"slug": "claude-opus-5-5-xhigh", "evaluations": {"artificial_analysis_intelligence_index": 56, "artificial_analysis_coding_index": 80}},
+  {"slug": "claude-opus-5-5-xhigh", "evaluations": {"artificial_analysis_intelligence_index": 56}},
   {"slug": "claude-sonnet-4-5", "evaluations": {"artificial_analysis_intelligence_index": 42}},
   {"slug": "gpt-6-sol", "evaluations": {"artificial_analysis_intelligence_index": 47.6, "terminalbench_v4_0": 0.439}},
   {"slug": "qwen3-next", "evaluations": {"artificial_analysis_intelligence_index": 30}}

@@ -86,7 +86,7 @@ func Resolve(all, shown []Model, name string) int {
 	return slices.IndexFunc(shown, func(m Model) bool { return groupOf(m) == g })
 }
 
-// Score returns the value of a benchmark (intel, tb4, code), otherwise nil.
+// Score returns the value of a benchmark (intel, tb4), otherwise nil.
 func (m Model) Score(metric string) *float64 {
 	if m.Bench == nil {
 		return nil
@@ -94,8 +94,6 @@ func (m Model) Score(metric string) *float64 {
 	switch metric {
 	case "tb4":
 		return m.Bench.TerminalBench
-	case "code":
-		return m.Bench.Coding
 	default:
 		return m.Bench.Intelligence
 	}
@@ -107,7 +105,7 @@ func HasScore(models []Model, metric string) bool {
 }
 
 // Metrics are the benchmarks one can sort by.
-var Metrics = []string{"intel", "tb4", "code"}
+var Metrics = []string{"intel", "tb4"}
 
 // HasAnyScore reports whether any model has a value for a sortable
 // benchmark; a model with only a measured speed has none.

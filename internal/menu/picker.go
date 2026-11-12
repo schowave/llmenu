@@ -19,9 +19,9 @@ import (
 // Sort keys, cycled with Tab. The benchmark keys are the values of
 // bench.metric; "price" sorts by output price, most expensive first, like
 // `llmenu list --sort price`.
-var sortKeys = []string{"intel", "tb4", "code", "price"}
+var sortKeys = []string{"intel", "tb4", "price"}
 
-var sortLabels = map[string]string{"intel": "INTEL", "tb4": "TB4 %", "code": "CODE", "price": "$OUT/1M"}
+var sortLabels = map[string]string{"intel": "INTEL", "tb4": "TB4 %", "price": "$OUT/1M"}
 
 // picker is the bubbletea model of the menu.
 type picker struct {
@@ -48,7 +48,7 @@ type picker struct {
 
 func newPicker(models []catalog.Model, opt Options, st styles) *picker {
 	p := &picker{models: models, opt: opt, st: st, chosen: -1, width: 120, height: 30, maxScore: map[string]float64{}}
-	for _, key := range sortKeys[:3] {
+	for _, key := range catalog.Metrics {
 		for _, m := range models {
 			if v := m.Score(key); v != nil && *v > p.maxScore[key] {
 				p.maxScore[key] = *v
@@ -217,8 +217,8 @@ func (p *picker) step(n int) {
 	p.scroll()
 }
 
-// cycleSort skips benchmarks no model has a value for, e.g. the Coding
-// Index, which Artificial Analysis no longer publishes.
+// cycleSort skips benchmarks no model has a value for, e.g. Terminal-Bench
+// without an Artificial Analysis Pro key.
 func (p *picker) cycleSort(dir int) {
 	keys := slices.DeleteFunc(slices.Clone(sortKeys), func(k string) bool {
 		return k != "price" && !catalog.HasScore(p.models, k)
@@ -267,10 +267,6 @@ func (p *picker) nameWidth() int {
 	return min(w, nameMax)
 }
 
-// showCode: the Coding Index column only while sorting by it. The top models
-// often have no value there; the preview shows it either way.
-func (p *picker) showCode() bool { return p.sortKey == "code" }
-
 // showTB4: Terminal-Bench needs an Artificial Analysis Pro key; without any
 // value the column is left out.
 func (p *picker) showTB4() bool { return p.tb4 }
@@ -279,9 +275,6 @@ func (p *picker) showTB4() bool { return p.tb4 }
 func (p *picker) tableWidth(name int) int {
 	w := 2 + name + 8 + 9 + 8 + 1 + 7
 	if p.showTB4() {
-		w += 7
-	}
-	if p.showCode() {
 		w += 7
 	}
 	return w
@@ -341,9 +334,6 @@ func (p *picker) header(nw int) string {
 	if p.showTB4() {
 		h += col("TB4 %", "tb4", 7)
 	}
-	if p.showCode() {
-		h += col("CODE", "code", 7)
-	}
 	return p.st.header.Render(h)
 }
 
@@ -366,9 +356,6 @@ func (p *picker) row(i int, selected bool, nw int) string {
 	row := marker + name + pad + nums + p.score(m, "intel", base)
 	if p.showTB4() {
 		row += p.score(m, "tb4", base)
-	}
-	if p.showCode() {
-		row += p.score(m, "code", base)
 	}
 	return row
 }
@@ -416,8 +403,7 @@ func (p *picker) details(i int) string {
 		"  $/1M     price per million input/output tokens;\n" +
 		"           * more for long prompts, free: costs nothing\n" +
 		"  INTEL    Intelligence Index\n" +
-		"  TB4 %    Terminal-Bench v4, tasks solved (Pro key)\n" +
-		"  CODE     Coding Index (column while sorted by it)\n"
+		"  TB4 %    Terminal-Bench v4, tasks solved (Pro key)\n"
 	return d
 }
 

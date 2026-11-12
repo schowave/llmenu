@@ -17,7 +17,7 @@ var pickerModels = []catalog.Model{
 	{Name: "aws/claude-opus-5-5", Target: "bedrock/eu.anthropic.claude-opus-5-5", ContextTokens: 1_000_000, MaxOutputTokens: 128_000,
 		InputPrice: 4.4, OutputPrice: 22, Bench: &catalog.Bench{Slug: "claude-opus-5-5", Intelligence: f(57.6), TerminalBench: f(59.6)}},
 	{Name: "azure/gpt-6-sol", Target: "azure/gpt-6-sol", ContextTokens: 922_000, InputPrice: 2, OutputPrice: 10,
-		Bench: &catalog.Bench{Intelligence: f(47.6), TerminalBench: f(43.9), Coding: f(80)}},
+		Bench: &catalog.Bench{Intelligence: f(47.6), TerminalBench: f(43.9)}},
 	{Name: "gcp/claude-sonnet-4-5", Target: "vertex_ai/claude-sonnet-4-5", ContextTokens: 200_000, InputPrice: 3, OutputPrice: 15,
 		Bench: &catalog.Bench{Intelligence: f(42)}},
 	{Name: "local/Qwen3-Next", Target: "hosted_vllm/Qwen/Qwen3-Next-FP8", ContextTokens: 229_376},
@@ -61,10 +61,6 @@ func TestPickerLayout(t *testing.T) {
 		if !strings.Contains(lines[1], col) {
 			t.Errorf("header %q lacks %q", lines[1], col)
 		}
-	}
-	// The Coding Index only gets a column while sorting by it.
-	if strings.Contains(lines[1], "CODE") {
-		t.Errorf("header %q shows CODE without sorting by it", lines[1])
 	}
 	if !strings.Contains(lines[2], "▶ ") || !strings.Contains(lines[2], "aws/claude-opus-5-5") || !strings.Contains(lines[2], "1M") {
 		t.Errorf("first row: %q", lines[2])
@@ -170,16 +166,12 @@ func TestPickerSort(t *testing.T) {
 	if selectedName(p) != "gcp/claude-sonnet-4-5" {
 		t.Errorf("cursor lost its model: %s", selectedName(p))
 	}
-	p.Update(key(tea.KeyTab)) // CODE
-	if lines := plain(p); !strings.Contains(lines[2], "azure/gpt-6-sol") {
-		t.Errorf("CODE sort: %q", lines[2])
-	}
 	p.Update(key(tea.KeyTab)) // price
 	if lines := plain(p); !strings.Contains(lines[1], "▼$OUT/1M") || !strings.Contains(lines[2], "aws/claude-opus-5-5") {
 		t.Errorf("price sort: %q / %q", lines[1], lines[2])
 	}
-	p.Update(key(tea.KeyShiftTab)) // back to CODE
-	if p.sortKey != "code" {
+	p.Update(key(tea.KeyShiftTab)) // back to TB4
+	if p.sortKey != "tb4" {
 		t.Errorf("shift-tab: %s", p.sortKey)
 	}
 
@@ -375,21 +367,6 @@ func TestPickerSpendShortens(t *testing.T) {
 		if !strings.HasPrefix(line, "Search:  ") || !strings.HasSuffix(line, tt.want) {
 			t.Errorf("search line %q, want the search field free and the end %q", line, tt.want)
 		}
-	}
-}
-
-// TestPickerCodeColumn: Tab to the Coding Index adds its column; the table
-// gets wider by it and narrower again when sorting on.
-func TestPickerCodeColumn(t *testing.T) {
-	p := newTestPicker(Options{Metric: "tb4"})
-	w := p.tableWidth(p.nameWidth())
-	p.Update(key(tea.KeyTab))
-	if p.sortKey != "code" || !strings.Contains(plain(p)[1], "▼CODE") || p.tableWidth(p.nameWidth()) != w+7 {
-		t.Errorf("sorted by %q, header %q", p.sortKey, plain(p)[1])
-	}
-	p.Update(key(tea.KeyTab))
-	if strings.Contains(plain(p)[1], "CODE") || p.tableWidth(p.nameWidth()) != w {
-		t.Errorf("CODE column left after sorting on: %q", plain(p)[1])
 	}
 }
 

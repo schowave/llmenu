@@ -83,7 +83,6 @@ func Details(m catalog.Model, hint string) string {
 		}{
 			{"Intelligence  ", m.Bench.Intelligence, ""},
 			{"Terminal-Bench", m.Bench.TerminalBench, " %"},
-			{"Coding        ", m.Bench.Coding, ""},
 			{"Long context  ", m.Bench.LongContext, " %"},
 		} {
 			if v.value != nil {

@@ -48,9 +48,6 @@ func TestDetails(t *testing.T) {
 			t.Errorf("Details misses %q:\n%s", want, got)
 		}
 	}
-	if strings.Contains(got, "Coding") {
-		t.Errorf("missing value shown:\n%s", got)
-	}
 
 	// Without thinking, reasoning is off; no hint, endpoints or benchmarks.
 	m = catalog.Model{Name: "local/qwen3-next", Reasoning: true, NoThinking: true}

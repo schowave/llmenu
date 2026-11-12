@@ -234,8 +234,8 @@ func TestMetric(t *testing.T) {
 		t.Errorf("tb4 with a value: %s", m)
 	}
 	models[0].Bench.TerminalBench = nil
-	Sort(models, "code")
+	Sort(models, "tb4")
 	if models[0].Name != "smart" {
-		t.Errorf("Sort by code without values: first %s, want smart (by intel)", models[0].Name)
+		t.Errorf("Sort by tb4 without values: first %s, want smart (by intel)", models[0].Name)
 	}
 }

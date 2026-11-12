@@ -5,7 +5,6 @@ env LLMENU_AA_API_KEY=aa-free
 exec llmenu bench
 stdout '^6 of 8 models matched\. Intelligence Index: 5, output speed: 6\.$'
 stdout '^Free API key: Terminal-Bench and Long Context need an Artificial Analysis Pro key\.$'
-! stdout 'Coding Index'
 grep '"tier": "free"' $LLMENU_CACHE_DIR/bench.json
 
 exec llmenu list

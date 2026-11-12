@@ -18,9 +18,9 @@ import (
 
 func f(v float64) *float64 { return &v }
 
-func entry(slug string, intel, coding, tb *float64) Entry {
+func entry(slug string, intel, tb *float64) Entry {
 	e := Entry{Slug: slug}
-	e.Evaluations.Intelligence, e.Evaluations.Coding, e.Evaluations.TerminalBench = intel, coding, tb
+	e.Evaluations.Intelligence, e.Evaluations.TerminalBench = intel, tb
 	return e
 }
 
@@ -35,19 +35,18 @@ func withSpeed(e Entry, tps float64) Entry {
 }
 
 var aa = []Entry{
-	withSpeed(entry("claude-opus-5-5", f(57.6), nil, f(0.5959)), 96.575),
-	withLCR(withSpeed(entry("claude-opus-5-5-xhigh", f(56), f(80), f(0.6)), 0), 0.846666), // 0: not measured
-	entry("claude-opus-5-5-low", f(42.3), nil, f(0.31)),
-	entry("qwen3-8-flash-next", f(40), nil, nil),
-	entry("qwen3-8-flash-next-non-reasoning", f(30), nil, nil),
-	entry("mistral-large-3", f(25), nil, nil),
-	entry("no-values", nil, nil, nil),
+	withSpeed(entry("claude-opus-5-5", f(57.6), f(0.5959)), 96.575),
+	withLCR(withSpeed(entry("claude-opus-5-5-xhigh", f(56), f(0.6)), 0), 0.846666), // 0: not measured
+	entry("claude-opus-5-5-low", f(42.3), f(0.31)),
+	entry("qwen3-8-flash-next", f(40), nil),
+	entry("qwen3-8-flash-next-non-reasoning", f(30), nil),
+	entry("mistral-large-3", f(25), nil),
+	entry("no-values", nil, nil),
 	// A single benchmark is enough to count.
-	entry("only-coding", nil, f(70), nil),
-	entry("only-terminal", nil, nil, f(0.5)),
-	withSpeed(entry("only-speed", nil, nil, nil), 42.4),
-	withLCR(entry("only-lcr", nil, nil, nil), 0.5),
-	withSpeed(entry("speed-zero", nil, nil, nil), 0), // 0: not measured
+	entry("only-terminal", nil, f(0.5)),
+	withSpeed(entry("only-speed", nil, nil), 42.4),
+	withLCR(entry("only-lcr", nil, nil), 0.5),
+	withSpeed(entry("speed-zero", nil, nil), 0), // 0: not measured
 }
 
 func TestMatch(t *testing.T) {
@@ -59,7 +58,6 @@ func TestMatch(t *testing.T) {
 		{Name: "mistral/mistral-large-2512", Target: "mistral/mistral-large-2512"},
 		{Name: "unknown/x-1", Target: "unknown/x-1"},
 		{Name: "x/no-values", Target: "no-values"},
-		{Name: "x/only-coding", Target: "only-coding"},
 		{Name: "x/only-terminal", Target: "only-terminal"},
 		{Name: "x/only-speed", Target: "only-speed"},
 		{Name: "x/only-lcr", Target: "only-lcr"},
@@ -72,7 +70,7 @@ func TestMatch(t *testing.T) {
 		t.Fatal("Opus has no match")
 	}
 	// Variants merged: best value per benchmark, shortest slug.
-	if opus.Slug != "claude-opus-5-5" || *opus.Intelligence != 57.6 || *opus.Coding != 80 || *opus.TerminalBench != 60 ||
+	if opus.Slug != "claude-opus-5-5" || *opus.Intelligence != 57.6 || *opus.TerminalBench != 60 ||
 		opus.OutputSpeed == nil || *opus.OutputSpeed != 97 || opus.LongContext == nil || *opus.LongContext != 84.7 {
 		t.Errorf("Opus = %+v", show(opus))
 	}
@@ -94,9 +92,6 @@ func TestMatch(t *testing.T) {
 	if _, ok := got["x/no-values"]; ok {
 		t.Error("entry without any benchmark matched")
 	}
-	if c := got["x/only-coding"]; c.Coding == nil || *c.Coding != 70 {
-		t.Errorf("entry with only a coding index ignored: %v", show(c))
-	}
 	if tb := got["x/only-terminal"]; tb.TerminalBench == nil || *tb.TerminalBench != 50 {
 		t.Errorf("entry with only Terminal-Bench ignored: %v", show(tb))
 	}
@@ -113,7 +108,7 @@ func TestMatch(t *testing.T) {
 
 func show(b catalog.Bench) string {
 	s := b.Slug
-	for _, v := range []*float64{b.Intelligence, b.Coding, b.TerminalBench} {
+	for _, v := range []*float64{b.Intelligence, b.TerminalBench} {
 		if v == nil {
 			s += " -"
 		} else {

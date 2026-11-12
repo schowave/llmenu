@@ -51,6 +51,26 @@ func TestLoadFile(t *testing.T) {
 	}
 }
 
+// TestLoadObsoleteMetric: bench.metric = "code" from an older llmenu (the
+// Coding Index is gone) loads and sorts by the Intelligence Index.
+func TestLoadObsoleteMetric(t *testing.T) {
+	p := filepath.Join(t.TempDir(), "config.toml")
+	t.Setenv("LLMENU_CONFIG", p)
+	if err := os.WriteFile(p, []byte("[bench]\nmetric = \"code\"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	c, err := Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := c.Bench.MetricOrDefault(); got != "intel" {
+		t.Errorf("MetricOrDefault() = %q, want intel", got)
+	}
+	if err := c.Set("bench.metric", "code"); err == nil {
+		t.Error(`Set("bench.metric", "code") accepted`)
+	}
+}
+
 func TestLoadUnreadable(t *testing.T) {
 	t.Setenv("LLMENU_CONFIG", t.TempDir()) // a directory, not a file
 	if c, err := Load(); err == nil {

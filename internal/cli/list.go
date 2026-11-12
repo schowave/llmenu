@@ -30,7 +30,7 @@ are folded together; --all shows them.`,
 			if sortBy != "bench" && sortBy != "price" {
 				return fmt.Errorf("--sort bench or price, not %q", sortBy)
 			}
-			models, metric, err := fetchModels(cmd.Context(), all, sortBy)
+			models, err := fetchModels(cmd.Context(), all, sortBy)
 			if err != nil {
 				return err
 			}
@@ -39,7 +39,7 @@ are folded together; --all shows them.`,
 				enc.SetIndent("", "  ")
 				return enc.Encode(models)
 			}
-			printTable(cmd.OutOrStdout(), models, table.Options{ShowAliasTarget: all, Code: sortBy == "bench" && metric == "code"})
+			printTable(cmd.OutOrStdout(), models, table.Options{ShowAliasTarget: all})
 			fmt.Fprintln(cmd.OutOrStdout(), "\n"+benchNote())
 			return nil
 		},
@@ -51,15 +51,14 @@ are folded together; --all shows them.`,
 }
 
 // fetchModels fetches the chat models from the gateway, without all stripped
-// of aliases and duplicates, and sorts them; metric is bench.metric, or
-// "intel" if no model has a value for it.
-func fetchModels(ctx context.Context, all bool, sortBy string) (models []catalog.Model, metric string, err error) {
+// of aliases and duplicates, and sorts them.
+func fetchModels(ctx context.Context, all bool, sortBy string) ([]catalog.Model, error) {
 	env, err := loadEnv(ctx)
 	if err != nil {
-		return nil, "", err
+		return nil, err
 	}
 	autoRefreshBench(ctx, env)
-	models = env.Models
+	models := env.Models
 	if !all {
 		models = catalog.Dedupe(models)
 	}
@@ -68,7 +67,7 @@ func fetchModels(ctx context.Context, all bool, sortBy string) (models []catalog
 	} else {
 		sortModels(models, env.Config)
 	}
-	return models, catalog.Metric(models, env.Config.Bench.MetricOrDefault()), nil
+	return models, nil
 }
 
 func printTable(w io.Writer, models []catalog.Model, opt table.Options) {

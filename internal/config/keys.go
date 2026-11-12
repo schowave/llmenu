@@ -84,7 +84,7 @@ var Keys = []Key{
 		func(c *Config) **bool { return &c.Copilot.Offline }, "false"),
 	{
 		Name: "bench.metric",
-		Help: "benchmark for sorting: intel, tb4 or code; intel when no model has a value",
+		Help: "benchmark for sorting: intel or tb4; intel when no model has a value",
 		get:  func(c *Config) (string, bool) { return c.Bench.Metric, c.Bench.Metric != "" },
 		def:  func(*Config) string { return "intel" },
 		put: func(c *Config, v string) error {

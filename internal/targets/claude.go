@@ -194,8 +194,6 @@ func metricName(metric string) string {
 	switch metric {
 	case "tb4":
 		return "Terminal-Bench"
-	case "code":
-		return "coding"
 	}
 	return "intelligence"
 }

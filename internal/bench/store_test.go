@@ -39,7 +39,7 @@ func TestStoreSaveLoad(t *testing.T) {
 	}
 	b := got.Models["aws/claude-opus-5-5"]
 	if !got.FetchedAt.Equal(s.FetchedAt) || len(got.Models) != 1 || b.Slug != "claude-opus-5-5" ||
-		b.Intelligence == nil || *b.Intelligence != 57.6 || b.Coding != nil {
+		b.Intelligence == nil || *b.Intelligence != 57.6 || b.TerminalBench != nil {
 		t.Errorf("Load() = %+v, want %+v", got, s)
 	}
 }
@@ -86,9 +86,9 @@ func TestApply(t *testing.T) {
 		t.Fatal("nil store attached values")
 	}
 
-	s := &Store{Models: map[string]catalog.Bench{"a": {Slug: "slug-a", Coding: f(70)}, "c": {Slug: "slug-c"}}}
+	s := &Store{Models: map[string]catalog.Bench{"a": {Slug: "slug-a", TerminalBench: f(70)}, "c": {Slug: "slug-c"}}}
 	s.Apply(models)
-	if b := models[0].Bench; b == nil || b.Slug != "slug-a" || *b.Coding != 70 {
+	if b := models[0].Bench; b == nil || b.Slug != "slug-a" || *b.TerminalBench != 70 {
 		t.Errorf("a: %+v", b)
 	}
 	if models[1].Bench != nil {

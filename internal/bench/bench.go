@@ -52,10 +52,7 @@ var Stopwords = append(slices.Clone(catalog.PickerStopwords),
 type Entry struct {
 	Slug        string `json:"slug"`
 	Evaluations struct {
-		Intelligence *float64 `json:"artificial_analysis_intelligence_index"`
-		// Coding is no longer published (always null since the V2 API);
-		// kept for the fake servers and older data.
-		Coding        *float64 `json:"artificial_analysis_coding_index"`
+		Intelligence  *float64 `json:"artificial_analysis_intelligence_index"`
 		TerminalBench *float64 `json:"terminalbench_v4_0"` // fraction 0..1, Pro only
 		LongContext   *float64 `json:"aa_lcr"`             // Long Context Reasoning, fraction 0..1, Pro only
 	} `json:"evaluations"`
@@ -244,7 +241,7 @@ func Match(entries []Entry, models []catalog.Model, overrides map[string]string)
 func (e Entry) hasValues() bool {
 	ev := e.Evaluations
 	speed := e.Performance.OutputSpeed
-	return ev.Intelligence != nil || ev.Coding != nil || ev.TerminalBench != nil || ev.LongContext != nil ||
+	return ev.Intelligence != nil || ev.TerminalBench != nil || ev.LongContext != nil ||
 		(speed != nil && *speed > 0)
 }
 
@@ -255,7 +252,6 @@ func best(entries []Entry) catalog.Bench {
 	for _, e := range entries {
 		slugs = append(slugs, e.Slug)
 		b.Intelligence = maxPtr(b.Intelligence, e.Evaluations.Intelligence)
-		b.Coding = maxPtr(b.Coding, e.Evaluations.Coding)
 		b.TerminalBench = maxPtr(b.TerminalBench, e.Evaluations.TerminalBench)
 		b.LongContext = maxPtr(b.LongContext, e.Evaluations.LongContext)
 		if v := e.Performance.OutputSpeed; v != nil && *v > 0 {
