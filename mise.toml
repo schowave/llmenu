@@ -5,6 +5,7 @@
 go = "1.27.4"
 golangci-lint = "2.14.0"
 goreleaser = "2.18.3"
+syft = "1.54.1"
 actionlint = "1.7.12"
 "go:golang.org/x/vuln/cmd/govulncheck" = "1.9.0"
 "go:github.com/go-gremlins/gremlins/cmd/gremlins" = "0.6.0"

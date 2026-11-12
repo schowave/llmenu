@@ -39,6 +39,11 @@ archives:
 checksum:
   name_template: checksums.txt
 
+# One SPDX SBOM per archive (needs syft); listed in checksums.txt, so the
+# release workflow's provenance covers them too.
+sboms:
+  - artifacts: archive
+
 changelog:
   sort: asc
   filters:
