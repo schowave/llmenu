@@ -6,4 +6,5 @@
 
 - [ ] `mise run ci` passes locally
 - [ ] Tests added or updated for changed behavior
+- [ ] CHANGELOG.md: a line under "Unreleased" if users notice the change
 - [ ] Docs updated (README, CONTRIBUTING, ADR) if user-facing behavior or a decision changed

@@ -172,6 +172,7 @@ Details per tool, `/model` in Claude Code and `llmenu sync`: [docs/tools.md](doc
 - [Configuration](docs/configuration.md): settings, keys, environment variables
 - [Troubleshooting](docs/troubleshooting.md)
 - [Updating and uninstalling](docs/updating.md)
+- [Changelog](CHANGELOG.md)
 - [Design decisions](docs/ADR)
 
 ## Contributing

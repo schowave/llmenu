@@ -81,6 +81,8 @@ that reads or writes files must go through `guard.Path`.
 ## Pull requests
 
 - Keep changes focused; add or update tests for behavior changes.
+- A change users notice gets a line under `## Unreleased` in
+  [CHANGELOG.md](CHANGELOG.md), written for users; it becomes the release notes.
 - `mise run ci` must pass. CI runs it on Linux, macOS and Windows, plus
   CodeQL, dependency review and mutation testing of the changed lines.
 - Write commit messages in the imperative mood ("Add …", "Fix …").
@@ -116,10 +118,16 @@ completion are generated from the registry. See
    `schowave/scoop-bucket`, and a fine-grained personal access token with
    *Contents: read and write* on exactly these two repos, stored here as the
    Actions secret `TAP_GITHUB_TOKEN`.
-2. GitHub → Releases → *Draft a new release*, create a new tag like `v0.2.0`
-   on `main`, write the notes, *Publish release*.
-3. `.github/workflows/release.yml` builds all platforms with GoReleaser,
-   attaches the archives and checksums to the release and updates the cask in
-   the tap and the manifest in the bucket.
+2. Review the changes since the last tag (`/code-review high <last tag>`).
+3. In [CHANGELOG.md](CHANGELOG.md), rename `## Unreleased` to
+   `## vX.Y.Z – YYYY-MM-DD`, add an empty `## Unreleased` above it, commit and
+   push `main`.
+4. `mise run release vX.Y.Z` checks `main`, runs `mise run ci` and publishes
+   the GitHub release with that section as its notes. Publishing starts
+   `.github/workflows/release.yml`, which builds all platforms with
+   GoReleaser, attaches the archives, SBOMs, checksums and provenance, and
+   updates the cask in the tap and the manifest in the bucket. The script
+   follows it and then the install test, and stops with the failing run if
+   something goes wrong; run it again with the same tag to pick up from there.
 
 Versions follow [Semantic Versioning](https://semver.org).

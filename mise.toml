@@ -65,6 +65,10 @@ run = "actionlint"
 description = "Validate .goreleaser.yaml and build a local snapshot into dist/ (needs a git remote)"
 run = ["goreleaser check", "goreleaser release --snapshot --clean"]
 
+[tasks.release]
+description = "Release a version: `mise run release vX.Y.Z` (checks, CHANGELOG.md section as notes, follows the release and the install test)"
+run = "scripts/release.sh"
+
 [tasks.build]
 description = "Build llmenu into dist/"
 run = "go build -o dist/llmenu ./cmd/llmenu"
