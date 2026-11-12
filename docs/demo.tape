@@ -1,6 +1,8 @@
-# The README demo. Record with `mise run demo` (scripts/demo.sh sets up the
-# fake gateway and environment first).
+# The README demo (GIF) and the website's video (MP4). Record with
+# `mise run demo` (scripts/demo.sh sets up the fake gateway and environment
+# first). It opens on the menu; the setup commands run hidden.
 Output docs/demo.gif
+Output site/demo.mp4
 
 Set Shell bash
 Set FontSize 14
@@ -11,22 +13,17 @@ Set Theme "Catppuccin Mocha"
 Set TypingSpeed 60ms
 
 Hide
-Type "export HOME=$LLMENU_DEMO_HOME PS1='\w $ '; cd $HOME/acme; clear"
+Type "export HOME=$LLMENU_DEMO_HOME PS1='\w $ '; cd $HOME/acme"
 Enter
+Type "llmenu default claude >/dev/null; llmenu project use acme --here >/dev/null; clear"
+Enter
+Sleep 500ms
 Show
 
-Type "llmenu default claude"
-Sleep 400ms
-Enter
-Sleep 1.5s
-Type "llmenu project use acme --here"
-Sleep 400ms
-Enter
-Sleep 2s
 Type "llmenu"
-Sleep 400ms
+Sleep 300ms
 Enter
-Sleep 2s
+Sleep 2.5s
 Down
 Sleep 800ms
 Down
@@ -34,14 +31,13 @@ Sleep 800ms
 Up
 Up
 Sleep 600ms
+# Sort by Terminal-Bench, by price, and back to the Intelligence Index.
 Tab
-Sleep 1.2s
+Sleep 1.5s
 Tab
-Sleep 1.2s
+Sleep 1.5s
 Tab
-Sleep 1.2s
-Tab
-Sleep 600ms
+Sleep 800ms
 Type "sonnet"
 Sleep 1.5s
 Enter

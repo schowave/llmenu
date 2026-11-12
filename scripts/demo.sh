@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Records docs/demo.gif from docs/demo.tape with VHS (https://github.com/charmbracelet/vhs)
+# Records docs/demo.gif (and site/demo.mp4) from docs/demo.tape and
+# docs/budget.png from docs/budget.tape with VHS (https://github.com/charmbracelet/vhs)
 # against the fake gateway, with the sample models and benchmarks in
 # tools/fakegateway/demo/. Everything lives in a temporary directory: keys
 # come from the environment, claude is the sandbox stand-in, the OS keyring
@@ -34,4 +35,8 @@ llmenu bench
 
 cd "$root"
 vhs docs/demo.tape
-echo "Wrote docs/demo.gif"
+vhs docs/budget.tape
+rm -f docs/budget.gif
+cp docs/budget.png site/img/budget.png
+ffmpeg -v error -y -ss 4 -i site/demo.mp4 -frames:v 1 site/img/demo-poster.png # the menu, not the empty prompt
+echo "Wrote docs/demo.gif, docs/budget.png and the website copies in site/"

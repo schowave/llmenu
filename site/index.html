@@ -91,8 +91,8 @@ figure { margin: 0; }
 .copy:hover { background: #33334a; }
 .hero-media { margin-top: clamp(48px, 6vw, 88px); }
 .hero-media .screen { overflow: hidden; }
-.hero-media img { width: 100%; }
-@media (max-width: 720px) { .hero-media img { width: 180%; max-width: none; } }
+.hero-media video { display: block; width: 100%; height: auto; }
+@media (max-width: 720px) { .hero-media video { width: 180%; max-width: none; } }
 .caption { margin-top: 14px; color: var(--soft); font-size: 15px; }
 
 /* compare */
@@ -177,7 +177,6 @@ footer nav { display: flex; gap: 24px; flex-wrap: wrap; }
 /* motion */
 .js .rise { opacity: 0; transform: translateY(24px); transition: opacity .7s var(--ease), transform .7s var(--ease); transition-delay: var(--d, 0ms); }
 .js .rise.in { opacity: 1; transform: none; }
-.hero-media img { transform-origin: 50% 0; }
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
   .js .rise { opacity: 1; transform: none; transition: none; }
@@ -208,7 +207,7 @@ footer nav { display: flex; gap: 24px; flex-wrap: wrap; }
       <span class="cmd"><code id="hero-cmd">brew install --cask schowave/tap/llmenu</code><button class="copy" type="button" data-copy="hero-cmd" aria-label="Copy the Homebrew command">Copy</button></span>
     </div>
     <figure class="hero-media rise" style="--d:240ms">
-      <div class="screen"><img src="demo.gif" width="1440" height="620" alt="Terminal recording: llmenu makes Claude Code the default tool and binds a project to the folder, then opens a menu of the gateway's models with context size, prices and benchmark scores; Tab changes the sort column, typing searches, Enter starts Claude Code with the chosen model."></div>
+      <div class="screen"><video src="demo.mp4" poster="img/demo-poster.png" width="1440" height="620" autoplay muted loop playsinline aria-label="Terminal recording: llmenu opens a menu of the gateway's models with context size, prices, benchmark scores and the project's budget; Tab sorts by Terminal-Bench, by price and back, typing sonnet searches, Enter starts Claude Code with the chosen model."></video></div>
       <figcaption class="caption">Recorded against a sample gateway with sample prices and scores.</figcaption>
     </figure>
   </section>
@@ -222,20 +221,19 @@ footer nav { display: flex; gap: 24px; flex-wrap: wrap; }
       <dt>Context</dt><dd>the model's context window, as the gateway reports it</dd>
       <dt>$ in / out</dt><dd>price per million input and output tokens</dd>
       <dt>Intel</dt><dd>Artificial Analysis Intelligence Index</dd>
-      <dt>TB4 %</dt><dd>Terminal-Bench, tasks solved</dd>
-      <dt>Code</dt><dd>Artificial Analysis Coding Index</dd>
+      <dt>TB4 %</dt><dd>Terminal-Bench, tasks solved; needs an Artificial Analysis Pro key</dd>
     </dl>
     <figure class="wide rise">
-      <img class="shot screen" src="img/compare.png" width="1440" height="500" loading="lazy" alt="The llmenu menu: sixteen models with context, input and output price, Intelligence, Terminal-Bench and Coding scores, sorted by Coding; the detail pane for aws/claude-opus-5-5 shows its Bedrock route, prices and benchmarks.">
+      <img class="shot screen" src="img/compare.png" width="1440" height="590" loading="lazy" alt="The llmenu menu: seventeen models with context, input and output price, Intelligence Index and Terminal-Bench scores, sorted by Terminal-Bench; the detail pane for aws/claude-opus-5-5 shows its Bedrock route, prices and benchmarks.">
     </figure>
     <div class="pair">
       <figure class="rise">
-        <img class="shot screen" src="img/search.png" width="740" height="80" loading="lazy" alt="Typing sonnet in the menu narrows sixteen models down to two.">
+        <img class="shot screen" src="img/search.png" width="680" height="100" loading="lazy" alt="Typing sonnet in the menu narrows seventeen models down to two.">
         <h3 style="margin-top:28px">Type to search</h3>
         <p>Tab changes the sort column, typing filters, Enter starts the tool. The same model at several providers, say aws/ and gcp/, stays selectable on its own.</p>
       </figure>
       <figure class="rise" style="--d:90ms">
-        <img class="shot screen" src="img/detail.png" width="720" height="330" loading="lazy" alt="Detail pane for gcp/gemini-3-pro: a note that it is not a Claude model and runs via the gateway's translation, its context, prices and benchmarks.">
+        <img class="shot screen" src="img/detail.png" width="760" height="420" loading="lazy" alt="Detail pane for azure/gpt-6-sol: a note that it is not a Claude model and runs via the gateway's translation, its context, prices, endpoints and benchmarks.">
         <h3 style="margin-top:28px">Every model, not only Claude</h3>
         <p>The detail pane shows where a model really runs, what it can do and whether the gateway has to translate the API for it.</p>
       </figure>
@@ -264,7 +262,7 @@ footer nav { display: flex; gap: 24px; flex-wrap: wrap; }
 
   <section id="budget" class="section wrap budget" aria-labelledby="budget-h">
     <figure class="rise">
-      <img class="shot screen" src="img/shell.png" width="820" height="150" loading="lazy" alt="Terminal: llmenu default claude saves Claude Code as the default; llmenu project use acme --here binds the project acme to the folder.">
+      <img class="shot screen" src="img/budget.png" width="1320" height="260" loading="lazy" alt="Terminal: llmenu project list shows the main key and the projects with their budgets and what each key has spent.">
     </figure>
     <div class="text">
       <h2 id="budget-h" class="rise">See what you spend.</h2>
@@ -367,6 +365,13 @@ llmenu bench     <span class="c"># optional: benchmark scores for the menu</span
   });
   // pick the visitor's platform
   if (/Win/.test(navigator.platform)) select(tabs[1]), document.activeElement.blur();
+
+  // the demo video only plays for visitors who accept motion; otherwise
+  // the poster stays and the controls let them start it
+  const v = document.querySelector(".hero-media video");
+  if (v && matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    v.removeAttribute("autoplay"); v.pause(); v.controls = true;
+  }
 
   // entrances
   const els = document.querySelectorAll(".rise");

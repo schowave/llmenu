@@ -7,6 +7,5 @@
 /mutation.json
 /completions/
 
-# copied in by the Pages workflow
-site/demo.gif
 .taste-skill/
+.DS_Store
