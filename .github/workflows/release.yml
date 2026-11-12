@@ -53,5 +53,16 @@ jobs:
       # Signed provenance for every archive listed in checksums.txt; users
       # check a download with: gh attestation verify <file> --repo schowave/llmenu
       - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        id: attest
         with:
           subject-checksums: dist/checksums.txt
+      # The same provenance as a release asset, for verifiers that look there
+      # (e.g. OpenSSF Scorecard's Signed-Releases check, slsa-verifier).
+      - name: Attach the provenance to the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.event.release.tag_name }}
+          BUNDLE: ${{ steps.attest.outputs.bundle-path }}
+        run: |
+          cp "$BUNDLE" dist/llmenu.intoto.jsonl
+          gh release upload "$TAG" dist/llmenu.intoto.jsonl --clobber --repo "$GITHUB_REPOSITORY"
