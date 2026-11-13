@@ -90,7 +90,7 @@ scoop bucket add schowave https://github.com/schowave/scoop-bucket
 scoop install llmenu
 ```
 
-**Go** (1.27.2 or later)
+**Go** (1.27.4 or later)
 
 ```sh
 go install github.com/schowave/llmenu/cmd/llmenu@latest

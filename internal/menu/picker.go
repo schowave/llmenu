@@ -19,7 +19,7 @@ import (
 // Sort keys, cycled with Tab. The benchmark keys are the values of
 // bench.metric; "price" sorts by output price, most expensive first, like
 // `llmenu list --sort price`.
-var sortKeys = []string{"intel", "tb4", "price"}
+var sortKeys = append(slices.Clone(catalog.Metrics), "price")
 
 var sortLabels = map[string]string{"intel": "INTEL", "tb4": "TB4 %", "price": "$OUT/1M"}
 

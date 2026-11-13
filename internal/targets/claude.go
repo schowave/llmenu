@@ -167,7 +167,8 @@ func modelPicker(env Env) map[string]any {
 	if len(models) == 0 {
 		return nil
 	}
-	metric := env.Config.Bench.MetricOrDefault()
+	// The metric the menu sorts by, e.g. intel when no model has tb4.
+	metric := catalog.Metric(models, env.Config.Bench.MetricOrDefault())
 	catalog.Sort(models, metric)
 	opts := make([]pickerOption, 0, len(models))
 	for _, m := range models {

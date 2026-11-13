@@ -557,3 +557,24 @@ func TestCopilotCheck(t *testing.T) {
 		t.Errorf("moved file: %q", w)
 	}
 }
+
+// With bench.metric = tb4 and no Terminal-Bench values (a free Artificial
+// Analysis key), /model is sorted by intelligence like the menu, and each
+// description names that score instead of none.
+func TestModelPickerMetricFallback(t *testing.T) {
+	score := func(v float64) *float64 { return &v }
+	env := Env{
+		Config: &config.Config{Bench: config.Bench{Metric: "tb4"}},
+		Models: []catalog.Model{
+			{Name: "x/low", Target: "x/low", Bench: &catalog.Bench{Intelligence: score(40)}},
+			{Name: "x/high", Target: "x/high", Bench: &catalog.Bench{Intelligence: score(60)}},
+		},
+	}
+	opts := modelPicker(env)["options"].([]pickerOption)
+	if opts[0].Label != "x/high" {
+		t.Errorf("first option %s, want x/high (sorted by intelligence)", opts[0].Label)
+	}
+	if want := "free · intelligence 60.0"; opts[0].Description != want {
+		t.Errorf("description %q, want %q", opts[0].Description, want)
+	}
+}

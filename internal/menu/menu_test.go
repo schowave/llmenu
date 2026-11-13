@@ -49,6 +49,20 @@ func TestDetails(t *testing.T) {
 		}
 	}
 
+	// A benchmark without a value is left out, e.g. Terminal-Bench without
+	// a Pro key.
+	free := m
+	free.Bench = &catalog.Bench{Slug: "claude-opus-5-5", Intelligence: f(57.6)}
+	got = Details(free, "")
+	if !strings.Contains(got, "  Intelligence    57.6\n") {
+		t.Errorf("Details misses the Intelligence Index:\n%s", got)
+	}
+	for _, unwanted := range []string{"Terminal-Bench", "Long context", "Output speed"} {
+		if strings.Contains(got, unwanted) {
+			t.Errorf("Details shows %q without a value:\n%s", unwanted, got)
+		}
+	}
+
 	// Without thinking, reasoning is off; no hint, endpoints or benchmarks.
 	m = catalog.Model{Name: "local/qwen3-next", Reasoning: true, NoThinking: true}
 	got = Details(m, "")

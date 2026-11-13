@@ -4,6 +4,12 @@ What changed for people using llmenu. Each release on GitHub takes its notes fro
 
 ## Unreleased
 
+## v0.12.1 – 2026-11-13
+
+- **`/model` in Claude Code shows a score again with a free Artificial Analysis key and `bench.metric = tb4`.** The list was already sorted by the Intelligence Index then, like the menu, but no entry showed a score; now each one names its Intelligence Index.
+- **`go install` needs Go 1.27.4 or later**, as `go.mod` has since v0.12.0; the README said 1.27.2.
+- The release notes now come from [CHANGELOG.md](https://github.com/schowave/llmenu/blob/main/CHANGELOG.md), which lists every release so far.
+
 ## v0.12.0 – 2026-11-12
 
 ### Security fix: please update

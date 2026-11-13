@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>llmenu – pick a model from your LiteLLM gateway</title>
-<meta name="description" content="llmenu reads the models from your LiteLLM gateway, compares price, context and benchmarks, and starts Claude Code, Codex CLI or GitHub Copilot CLI with the one you choose.">
+<meta name="description" content="llmenu reads the models from your LiteLLM gateway, compares price, context and benchmarks, starts Claude Code, Codex CLI or GitHub Copilot CLI with the one you choose, and wires it into pi and opencode.">
 <link rel="canonical" href="https://schowave.github.io/llmenu/">
 <meta property="og:type" content="website">
 <meta property="og:title" content="llmenu – pick a model from your LiteLLM gateway">
@@ -201,7 +201,7 @@ footer nav { display: flex; gap: 24px; flex-wrap: wrap; }
 <main id="top">
   <section class="hero wrap" aria-labelledby="h1">
     <h1 id="h1" class="rise">Pick a model. Start your agent.</h1>
-    <p class="lead rise" style="--d:80ms">llmenu reads the models from your LiteLLM gateway, shows price, context and benchmarks side by side, and starts Claude Code, Codex CLI or GitHub Copilot CLI with the one you choose.</p>
+    <p class="lead rise" style="--d:80ms">llmenu reads the models from your LiteLLM gateway, shows price, context and benchmarks side by side, starts Claude Code, Codex CLI or GitHub Copilot CLI with the one you choose, and wires it into pi and opencode.</p>
     <div class="actions rise" style="--d:160ms">
       <a class="btn" href="#install">Install llmenu</a>
       <span class="cmd"><code id="hero-cmd">brew install --cask schowave/tap/llmenu</code><button class="copy" type="button" data-copy="hero-cmd" aria-label="Copy the Homebrew command">Copy</button></span>
@@ -347,14 +347,14 @@ llmenu bench     <span class="c"># optional: benchmark scores for the menu</span
 
   // install tabs
   const tabs = [...document.querySelectorAll('[role="tab"]')];
-  const select = (t) => {
+  const select = (t, focus = true) => {
     tabs.forEach((x) => {
       const on = x === t;
       x.setAttribute("aria-selected", on);
       x.tabIndex = on ? 0 : -1;
       document.getElementById(x.getAttribute("aria-controls")).hidden = !on;
     });
-    t.focus();
+    if (focus) t.focus();
   };
   tabs.forEach((t, i) => {
     t.addEventListener("click", () => select(t));
@@ -364,7 +364,8 @@ llmenu bench     <span class="c"># optional: benchmark scores for the menu</span
     });
   });
   // pick the visitor's platform
-  if (/Win/.test(navigator.platform)) select(tabs[1]), document.activeElement.blur();
+  // Windows visitors see Scoop first; without focus, so the page does not jump
+  if (/Win/.test(navigator.platform)) select(tabs[1], false);
 
   // the demo video only plays for visitors who accept motion; otherwise
   // the poster stays and the controls let them start it
