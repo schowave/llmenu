@@ -1,0 +1,36 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "description": "Patch/minor updates merge themselves once CI is green; majors wait for a human.",
+  "extends": ["config:recommended"],
+  "schedule": ["before 6am on monday"],
+  "timezone": "Europe/Berlin",
+  "lockFileMaintenance": { "enabled": true, "automerge": true },
+  "automergeType": "pr",
+  "platformAutomerge": false,
+  "postUpdateOptions": ["gomodTidy"],
+  "packageRules": [
+    {
+      "description": "Go modules in one PR (as with Dependabot's go-dependencies group)",
+      "matchManagers": ["gomod"],
+      "matchUpdateTypes": ["minor", "patch", "digest"],
+      "groupName": "go dependencies",
+      "groupSlug": "go-dependencies"
+    },
+    {
+      "description": "GitHub Actions in one PR",
+      "matchManagers": ["github-actions"],
+      "groupName": "GitHub Actions",
+      "groupSlug": "github-actions"
+    },
+    {
+      "description": "Patch and minor updates merge by themselves once CI is green",
+      "matchUpdateTypes": ["minor", "patch", "pin", "digest"],
+      "automerge": true
+    },
+    {
+      "description": "Major updates wait for a human",
+      "matchUpdateTypes": ["major"],
+      "automerge": false
+    }
+  ]
+}
