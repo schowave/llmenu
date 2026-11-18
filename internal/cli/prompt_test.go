@@ -14,8 +14,8 @@ import (
 	"strings"
 	"testing"
 
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/huh"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/huh/v2"
 
 	"github.com/schowave/llmenu/internal/catalog"
 	"github.com/schowave/llmenu/internal/config"
@@ -288,19 +288,19 @@ func TestWarnKeySource(t *testing.T) {
 }
 
 func TestEscForm(t *testing.T) {
-	esc := tea.KeyMsg{Type: tea.KeyEsc}
+	esc := tea.KeyPressMsg{Code: tea.KeyEsc}
 	m := &escForm{Form: formOf(huh.NewSelect[string]().Options(huh.NewOptions("a", "b")...))}
 	m.Init()
 
 	// While filtering, Esc ends the filter and stays in the dialog.
-	m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("/")})
+	m.Update(tea.KeyPressMsg{Code: '/', Text: "/"})
 	m.Update(esc)
-	if m.back || m.View() == "" {
+	if m.back || m.View().Content == "" {
 		t.Fatal("esc while filtering left the dialog")
 	}
 	m.Update(esc)
-	if !m.back || m.View() != "" {
-		t.Fatalf("esc: back=%v view=%q", m.back, m.View())
+	if !m.back || m.View().Content != "" {
+		t.Fatalf("esc: back=%v view=%q", m.back, m.View().Content)
 	}
 	if !errors.Is(errBack, huh.ErrUserAborted) {
 		t.Error("errBack is no abort")

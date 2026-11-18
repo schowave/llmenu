@@ -9,8 +9,7 @@ import (
 	"strconv"
 	"strings"
 
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	tea "charm.land/bubbletea/v2"
 
 	"github.com/schowave/llmenu/internal/catalog"
 	"github.com/schowave/llmenu/internal/table"
@@ -33,14 +32,15 @@ type Options struct {
 }
 
 // Pick lets the user choose a model and returns its index. The menu runs in
-// the alternate screen, reads from the terminal and draws to stderr, so
-// stdout stays free for `$(llmenu)`.
+// the alternate screen (see picker.View), reads from the terminal (Bubble Tea
+// opens the TTY when stdin is not one) and draws to stderr, so stdout stays
+// free for `$(llmenu)`. Bubble Tea adapts the colors to stderr's terminal.
 func Pick(models []catalog.Model, opt Options) (int, error) {
 	if len(models) == 0 {
 		return -1, errors.New("no models to choose from")
 	}
-	p := newPicker(models, opt, newStyles(lipgloss.NewRenderer(os.Stderr)))
-	final, err := tea.NewProgram(p, tea.WithAltScreen(), tea.WithInputTTY(), tea.WithOutput(os.Stderr)).Run()
+	p := newPicker(models, opt, newStyles(true))
+	final, err := tea.NewProgram(p, tea.WithOutput(os.Stderr)).Run()
 	if err != nil {
 		return -1, err
 	}

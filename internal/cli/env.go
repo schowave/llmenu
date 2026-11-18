@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/charmbracelet/huh"
+	"charm.land/huh/v2"
 	"golang.org/x/term"
 
 	"github.com/schowave/llmenu/internal/bench"

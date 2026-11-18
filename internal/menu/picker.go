@@ -6,8 +6,8 @@ import (
 	"slices"
 	"strings"
 
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
 	"github.com/mattn/go-runewidth"
 	"github.com/sahilm/fuzzy"
@@ -149,7 +149,15 @@ func (p *picker) resort() {
 // spendMsg carries the budget from Options.SpendLater.
 type spendMsg string
 
+// Init asks the terminal for its background, so the colors suit a light or
+// dark terminal (until the answer, they suit a dark one), and starts
+// fetching the budget.
 func (p *picker) Init() tea.Cmd {
+	return tea.Batch(tea.RequestBackgroundColor, p.spendCmd())
+}
+
+// spendCmd delivers Options.SpendLater as a spendMsg; nil without it.
+func (p *picker) spendCmd() tea.Cmd {
 	if f := p.opt.SpendLater; f != nil {
 		return func() tea.Msg { return spendMsg(f()) }
 	}
@@ -164,46 +172,55 @@ func (p *picker) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return p, nil
 	}
 	switch msg := msg.(type) {
+	case tea.BackgroundColorMsg:
+		p.st = newStyles(msg.IsDark())
 	case tea.WindowSizeMsg:
 		p.width, p.height = msg.Width, msg.Height
 		p.scroll()
-	case tea.KeyMsg:
-		switch msg.Type {
-		case tea.KeyEsc, tea.KeyCtrlC:
+	case tea.PasteMsg:
+		// Pasted text goes into the search, as typed text does.
+		p.query += msg.Content
+		p.refilter()
+	case tea.KeyPressMsg:
+		switch msg.String() {
+		case "esc", "ctrl+c":
 			p.aborted = true
 			return p, tea.Quit
-		case tea.KeyEnter:
+		case "enter":
 			if i := p.current(); i >= 0 {
 				p.chosen = i
 				return p, tea.Quit
 			}
-		case tea.KeyUp, tea.KeyCtrlP:
+		case "up", "ctrl+p":
 			p.step(-1)
-		case tea.KeyDown, tea.KeyCtrlN:
+		case "down", "ctrl+n":
 			p.step(1)
-		case tea.KeyPgUp:
+		case "pgup":
 			p.step(-p.rows())
-		case tea.KeyPgDown:
+		case "pgdown":
 			p.step(p.rows())
-		case tea.KeyHome:
+		case "home":
 			p.step(-len(p.shown))
-		case tea.KeyEnd:
+		case "end":
 			p.step(len(p.shown))
-		case tea.KeyTab:
+		case "tab":
 			p.cycleSort(1)
-		case tea.KeyShiftTab:
+		case "shift+tab":
 			p.cycleSort(-1)
-		case tea.KeyBackspace:
+		case "backspace":
 			if r := []rune(p.query); len(r) > 0 {
 				p.query = string(r[:len(r)-1])
 				p.refilter()
 			}
-		case tea.KeyCtrlU:
+		case "ctrl+u":
 			p.query = ""
 			p.refilter()
-		case tea.KeyRunes, tea.KeySpace:
-			p.query += string(msg.Runes)
-			p.refilter()
+		default:
+			// Printable keys, the space bar included, carry their text.
+			if msg.Text != "" {
+				p.query += msg.Text
+				p.refilter()
+			}
 		}
 	}
 	return p, nil
@@ -280,7 +297,14 @@ func (p *picker) tableWidth(name int) int {
 	return w
 }
 
-func (p *picker) View() string {
+// View draws the menu in the alternate screen.
+func (p *picker) View() tea.View {
+	v := tea.NewView(p.render())
+	v.AltScreen = true
+	return v
+}
+
+func (p *picker) render() string {
 	nw := p.nameWidth()
 	var b strings.Builder
 
@@ -309,8 +333,9 @@ func (p *picker) View() string {
 	if p.sidePreview() {
 		left := lipgloss.NewStyle().Width(p.tableWidth(nw)).Render(strings.Join(lines, "\n"))
 		// Height is only a minimum in lipgloss; MaxHeight keeps a long preview
-		// from pushing the table off the screen.
-		right := p.st.preview.Width(p.width - p.tableWidth(nw) - 3).Height(rows).MaxHeight(rows).Render(detail)
+		// from pushing the table off the screen. The width includes the
+		// border: the preview ends one column before the screen edge.
+		right := p.st.preview.Width(p.width - p.tableWidth(nw) - 2).Height(rows).MaxHeight(rows).Render(detail)
 		b.WriteString(lipgloss.JoinHorizontal(lipgloss.Top, left, right) + "\n")
 	} else {
 		b.WriteString(strings.Join(lines, "\n") + "\n")
@@ -468,23 +493,25 @@ func padRight(s string, w int) string {
 	return s
 }
 
-// styles are created from a renderer bound to the menu's output, so colors
-// match that terminal even when stdout is a pipe (`$(llmenu)`).
+// styles of the menu for a dark or a light terminal background. Bubble Tea
+// reduces the colors to what the menu's terminal (stderr) supports, also
+// when stdout is a pipe (`$(llmenu)`).
 type styles struct {
 	normal, selected, dim, header, prompt, cursorBlock, marker, good, preview lipgloss.Style
 }
 
-func newStyles(r *lipgloss.Renderer) styles {
+func newStyles(dark bool) styles {
+	lightDark := lipgloss.LightDark(dark)
 	return styles{
-		normal:      r.NewStyle(),
-		selected:    r.NewStyle().Bold(true).Foreground(lipgloss.AdaptiveColor{Light: "#000000", Dark: "#ffffff"}).Background(lipgloss.AdaptiveColor{Light: "#d0d7ff", Dark: "#3b3f6b"}),
-		dim:         r.NewStyle().Faint(true),
-		header:      r.NewStyle().Bold(true),
-		prompt:      r.NewStyle().Bold(true).Foreground(lipgloss.Color("12")),
-		cursorBlock: r.NewStyle().Reverse(true),
-		marker:      r.NewStyle().Bold(true).Foreground(lipgloss.Color("12")),
-		good:        r.NewStyle().Foreground(lipgloss.Color("10")),
-		preview:     r.NewStyle().PaddingLeft(2).BorderStyle(lipgloss.NormalBorder()).BorderLeft(true).BorderForeground(lipgloss.Color("8")),
+		normal:      lipgloss.NewStyle(),
+		selected:    lipgloss.NewStyle().Bold(true).Foreground(lightDark(lipgloss.Color("#000000"), lipgloss.Color("#ffffff"))).Background(lightDark(lipgloss.Color("#d0d7ff"), lipgloss.Color("#3b3f6b"))),
+		dim:         lipgloss.NewStyle().Faint(true),
+		header:      lipgloss.NewStyle().Bold(true),
+		prompt:      lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("12")),
+		cursorBlock: lipgloss.NewStyle().Reverse(true),
+		marker:      lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("12")),
+		good:        lipgloss.NewStyle().Foreground(lipgloss.Color("10")),
+		preview:     lipgloss.NewStyle().PaddingLeft(2).BorderStyle(lipgloss.NormalBorder()).BorderLeft(true).BorderForeground(lipgloss.Color("8")),
 	}
 }
 
