@@ -128,7 +128,10 @@ func formOf(p prompt) *huh.Form {
 func runForm(form *huh.Form) error {
 	form.SubmitCmd = tea.Quit
 	form.CancelCmd = tea.Interrupt
-	m, err := tea.NewProgram(&escForm{Form: form}, tea.WithOutput(os.Stderr)).Run()
+	// Dark until the terminal names its background, as in huh v1.
+	e := &escForm{Form: form, dark: true}
+	form.WithTheme(huh.ThemeFunc(func(bool) *huh.Styles { return huh.ThemeCharm(e.dark) }))
+	m, err := tea.NewProgram(e, tea.WithOutput(os.Stderr)).Run()
 	switch {
 	case m.(*escForm).back:
 		return errBack
@@ -146,15 +149,19 @@ func runForm(form *huh.Form) error {
 type escForm struct {
 	*huh.Form
 	back bool
+	dark bool // the terminal's background, for runForm's theme
 }
 
-// Init also asks the terminal for its background: huh picks its light or
-// dark colors by the answer.
+// Init also asks the terminal for its background, for the theme's light or
+// dark colors.
 func (m *escForm) Init() tea.Cmd {
 	return tea.Batch(m.Form.Init(), tea.RequestBackgroundColor)
 }
 
 func (m *escForm) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	if bg, ok := msg.(tea.BackgroundColorMsg); ok {
+		m.dark = bg.IsDark()
+	}
 	if k, ok := msg.(tea.KeyPressMsg); ok && k.String() == "esc" &&
 		!key.Matches(k, m.GetFocusedField().KeyBinds()...) {
 		m.back = true

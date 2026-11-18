@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"image/color"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -304,6 +305,13 @@ func TestEscForm(t *testing.T) {
 	}
 	if !errors.Is(errBack, huh.ErrUserAborted) {
 		t.Error("errBack is no abort")
+	}
+
+	// The terminal's answer about its background reaches the theme.
+	m = &escForm{Form: formOf(huh.NewSelect[string]().Options(huh.NewOptions("a", "b")...)), dark: true}
+	m.Update(tea.BackgroundColorMsg{Color: color.White})
+	if m.dark {
+		t.Error("light background not noted")
 	}
 }
 
