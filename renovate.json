@@ -6,7 +6,7 @@
   "timezone": "Europe/Berlin",
   "lockFileMaintenance": { "enabled": true, "automerge": true },
   "automergeType": "pr",
-  "platformAutomerge": false,
+  "platformAutomerge": true,
   "postUpdateOptions": ["gomodTidy"],
   "packageRules": [
     {
