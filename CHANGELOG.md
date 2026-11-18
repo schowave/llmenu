@@ -4,6 +4,8 @@ What changed for people using llmenu. Each release on GitHub takes its notes fro
 
 ## Unreleased
 
+- The menu and the dialogs now run on version 2 of Charm's terminal libraries (Bubble Tea, Lip Gloss, Huh, Bubbles). They should look and work as before; if something in the menu or in `llmenu setup` looks or reacts differently, please open an issue.
+
 ## v0.12.1 – 2026-11-13
 
 - **`/model` in Claude Code shows a score again with a free Artificial Analysis key and `bench.metric = tb4`.** The list was already sorted by the Intelligence Index then, like the menu, but no entry showed a score; now each one names its Intelligence Index.

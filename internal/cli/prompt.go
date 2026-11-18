@@ -6,10 +6,14 @@ import (
 	"io"
 	"os"
 	"strconv"
+	"sync"
 
-	"github.com/charmbracelet/bubbles/key"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/huh"
+	"charm.land/bubbles/v2/key"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/huh/v2"
+	"charm.land/lipgloss/v2"
+	"github.com/charmbracelet/colorprofile"
+	"golang.org/x/term"
 )
 
 // errInputEnded stops a dialog in accessible mode when stdin ends before all
@@ -58,6 +62,12 @@ func runPrompt(p prompt) error {
 		// Hidden input reads the terminal directly and needs its descriptor.
 		r = ttyLineReader{in}
 	}
+	switch q := p.(type) {
+	case asForm:
+		q.WithTheme(accessibleTheme())
+	case huh.Field:
+		q.WithTheme(accessibleTheme())
+	}
 	err := runAccessible(p, r, in)
 	// Separates the questions; answers from a pipe are not echoed.
 	fmt.Fprintln(os.Stderr)
@@ -81,8 +91,26 @@ func runAccessible(p prompt, r io.Reader, in *lineReader) (err error) {
 			err = errInputEnded
 		}
 	}()
-	return p.RunAccessible(os.Stderr, r)
+	// huh writes styled text as is; the writer drops the colors a pipe or
+	// the terminal cannot show.
+	return p.RunAccessible(colorprofile.NewWriter(os.Stderr, os.Environ()), r)
 }
+
+// accessibleTheme is huh's theme for the terminal's background. Accessible
+// mode runs no Bubble Tea program, which would ask the terminal itself.
+func accessibleTheme() huh.Theme {
+	dark := darkBackground()
+	return huh.ThemeFunc(func(bool) *huh.Styles { return huh.ThemeCharm(dark) })
+}
+
+// darkBackground asks the terminal once whether its background is dark, if
+// stdin and stderr are a terminal; else it assumes a dark one.
+var darkBackground = sync.OnceValue(func() bool {
+	if !term.IsTerminal(int(os.Stdin.Fd())) || !term.IsTerminal(int(os.Stderr.Fd())) {
+		return true
+	}
+	return lipgloss.HasDarkBackground(os.Stdin, os.Stderr)
+})
 
 // formOf returns the form a prompt runs in; a single field gets its own, as
 // in huh.Run.
@@ -100,7 +128,10 @@ func formOf(p prompt) *huh.Form {
 func runForm(form *huh.Form) error {
 	form.SubmitCmd = tea.Quit
 	form.CancelCmd = tea.Interrupt
-	m, err := tea.NewProgram(&escForm{Form: form}, tea.WithOutput(os.Stderr), tea.WithReportFocus()).Run()
+	// Dark until the terminal names its background, as in huh v1.
+	e := &escForm{Form: form, dark: true}
+	form.WithTheme(huh.ThemeFunc(func(bool) *huh.Styles { return huh.ThemeCharm(e.dark) }))
+	m, err := tea.NewProgram(e, tea.WithOutput(os.Stderr)).Run()
 	switch {
 	case m.(*escForm).back:
 		return errBack
@@ -118,10 +149,20 @@ func runForm(form *huh.Form) error {
 type escForm struct {
 	*huh.Form
 	back bool
+	dark bool // the terminal's background, for runForm's theme
+}
+
+// Init also asks the terminal for its background, for the theme's light or
+// dark colors.
+func (m *escForm) Init() tea.Cmd {
+	return tea.Batch(m.Form.Init(), tea.RequestBackgroundColor)
 }
 
 func (m *escForm) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	if k, ok := msg.(tea.KeyMsg); ok && k.Type == tea.KeyEsc &&
+	if bg, ok := msg.(tea.BackgroundColorMsg); ok {
+		m.dark = bg.IsDark()
+	}
+	if k, ok := msg.(tea.KeyPressMsg); ok && k.String() == "esc" &&
 		!key.Matches(k, m.GetFocusedField().KeyBinds()...) {
 		m.back = true
 		return m, tea.Quit
@@ -131,11 +172,14 @@ func (m *escForm) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, cmd
 }
 
-func (m *escForm) View() string {
-	if m.back {
-		return ""
+// View reports focus changes, as huh's Form.Run does.
+func (m *escForm) View() tea.View {
+	var v tea.View
+	if !m.back {
+		v.SetContent(m.Form.View())
 	}
-	return m.Form.View()
+	v.ReportFocus = true
+	return v
 }
 
 // asForm lets runPrompt run a whole form.

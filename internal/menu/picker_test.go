@@ -4,10 +4,9 @@ import (
 	"strings"
 	"testing"
 
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
-	"github.com/muesli/termenv"
 
 	"github.com/schowave/llmenu/internal/catalog"
 )
@@ -31,20 +30,24 @@ func notClaude(m catalog.Model) string {
 }
 
 func newTestPicker(opt Options) *picker {
-	p := newPicker(pickerModels, opt, newStyles(lipgloss.NewRenderer(nil)))
+	p := newPicker(pickerModels, opt, newStyles(true))
 	p.Update(tea.WindowSizeMsg{Width: 160, Height: 20})
 	return p
 }
 
-func key(t tea.KeyType) tea.KeyMsg { return tea.KeyMsg{Type: t} }
+func key(code rune) tea.KeyPressMsg { return tea.KeyPressMsg{Code: code} }
+
+// ctrl is code pressed with Ctrl, e.g. ctrl('u').
+func ctrl(code rune) tea.KeyPressMsg { return tea.KeyPressMsg{Code: code, Mod: tea.ModCtrl} }
+
 func typeText(p *picker, s string) {
 	for _, r := range s {
-		p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}})
+		p.Update(tea.KeyPressMsg{Code: r, Text: string(r)})
 	}
 }
 
 // plain is the view without colors, line by line.
-func plain(p *picker) []string { return strings.Split(ansi.Strip(p.View()), "\n") }
+func plain(p *picker) []string { return strings.Split(ansi.Strip(p.View().Content), "\n") }
 
 func selectedName(p *picker) string { return p.models[p.current()].Name }
 
@@ -143,7 +146,7 @@ func TestPickerSearch(t *testing.T) {
 		t.Error("enter without a match selected something")
 	}
 	p.Update(key(tea.KeyBackspace))
-	p.Update(key(tea.KeyCtrlU))
+	p.Update(ctrl('u'))
 	if len(p.shown) != len(pickerModels) || p.query != "" {
 		t.Errorf("clear: %d shown, query %q", len(p.shown), p.query)
 	}
@@ -170,19 +173,19 @@ func TestPickerSort(t *testing.T) {
 	if lines := plain(p); !strings.Contains(lines[1], "▼$OUT/1M") || !strings.Contains(lines[2], "aws/claude-opus-5-5") {
 		t.Errorf("price sort: %q / %q", lines[1], lines[2])
 	}
-	p.Update(key(tea.KeyShiftTab)) // back to TB4
+	p.Update(tea.KeyPressMsg{Code: tea.KeyTab, Mod: tea.ModShift}) // back to TB4
 	if p.sortKey != "tb4" {
 		t.Errorf("shift-tab: %s", p.sortKey)
 	}
 
 	// Without benchmarks only price exists, and Tab changes nothing.
 	plainModels := []catalog.Model{{Name: "b", OutputPrice: 1}, {Name: "a", OutputPrice: 2}}
-	q := newPicker(plainModels, Options{}, newStyles(lipgloss.NewRenderer(nil)))
+	q := newPicker(plainModels, Options{}, newStyles(true))
 	q.Update(key(tea.KeyTab))
 	if q.sortKey != "price" || q.models[q.shown[0]].Name != "a" {
 		t.Errorf("no benchmarks: %s, first %s", q.sortKey, q.models[q.shown[0]].Name)
 	}
-	if strings.Contains(ansi.Strip(q.View()), "tab sort") {
+	if strings.Contains(ansi.Strip(q.View().Content), "tab sort") {
 		t.Error("sort hint shown without benchmarks")
 	}
 }
@@ -203,9 +206,9 @@ func TestPickerFitsTheScreen(t *testing.T) {
 }
 
 func TestPickerAbort(t *testing.T) {
-	for _, k := range []tea.KeyType{tea.KeyEsc, tea.KeyCtrlC} {
+	for _, k := range []tea.KeyPressMsg{key(tea.KeyEsc), ctrl('c')} {
 		p := newTestPicker(Options{})
-		if _, cmd := p.Update(key(k)); cmd == nil || !p.aborted {
+		if _, cmd := p.Update(k); cmd == nil || !p.aborted {
 			t.Errorf("%v did not abort", k)
 		}
 	}
@@ -251,7 +254,7 @@ func ansiWidth(s string) int { return lipgloss.Width(s) }
 func TestPickerBenchTip(t *testing.T) {
 	// Without benchmarks the footer suggests llmenu bench, as long as it fits.
 	plainModels := []catalog.Model{{Name: "a/x", OutputPrice: 2}, {Name: "b/y", OutputPrice: 1}}
-	p := newPicker(plainModels, Options{}, newStyles(lipgloss.NewRenderer(nil)))
+	p := newPicker(plainModels, Options{}, newStyles(true))
 	p.Update(tea.WindowSizeMsg{Width: 120, Height: 10})
 	lines := plain(p)
 	if footer := lines[len(lines)-1]; !strings.Contains(footer, "no quality scores yet: run llmenu bench") {
@@ -263,7 +266,7 @@ func TestPickerBenchTip(t *testing.T) {
 	}
 	// A measured speed alone is no quality score: the tip stays, no sorting.
 	speedOnly := []catalog.Model{{Name: "a/x", OutputPrice: 2, Bench: &catalog.Bench{OutputSpeed: f(80)}}}
-	s := newPicker(speedOnly, Options{}, newStyles(lipgloss.NewRenderer(nil)))
+	s := newPicker(speedOnly, Options{}, newStyles(true))
 	s.Update(tea.WindowSizeMsg{Width: 120, Height: 10})
 	if lines := plain(s); s.sortKey != "price" || !strings.Contains(lines[len(lines)-1], "no quality scores yet") {
 		t.Errorf("speed only: sort %s, footer %q", s.sortKey, lines[len(lines)-1])
@@ -278,10 +281,7 @@ func TestPickerBenchTip(t *testing.T) {
 func TestPickerSelectedRowStyle(t *testing.T) {
 	// With colors: the selected row keeps the green top values, and its
 	// background runs through the padding after the name.
-	r := lipgloss.NewRenderer(nil)
-	r.SetColorProfile(termenv.ANSI256)
-	r.SetHasDarkBackground(true)
-	st := newStyles(r)
+	st := newStyles(true)
 	p := newPicker(pickerModels, Options{}, st)
 	p.Update(tea.WindowSizeMsg{Width: 160, Height: 20})
 	row := p.row(p.shown[0], true, p.nameWidth()) // aws/claude-opus-5-5: best INTEL and TB4
@@ -333,12 +333,12 @@ func TestPickerProjectAndSpend(t *testing.T) {
 // TestPickerSpendLater: the budget arrives after the menu is drawn; an
 // empty answer keeps what is shown.
 func TestPickerSpendLater(t *testing.T) {
-	if cmd := newTestPicker(Options{}).Init(); cmd != nil {
-		t.Error("Init without SpendLater returns a command")
+	if cmd := newTestPicker(Options{}).spendCmd(); cmd != nil {
+		t.Error("spendCmd without SpendLater returns a command")
 	}
 	answer := "$2.00 spent"
 	p := newTestPicker(Options{Spend: "$1.00 spent", SpendLater: func() string { return answer }})
-	cmd := p.Init()
+	cmd := p.spendCmd()
 	if line := plain(p)[0]; !strings.Contains(line, "$1.00 spent") {
 		t.Errorf("before the answer: %q", line)
 	}
@@ -347,7 +347,7 @@ func TestPickerSpendLater(t *testing.T) {
 		t.Errorf("after the answer: %q", line)
 	}
 	answer = ""
-	p.Update(p.Init()())
+	p.Update(p.spendCmd()())
 	if line := plain(p)[0]; !strings.Contains(line, "$2.00 spent · 4/4") {
 		t.Errorf("empty answer replaced the budget: %q", line)
 	}
@@ -378,7 +378,7 @@ func TestPickerFreeKey(t *testing.T) {
 		{Name: "a", OutputPrice: 1, Bench: &catalog.Bench{Intelligence: f(50), OutputSpeed: f(80)}},
 		{Name: "b", OutputPrice: 2, Bench: &catalog.Bench{OutputSpeed: f(40)}},
 	}
-	p := newPicker(models, Options{Metric: "tb4"}, newStyles(lipgloss.NewRenderer(nil)))
+	p := newPicker(models, Options{Metric: "tb4"}, newStyles(true))
 	p.Update(tea.WindowSizeMsg{Width: 160, Height: 20})
 	if p.sortKey != "intel" {
 		t.Errorf("metric without values: sort key %s, want intel", p.sortKey)
@@ -393,5 +393,35 @@ func TestPickerFreeKey(t *testing.T) {
 	}
 	if strings.Join(keys, ",") != "price,intel,price" {
 		t.Errorf("Tab cycles %v, want price,intel,price", keys)
+	}
+}
+
+// TestPickerBackground: the menu asks for the terminal background and
+// switches the selection colors to it; until then they suit a dark one.
+func TestPickerBackground(t *testing.T) {
+	p := newTestPicker(Options{})
+	if p.Init() == nil {
+		t.Fatal("Init asks nothing")
+	}
+	dark := newStyles(true).selected.GetBackground()
+	if got := p.st.selected.GetBackground(); got != dark {
+		t.Errorf("before the answer: %v, want the dark %v", got, dark)
+	}
+	p.Update(tea.BackgroundColorMsg{Color: lipgloss.Color("#ffffff")})
+	if got, light := p.st.selected.GetBackground(), newStyles(false).selected.GetBackground(); got != light || got == dark {
+		t.Errorf("light terminal: %v, want %v", got, light)
+	}
+}
+
+// TestPickerPasteAndSpace: pasted text and the space bar go into the search.
+func TestPickerPasteAndSpace(t *testing.T) {
+	p := newTestPicker(Options{})
+	p.Update(tea.PasteMsg{Content: "gpt"})
+	p.Update(tea.KeyPressMsg{Code: tea.KeySpace, Text: " "})
+	if p.query != "gpt " {
+		t.Errorf("query %q", p.query)
+	}
+	if !p.View().AltScreen {
+		t.Error("menu not in the alternate screen")
 	}
 }
