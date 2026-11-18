@@ -1,4 +1,4 @@
-# Local toolchain and tasks. `mise install` once, then e.g. `mise run ci`.
+# Local toolchain and tasks. `mise run setup` once, then `mise run check` before a push.
 # Keep tool versions in sync with .github/workflows/ci.yml.
 
 [tools]
@@ -100,9 +100,18 @@ raw = true
 description = "Delete the sandbox"
 run = "rm -rf .sandbox"
 
+[tasks.setup]
+description = "Fresh clone to ready: install the pinned tools, download Go modules, use the git hooks"
+run = ["mise install", "go mod download"]
+depends_post = ["hooks"]
+
+[tasks.check]
+description = "Everything CI checks before a push, except the snapshot release (CI runs this on Linux)"
+depends = ["fmt-check", "tidy-check", "vet", "test", "cover", "lint", "vuln", "workflows", "build"]
+
 [tasks.ci]
-description = "Everything CI checks, except the snapshot release"
-depends = ["fmt-check", "tidy-check", "vet", "test", "cover", "lint", "vuln", "workflows"]
+description = "Alias for check"
+depends = ["check"]
 
 [tasks.demo]
 description = "Record the README demo (docs/demo.gif) with VHS against the fake gateway; needs `brew install vhs`"

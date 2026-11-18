@@ -1,6 +1,6 @@
 #!/bin/sh
-# The fast part of mise run ci (seconds): format, tidy go.mod, vet, lint.
-# Tests, coverage and govulncheck stay with mise run ci and CI.
+# The fast part of mise run check (seconds): format, tidy go.mod, vet, lint.
+# Tests, coverage and govulncheck stay with mise run check and CI.
 # Set up with: mise run hooks. Skip once with git commit --no-verify.
 set -e
 run() {

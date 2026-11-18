@@ -14,9 +14,8 @@ Please follow the [Code of Conduct](CODE_OF_CONDUCT.md).
 Tools and tasks are managed with [mise](https://mise.jdx.dev) (`mise.toml`):
 
 ```sh
-mise install                   # Go, golangci-lint, goreleaser, actionlint, govulncheck, gremlins
-mise run hooks                 # once: git checks fmt, tidy, vet, lint and the commit message shape (.githooks)
-mise run ci                    # everything CI checks: fmt, tidy, vet, tests (-race), coverage, lint, govulncheck, workflows
+mise run setup                 # once: Go, golangci-lint, goreleaser, actionlint, govulncheck, gremlins, modules, git hooks
+mise run check                 # everything CI checks: fmt, tidy, vet, tests (-race), coverage, lint, govulncheck, workflows, build
 ```
 
 Single tasks (`mise tasks` lists all):
@@ -83,8 +82,9 @@ that reads or writes files must go through `guard.Path`.
 - Keep changes focused; add or update tests for behavior changes.
 - A change users notice gets a line under `## Unreleased` in
   [CHANGELOG.md](CHANGELOG.md), written for users; it becomes the release notes.
-- `mise run ci` must pass. CI runs it on Linux, macOS and Windows, plus
-  CodeQL, dependency review and mutation testing of the changed lines.
+- `mise run check` must pass. CI runs it on Linux, vet, tests and the build on
+  macOS and Windows, plus CodeQL, dependency review and mutation testing of the
+  changed lines.
 - Write commit messages in the imperative mood ("Add …", "Fix …").
 
 ## Adding a tool
@@ -122,7 +122,7 @@ completion are generated from the registry. See
 3. In [CHANGELOG.md](CHANGELOG.md), rename `## Unreleased` to
    `## vX.Y.Z – YYYY-MM-DD`, add an empty `## Unreleased` above it, commit and
    push `main`.
-4. `mise run release vX.Y.Z` checks `main`, runs `mise run ci` and publishes
+4. `mise run release vX.Y.Z` checks `main`, runs `mise run check` and publishes
    the GitHub release with that section as its notes. Publishing starts
    `.github/workflows/release.yml`, which builds all platforms with
    GoReleaser, attaches the archives, SBOMs, checksums and provenance, and

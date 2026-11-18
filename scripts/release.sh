@@ -5,7 +5,7 @@
 # (`/code-review high <last tag>`), rename "## Unreleased" in CHANGELOG.md to
 # "## vX.Y.Z – YYYY-MM-DD", add an empty "## Unreleased" above it, and push main.
 #
-# The script checks main, runs `mise run ci`, and publishes the GitHub release
+# The script checks main, runs `mise run check`, and publishes the GitHub release
 # with the tag's CHANGELOG.md section as notes. Publishing starts
 # .github/workflows/release.yml (GoReleaser, tap, bucket, provenance); the
 # script follows it and then the install test, which installs the release with
@@ -40,7 +40,7 @@ if gh release view "$tag" >/dev/null 2>&1; then
 else
 	git rev-parse -q --verify "refs/tags/$tag" >/dev/null &&
 		fail "tag $tag exists without a release; delete it or pick another version"
-	mise run ci
+	mise run check
 	notes_file=$(mktemp)
 	trap 'rm -f "$notes_file"' EXIT
 	printf '%s\n' "$notes" >"$notes_file"

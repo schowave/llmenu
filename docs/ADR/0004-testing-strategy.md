@@ -67,7 +67,7 @@ Supporting rules:
   at a time, so the guard and the override cannot both be disabled at once.
 - Live checks against a real gateway are manual (`mise run sandbox:live`),
   never in CI, because they need secrets and cost money.
-- `mise run ci` runs the same checks as the CI workflow.
+- `mise run check` runs the same checks as the CI workflow.
 
 ## Consequences
 
@@ -95,7 +95,7 @@ Supporting rules:
 
 ## Confirmation
 
-- `mise run ci` passes locally and the CI workflow passes on Linux, macOS
+- `mise run check` passes locally and the CI workflow passes on Linux, macOS
   and Windows.
 - The weekly compatibility and mutation workflows pass.
 
