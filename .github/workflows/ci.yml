@@ -25,32 +25,37 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      # Linux: the same command as locally (mise.toml), so a green
+      # `mise run check` means a green CI: fmt, tidy, vet, tests (-race),
+      # coverage, golangci-lint, govulncheck, actionlint and the build.
+      - uses: jdx/mise-action@236a21c3b91f5db6d4e174b348674a0f0caac06d # v5.2.9
+        if: runner.os == 'Linux'
+      - name: Setup
+        if: runner.os == 'Linux'
+        run: mise run setup
+      - name: Check
+        if: runner.os == 'Linux'
+        run: mise run check
+      # macOS and Windows: vet, tests and the build on that platform.
       - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
+        if: runner.os != 'Linux'
         with:
           go-version-file: go.mod
       - name: Verify modules
+        if: runner.os != 'Linux'
         run: go mod verify
-      - name: Check go.mod is tidy
-        if: runner.os == 'Linux'
-        run: go mod tidy -diff
-      - name: Check formatting
-        if: runner.os == 'Linux'
-        run: |
-          unformatted=$(gofmt -l .)
-          if [ -n "$unformatted" ]; then echo "Not gofmt-formatted:"; echo "$unformatted"; exit 1; fi
       - name: Vet
+        if: runner.os != 'Linux'
         run: go vet ./...
       - name: Test
-        if: runner.os != 'Windows'
+        if: runner.os == 'macOS'
         run: go test -race -shuffle=on ./...
       - name: Test (Windows, without race detector)
         if: runner.os == 'Windows'
         run: go test -shuffle=on ./...
       - name: Build
+        if: runner.os != 'Linux'
         run: go build -o ${{ runner.temp }}/ ./cmd/llmenu
-      - name: Coverage (minimum in scripts/coverage.sh)
-        if: runner.os == 'Linux'
-        run: scripts/coverage.sh
 
   lint:
     name: Lint
