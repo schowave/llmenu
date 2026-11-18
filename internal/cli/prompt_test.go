@@ -15,8 +15,10 @@ import (
 	"strings"
 	"testing"
 
+	"charm.land/bubbles/v2/help"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/huh/v2"
+	"charm.land/lipgloss/v2"
 
 	"github.com/schowave/llmenu/internal/catalog"
 	"github.com/schowave/llmenu/internal/config"
@@ -290,8 +292,11 @@ func TestWarnKeySource(t *testing.T) {
 
 func TestEscForm(t *testing.T) {
 	esc := tea.KeyPressMsg{Code: tea.KeyEsc}
-	m := &escForm{Form: formOf(huh.NewSelect[string]().Options(huh.NewOptions("a", "b")...))}
+	m := newEscForm(formOf(huh.NewSelect[string]().Options(huh.NewOptions("a", "b")...)))
 	m.Init()
+	if !m.View().ReportFocus {
+		t.Error("view does not report focus")
+	}
 
 	// While filtering, Esc ends the filter and stays in the dialog.
 	m.Update(tea.KeyPressMsg{Code: '/', Text: "/"})
@@ -307,11 +312,65 @@ func TestEscForm(t *testing.T) {
 		t.Error("errBack is no abort")
 	}
 
-	// The terminal's answer about its background reaches the theme.
-	m = &escForm{Form: formOf(huh.NewSelect[string]().Options(huh.NewOptions("a", "b")...)), dark: true}
+	// The theme follows the background escForm learned, dark until the
+	// terminal answers: the unselected option "b" is light gray (252) on a
+	// dark background and dark gray (235) on a light one.
+	m = newEscForm(formOf(huh.NewSelect[string]().Options(huh.NewOptions("a", "b")...)))
+	m.Init()
+	if v := m.View().Content; !strings.Contains(v, "38;5;252m") || strings.Contains(v, "38;5;235m") {
+		t.Errorf("dark background: option colors in %q", v)
+	}
 	m.Update(tea.BackgroundColorMsg{Color: color.White})
-	if m.dark {
-		t.Error("light background not noted")
+	if v := m.View().Content; m.dark || !strings.Contains(v, "38;5;235m") || strings.Contains(v, "38;5;252m") {
+		t.Errorf("light background: dark=%v, option colors in %q", m.dark, v)
+	}
+}
+
+// TestCharmTheme: options and blurred buttons get huh v1's colors, which
+// huh v2.0.3 has swapped between light and dark backgrounds.
+func TestCharmTheme(t *testing.T) {
+	tests := []struct {
+		dark             bool
+		option, buttonBg string
+	}{
+		{true, "252", "237"},
+		{false, "235", "252"},
+	}
+	for _, tt := range tests {
+		th := charmTheme(tt.dark)
+		for name, f := range map[string]huh.FieldStyles{"focused": th.Focused, "blurred": th.Blurred} {
+			opt := lipgloss.Color(tt.option)
+			if f.Option.GetForeground() != opt || f.UnselectedOption.GetForeground() != opt || f.BlurredButton.GetForeground() != opt {
+				t.Errorf("dark=%v %s: option %v, unselected %v, button %v; want %s", tt.dark, name,
+					f.Option.GetForeground(), f.UnselectedOption.GetForeground(), f.BlurredButton.GetForeground(), tt.option)
+			}
+			if bg := f.BlurredButton.GetBackground(); bg != lipgloss.Color(tt.buttonBg) {
+				t.Errorf("dark=%v %s: blurred button background %v, want %s", tt.dark, name, bg, tt.buttonBg)
+			}
+		}
+		if got, want := th.Help.ShortKey.GetForeground(), help.DefaultStyles(tt.dark).ShortKey.GetForeground(); got != want {
+			t.Errorf("dark=%v: help key %v, want %v", tt.dark, got, want)
+		}
+	}
+}
+
+func TestCanAskBackground(t *testing.T) {
+	tests := []struct {
+		term, emacs, goos string
+		want              bool
+	}{
+		{"xterm-256color", "", "darwin", true},
+		{"xterm-256color", "", "linux", true},
+		{"dumb", "", "linux", false},
+		{"", "", "linux", false},
+		{"xterm-256color", "29.1,comint", "linux", false},
+		{"xterm-256color", "", "windows", false},
+	}
+	for _, tt := range tests {
+		env := map[string]string{"TERM": tt.term, "INSIDE_EMACS": tt.emacs}
+		if got := canAskBackground(func(k string) string { return env[k] }, tt.goos); got != tt.want {
+			t.Errorf("TERM=%q INSIDE_EMACS=%q %s: %v, want %v", tt.term, tt.emacs, tt.goos, got, tt.want)
+		}
 	}
 }
 

@@ -5,9 +5,11 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"runtime"
 	"strconv"
 	"sync"
 
+	"charm.land/bubbles/v2/help"
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/huh/v2"
@@ -100,17 +102,44 @@ func runAccessible(p prompt, r io.Reader, in *lineReader) (err error) {
 // mode runs no Bubble Tea program, which would ask the terminal itself.
 func accessibleTheme() huh.Theme {
 	dark := darkBackground()
-	return huh.ThemeFunc(func(bool) *huh.Styles { return huh.ThemeCharm(dark) })
+	return huh.ThemeFunc(func(bool) *huh.Styles { return charmTheme(dark) })
 }
 
-// darkBackground asks the terminal once whether its background is dark, if
-// stdin and stderr are a terminal; else it assumes a dark one.
+// charmTheme is huh's Charm theme with the colors of huh v1. huh v2.0.3
+// swaps the light and the dark value of the option text and of the blurred
+// button, which leaves options dark gray on a dark background, and it keeps
+// the help line in its dark-background colors on a light one.
+func charmTheme(dark bool) *huh.Styles {
+	t := huh.ThemeCharm(dark)
+	lightDark := lipgloss.LightDark(dark)
+	normalFg := lightDark(lipgloss.Color("235"), lipgloss.Color("252"))
+	buttonBg := lightDark(lipgloss.Color("252"), lipgloss.Color("237"))
+	for _, f := range []*huh.FieldStyles{&t.Focused, &t.Blurred} {
+		f.Option = f.Option.Foreground(normalFg)
+		f.UnselectedOption = f.UnselectedOption.Foreground(normalFg)
+		f.BlurredButton = f.BlurredButton.Foreground(normalFg).Background(buttonBg)
+	}
+	t.Help = help.DefaultStyles(dark)
+	return t
+}
+
+// darkBackground asks the terminal once whether its background is dark. It
+// assumes a dark one where asking cannot work, see canAskBackground.
 var darkBackground = sync.OnceValue(func() bool {
-	if !term.IsTerminal(int(os.Stdin.Fd())) || !term.IsTerminal(int(os.Stderr.Fd())) {
+	if !canAskBackground(os.Getenv, runtime.GOOS) ||
+		!term.IsTerminal(int(os.Stdin.Fd())) || !term.IsTerminal(int(os.Stderr.Fd())) {
 		return true
 	}
 	return lipgloss.HasDarkBackground(os.Stdin, os.Stderr)
 })
+
+// canAskBackground: a dumb terminal (TERM empty or dumb, e.g. Emacs'
+// M-x shell) does not answer and would echo the question after seconds of
+// waiting; Windows consoles are not asked either.
+func canAskBackground(getenv func(string) string, goos string) bool {
+	t := getenv("TERM")
+	return goos != "windows" && t != "" && t != "dumb" && getenv("INSIDE_EMACS") == ""
+}
 
 // formOf returns the form a prompt runs in; a single field gets its own, as
 // in huh.Run.
@@ -128,10 +157,7 @@ func formOf(p prompt) *huh.Form {
 func runForm(form *huh.Form) error {
 	form.SubmitCmd = tea.Quit
 	form.CancelCmd = tea.Interrupt
-	// Dark until the terminal names its background, as in huh v1.
-	e := &escForm{Form: form, dark: true}
-	form.WithTheme(huh.ThemeFunc(func(bool) *huh.Styles { return huh.ThemeCharm(e.dark) }))
-	m, err := tea.NewProgram(e, tea.WithOutput(os.Stderr)).Run()
+	m, err := tea.NewProgram(newEscForm(form), tea.WithOutput(os.Stderr)).Run()
 	switch {
 	case m.(*escForm).back:
 		return errBack
@@ -151,6 +177,17 @@ type escForm struct {
 	back bool
 	dark bool // the terminal's background, for runForm's theme
 }
+
+// newEscForm wraps form and gives it charmTheme for the terminal's
+// background: dark until the terminal names it, as huh v1 assumed.
+func newEscForm(form *huh.Form) *escForm {
+	m := &escForm{Form: form, dark: true}
+	form.WithTheme(huh.ThemeFunc(m.theme))
+	return m
+}
+
+// theme follows the background escForm learned, not huh's own idea of it.
+func (m *escForm) theme(bool) *huh.Styles { return charmTheme(m.dark) }
 
 // Init also asks the terminal for its background, for the theme's light or
 // dark colors.
