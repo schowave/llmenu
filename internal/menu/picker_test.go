@@ -1,6 +1,7 @@
 package menu
 
 import (
+	"reflect"
 	"strings"
 	"testing"
 
@@ -333,21 +334,24 @@ func TestPickerProjectAndSpend(t *testing.T) {
 // TestPickerSpendLater: the budget arrives after the menu is drawn; an
 // empty answer keeps what is shown.
 func TestPickerSpendLater(t *testing.T) {
-	if cmd := newTestPicker(Options{}).spendCmd(); cmd != nil {
-		t.Error("spendCmd without SpendLater returns a command")
+	if msgs := initMsgs(newTestPicker(Options{})); len(spendMsgs(msgs)) != 0 {
+		t.Errorf("Init without SpendLater fetches a budget: %v", msgs)
 	}
 	answer := "$2.00 spent"
 	p := newTestPicker(Options{Spend: "$1.00 spent", SpendLater: func() string { return answer }})
-	cmd := p.spendCmd()
 	if line := plain(p)[0]; !strings.Contains(line, "$1.00 spent") {
 		t.Errorf("before the answer: %q", line)
 	}
-	p.Update(cmd())
+	got := spendMsgs(initMsgs(p))
+	if len(got) != 1 {
+		t.Fatalf("Init delivers %d budgets, want 1", len(got))
+	}
+	p.Update(got[0])
 	if line := plain(p)[0]; !strings.Contains(line, "$2.00 spent · 4/4") {
 		t.Errorf("after the answer: %q", line)
 	}
 	answer = ""
-	p.Update(p.spendCmd()())
+	p.Update(spendMsgs(initMsgs(p))[0])
 	if line := plain(p)[0]; !strings.Contains(line, "$2.00 spent · 4/4") {
 		t.Errorf("empty answer replaced the budget: %q", line)
 	}
@@ -400,8 +404,12 @@ func TestPickerFreeKey(t *testing.T) {
 // switches the selection colors to it; until then they suit a dark one.
 func TestPickerBackground(t *testing.T) {
 	p := newTestPicker(Options{})
-	if p.Init() == nil {
-		t.Fatal("Init asks nothing")
+	asked := false
+	for _, m := range initMsgs(p) {
+		asked = asked || reflect.TypeOf(m) == reflect.TypeOf(tea.RequestBackgroundColor())
+	}
+	if !asked {
+		t.Error("Init does not ask for the background")
 	}
 	dark := newStyles(true).selected.GetBackground()
 	if got := p.st.selected.GetBackground(); got != dark {
@@ -424,4 +432,35 @@ func TestPickerPasteAndSpace(t *testing.T) {
 	if !p.View().AltScreen {
 		t.Error("menu not in the alternate screen")
 	}
+}
+
+// initMsgs runs the commands of Init, including those of a batch.
+func initMsgs(p *picker) []tea.Msg {
+	var msgs []tea.Msg
+	var run func(tea.Cmd)
+	run = func(c tea.Cmd) {
+		if c == nil {
+			return
+		}
+		m := c()
+		if b, ok := m.(tea.BatchMsg); ok {
+			for _, c := range b {
+				run(c)
+			}
+			return
+		}
+		msgs = append(msgs, m)
+	}
+	run(p.Init())
+	return msgs
+}
+
+func spendMsgs(msgs []tea.Msg) []tea.Msg {
+	var s []tea.Msg
+	for _, m := range msgs {
+		if _, ok := m.(spendMsg); ok {
+			s = append(s, m)
+		}
+	}
+	return s
 }
