@@ -4,7 +4,7 @@
 [tools]
 go = "1.27.4"
 golangci-lint = "2.15.0"
-goreleaser = "2.20.2"
+goreleaser = "2.20.3"
 syft = "1.57.2"
 actionlint = "1.7.12"
 "go:golang.org/x/vuln/cmd/govulncheck" = "1.10.0"
